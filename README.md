@@ -2,7 +2,7 @@
 
 **Identify cyber security breaches in the news and analyze stock price movements for buying opportunities**
 
-An automated Python tool that monitors major cybersecurity breach announcements, extracts affected company information, analyzes stock price reactions, and identifies potential "buy the dip" opportunities for breach-impacted stocks.
+An automated Python tool that **runs continuously in the background**, monitoring major cybersecurity breach announcements, extracting affected company information, analyzing stock price reactions, and identifying potential "buy the dip" opportunities. **Alerts you via text message and email when new breaches are detected and buying opportunities arise.**
 
 ## Purpose
 
@@ -74,7 +74,16 @@ This tool answers a specific, high-value question:
 - Backtests strategy on historical data
 - Identifies which breach types lead to best buying opportunities
 
-### 6. Reporting & Alerts
+### 6. Automated Monitoring & Alerting
+- ✅ **Continuous Monitoring**: Runs 24/7, scanning news sources every 5-15 minutes
+- ✅ **Real-Time Breach Alerts**: Immediate notifications when new breaches are detected
+- ✅ **Buy Signal Alerts**: Alerts when buying opportunities are identified
+- ✅ **Email Alerts**: Detailed breach analysis sent to your email
+- ✅ **SMS Alerts**: Critical breach notifications via text message
+- ✅ **Alert Customization**: Configure alert thresholds and priorities
+- ✅ **Daily Summary Reports**: Comprehensive daily digest of all activity
+
+### 7. Reporting & Analysis
 - Daily breach monitoring summary
 - BUY/HOLD signals with reasoning
 - Performance tracking:
@@ -91,6 +100,8 @@ This tool answers a specific, high-value question:
 breach-analyzer/
 ├── src/
 │   ├── main.py                     # Main CLI menu & workflow
+│   ├── monitor.py                  # Automated monitoring daemon
+│   ├── alert_manager.py            # Email/SMS alert system
 │   ├── news_scraper.py             # Breach news collection
 │   ├── entity_extractor.py         # Company/breach detail extraction
 │   ├── stock_analyzer.py           # Price movement analysis
@@ -99,9 +110,11 @@ breach-analyzer/
 ├── data/
 │   ├── breaches.csv                # Detected breach events
 │   ├── analysis_results.csv        # Analysis of each breach
-│   └── buy_signals.csv             # Generated signals & outcomes
+│   ├── buy_signals.csv             # Generated signals & outcomes
+│   └── alerts.log                  # Alert history and logs
 ├── config/
-│   └── settings.json               # Configuration (sources, thresholds)
+│   ├── settings.json               # Configuration (sources, thresholds)
+│   └── alerts_config.json          # Alert channels and configuration
 ├── README.md                       # This file
 ├── ARCHITECTURE.md                 # Detailed system design
 ├── requirements.txt                # Python dependencies
@@ -112,37 +125,60 @@ breach-analyzer/
 
 ## How It Works
 
-### Daily Workflow
+### Automated Continuous Monitoring
+
+The platform runs continuously in the background:
 
 ```
-1. NEWS MONITORING
-   └─ Scrape cybersecurity news sources
+┌─────────────────────────────────────────────────┐
+│  MONITORING DAEMON (Runs 24/7)                 │
+│                                                 │
+│  Every 5-15 minutes:                          │
+│  1. Scan news sources for breaches             │
+│  2. Extract company information                │
+│  3. Analyze stock price movements              │
+│  4. Generate buy signals                       │
+│  5. Send alerts (email/SMS) if needed          │
+│                                                 │
+│  Only alerts when:                             │
+│  - New breach detected                         │
+│  - Buying opportunity identified               │
+│  - Critical market movement                    │
+└─────────────────────────────────────────────────┘
+```
+
+### Workflow Steps
+
+```
+1. NEWS MONITORING (Continuous)
+   └─ Scrape cybersecurity news sources every 5-15 minutes
    └─ Look for breach-related keywords
    └─ Extract articles mentioning breaches
+   └─ Alert immediately when new breach detected
 
-2. ENTITY EXTRACTION
+2. ENTITY EXTRACTION (Automatic)
    └─ Identify company names in articles
    └─ Map to stock tickers
    └─ Validate publicly traded status
    └─ Deduplicate & validate
 
-3. STOCK ANALYSIS
+3. STOCK ANALYSIS (Automatic)
    └─ Fetch current price
    └─ Analyze 30-day historical data
    └─ Calculate technical indicators
    └─ Identify price drops
 
-4. SIGNAL GENERATION
+4. SIGNAL GENERATION (Automatic)
    └─ Apply buying opportunity criteria
    └─ Generate BUY/HOLD signals
    └─ Rank by attractiveness
-   └─ Alert user
+   └─ Send alert via email/SMS
 
-5. TRACKING & LEARNING
+5. TRACKING & LEARNING (Continuous)
    └─ Record all breaches in database
    └─ Track outcomes of past signals
    └─ Calculate success metrics
-   └─ Refine thresholds
+   └─ Refine thresholds automatically
 ```
 
 ### Example Analysis
@@ -236,16 +272,362 @@ Creates empty CSV files for:
 - `analysis_results.csv` - Analysis data
 - `buy_signals.csv` - Generated signals
 
-### 4. Run Your First Analysis
+### 4. Configure Alerts
 
+Create/edit `config/alerts_config.json`:
+
+```json
+{
+  "alert_channels": {
+    "email": {
+      "enabled": true,
+      "smtp_server": "smtp.gmail.com",
+      "smtp_port": 587,
+      "email_from": "breach-alerts@yourdomain.com",
+      "email_to": "your-email@example.com",
+      "require_auth": true,
+      "username": "your-email@gmail.com",
+      "password": "your-app-password"
+    },
+    "sms": {
+      "enabled": true,
+      "provider": "twilio",
+      "account_sid": "your-account-sid",
+      "auth_token": "your-auth-token",
+      "from_number": "+1234567890",
+      "to_number": "+1234567890"
+    }
+  },
+  "alert_rules": {
+    "new_breach": {
+      "enabled": true,
+      "send_email": true,
+      "send_sms": true,
+      "min_severity": "high",
+      "cooldown_minutes": 30
+    },
+    "buy_signal": {
+      "enabled": true,
+      "send_email": true,
+      "send_sms": true,
+      "min_confidence": "moderate",
+      "cooldown_minutes": 60
+    },
+    "price_movement": {
+      "enabled": true,
+      "send_email": false,
+      "send_sms": false,
+      "threshold_percent": 10.0,
+      "cooldown_minutes": 120
+    },
+    "daily_summary": {
+      "enabled": true,
+      "send_email": true,
+      "send_sms": false,
+      "send_time": "18:00",
+      "timezone": "America/New_York"
+    }
+  },
+  "monitoring_schedule": {
+    "scan_interval_minutes": 15,
+    "news_check_interval_minutes": 5,
+    "market_hours_only": false,
+    "after_hours_scan": true
+  }
+}
+```
+
+### 5. Start Automated Monitoring
+
+**Start Continuous Monitoring:**
 ```bash
-python3 main.py
-# Choose: 1 (Scan for breaches)
+python3 monitor.py --daemon
+# Or run as a service
+python3 monitor.py --service
+```
+
+**Check Monitoring Status:**
+```bash
+python3 monitor.py --status
+```
+
+**Stop Monitoring:**
+```bash
+python3 monitor.py --stop
+```
+
+**View Alert Logs:**
+```bash
+tail -f data/alerts.log
 ```
 
 ---
 
+## Automated Monitoring & Alert System
+
+### Running in Monitoring Mode
+
+The platform runs continuously in the background, scanning news sources and analyzing breaches automatically. You only receive alerts when action is needed.
+
+**Start Monitoring:**
+```bash
+# Start as daemon (background process)
+python3 monitor.py --daemon
+
+# Or run as system service
+python3 monitor.py --service
+```
+
+**Benefits:**
+- No need to manually check for breaches
+- Real-time alerts when new breaches are detected
+- Immediate notifications when buying opportunities arise
+- Daily summary reports of all activity
+
+### Alert Types
+
+#### 1. New Breach Detected Alert
+
+Triggers immediately when a new cybersecurity breach is detected:
+
+**Email Alert Example:**
+```
+Subject: 🚨 NEW BREACH DETECTED: CrowdStrike (CRWD)
+
+BREACH ALERT - IMMEDIATE NOTIFICATION
+═══════════════════════════════════════════════════
+
+Company: CrowdStrike Holdings Inc.
+Ticker: CRWD
+Breach Date: November 15, 2024
+Severity: CRITICAL
+Type: Software Vulnerability
+
+Details:
+- Critical vulnerability discovered in endpoint protection platform
+- Potential for remote code execution
+- Affects versions 7.x and 8.x
+
+Source: BleepingComputer
+Article: https://www.bleepingcomputer.com/...
+
+STOCK ANALYSIS IN PROGRESS...
+Analysis will be completed within 15 minutes.
+You will receive a follow-up alert with buying opportunity assessment.
+
+View full details: http://localhost:8080/breaches/CRWD-2024-11-15
+```
+
+**SMS Alert Example:**
+```
+🚨 BREACH: CRWD - Critical vulnerability detected
+Stock analysis in progress. Check email for details.
+```
+
+#### 2. Buy Signal Alert
+
+Triggers when a buying opportunity is identified:
+
+**Email Alert Example:**
+```
+Subject: ⚡ BUY SIGNAL: CrowdStrike (CRWD) - Breach Opportunity
+
+BUY SIGNAL ALERT
+═══════════════════════════════════════════════════
+
+🔴 STRONG BUY RECOMMENDATION
+
+Company: CrowdStrike Holdings Inc. (CRWD)
+Breach: Software Vulnerability (Nov 15, 2024)
+
+STOCK ANALYSIS:
+─────────────────────────────────────────────────
+Current Price: $28.50
+Pre-Breach Price (30d avg): $32.10
+Price Drop: -11.2% from baseline
+52-Week High: $35.20
+Drop from High: -19.0%
+
+TECHNICAL INDICATORS:
+─────────────────────────────────────────────────
+RSI (14-day): 22 (VERY OVERSOLD)
+50-Day MA: $31.50
+Volume Increase: +240% (capitulation)
+Volume Spike: YES ✓
+
+BUYING OPPORTUNITY:
+─────────────────────────────────────────────────
+Entry Price: $28.50 - $29.50
+Price Target: $33.00 (recovery to baseline)
+Stop Loss: $26.00
+Risk/Reward Ratio: 1:1.8
+
+CONFIDENCE: HIGH
+Rationale: 
+- Significant oversold condition (RSI < 30)
+- Volume spike indicates capitulation
+- Company fundamentals remain strong
+- Breach is fixable (software patch available)
+
+RECOMMENDED ACTION:
+─────────────────────────────────────────────────
+Consider buying 50-100 shares at current levels.
+Monitor for additional weakness before full position.
+
+View full analysis: http://localhost:8080/signals/CRWD-2024-11-15
+```
+
+**SMS Alert Example:**
+```
+⚡ BUY SIGNAL: CRWD @ $28.50
+Drop: -11.2%, RSI: 22 (oversold)
+Target: $33.00, Risk/Reward: 1:1.8
+Check email for full analysis.
+```
+
+#### 3. Daily Summary Alert
+
+Sent daily at configured time (default: 6 PM):
+
+**Email Alert Example:**
+```
+Subject: 📊 Daily Breach Analyzer Summary - November 15, 2024
+
+DAILY SUMMARY REPORT
+═══════════════════════════════════════════════════
+
+TODAY'S ACTIVITY:
+─────────────────────────────────────────────────
+Breaches Detected: 3
+Buy Signals Generated: 1
+Companies Analyzed: 3
+
+NEW BREACHES TODAY:
+─────────────────────────────────────────────────
+1. CrowdStrike (CRWD) - Critical vulnerability
+   Status: BUY SIGNAL GENERATED
+   
+2. Okta Inc (OKTA) - Authentication bypass
+   Status: Monitoring (price drop insufficient)
+   
+3. Private Company - Ransomware attack
+   Status: Skipped (not publicly traded)
+
+ACTIVE BUY SIGNALS:
+─────────────────────────────────────────────────
+1. CRWD @ $28.50 (Nov 15)
+   Drop: -11.2%, Confidence: HIGH
+   
+2. OKTA @ $54.30 (Nov 10)
+   Drop: -12.2%, Confidence: MODERATE
+   Status: Still monitoring
+
+HISTORICAL PERFORMANCE:
+─────────────────────────────────────────────────
+Total Signals: 47
+Profitable: 32 (68%)
+Average Return: +12.3%
+Best Trade: +47.3% (Equifax, 2017)
+
+View dashboard: http://localhost:8080
+```
+
+### Alert Configuration
+
+#### Email Setup (Gmail Example)
+
+1. **Enable App Password:**
+   - Go to Google Account settings
+   - Security → 2-Step Verification → App passwords
+   - Generate app password for "Mail"
+
+2. **Configure in alerts_config.json:**
+```json
+{
+  "email": {
+    "enabled": true,
+    "smtp_server": "smtp.gmail.com",
+    "smtp_port": 587,
+    "email_from": "your-email@gmail.com",
+    "email_to": "your-email@gmail.com",
+    "username": "your-email@gmail.com",
+    "password": "your-16-char-app-password"
+  }
+}
+```
+
+#### SMS Setup (Twilio Example)
+
+1. **Sign up for Twilio:**
+   - Create account at twilio.com
+   - Get Account SID and Auth Token
+   - Purchase phone number
+
+2. **Configure in alerts_config.json:**
+```json
+{
+  "sms": {
+    "enabled": true,
+    "provider": "twilio",
+    "account_sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "auth_token": "your-auth-token",
+    "from_number": "+1234567890",
+    "to_number": "+1234567890"
+  }
+}
+```
+
+### Running as a Service
+
+**Linux (systemd):**
+```bash
+# Create service file
+sudo nano /etc/systemd/system/breach-analyzer.service
+
+# Enable and start
+sudo systemctl enable breach-analyzer
+sudo systemctl start breach-analyzer
+sudo systemctl status breach-analyzer
+```
+
+**macOS (launchd):**
+```bash
+# Install plist file
+cp config/com.breachanalyzer.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.breachanalyzer.plist
+```
+
+**Docker:**
+```bash
+docker run -d \
+  --name breach-analyzer \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/config:/app/config \
+  breach-analyzer:latest
+```
+
+### Alert Priority Levels
+
+- **CRITICAL**: Immediate SMS + Email (e.g., major breach affecting large company)
+- **HIGH**: Email + SMS (e.g., strong buy signal)
+- **MEDIUM**: Email only (e.g., moderate buy signal)
+- **LOW**: Daily summary only (e.g., informational updates)
+
+### Monitoring Schedule
+
+Default monitoring schedule:
+- **News Scanning**: Every 5 minutes
+- **Breach Analysis**: Every 15 minutes
+- **Stock Price Updates**: Every 15 minutes (market hours)
+- **Daily Summary**: 6:00 PM local time
+
+All configurable in `alerts_config.json`.
+
+---
+
 ## Usage Examples
+
+### Manual Usage (On-Demand)
 
 ### Daily Breach Scan
 

@@ -1,27 +1,93 @@
 {
+  "event_categories": {
+    "cybersecurity": {
+      "enabled": true,
+      "keywords": [
+        "breach",
+        "data breach",
+        "security breach",
+        "hacked",
+        "hack",
+        "hackers",
+        "hacktivist",
+        "cyberattack",
+        "ransomware",
+        "exploit",
+        "vulnerability",
+        "compromised",
+        "attacked",
+        "attack",
+        "security incident",
+        "data exposure",
+        "credentials leaked",
+        "wiper",
+        "wipe",
+        "wiped",
+        "wiping",
+        "data wipe",
+        "data-wipe"
+      ]
+    },
+    "leadership_scandal": {
+      "enabled": false,
+      "keywords": []
+    },
+    "supply_chain_disruption": {
+      "enabled": false,
+      "keywords": []
+    },
+    "clinical_regulatory_binary": {
+      "enabled": false,
+      "keywords": []
+    },
+    "product_safety_recall": {
+      "enabled": false,
+      "keywords": []
+    },
+    "fraud_accounting_enforcement": {
+      "enabled": false,
+      "keywords": []
+    },
+    "financial_distress": {
+      "enabled": false,
+      "keywords": []
+    },
+    "dilutive_financing": {
+      "enabled": false,
+      "keywords": []
+    },
+    "ma_corporate_action": {
+      "enabled": false,
+      "keywords": []
+    },
+    "positive_earnings_catalyst": {
+      "enabled": false,
+      "keywords": []
+    }
+  },
   "news_sources": {
     "bleeping_computer": {
       "enabled": true,
       "url": "https://www.bleepingcomputer.com/feed/",
-      "category": "security",
+      "event_category": "cybersecurity",
       "update_interval_hours": 6
     },
     "krebs_on_security": {
       "enabled": true,
       "url": "https://krebsonsecurity.com/feed/",
-      "category": "breaches",
+      "event_category": "cybersecurity",
       "update_interval_hours": 12
     },
     "dark_reading": {
       "enabled": false,
       "url": "https://www.darkreading.com/feed/",
-      "category": "enterprise_security",
+      "event_category": "cybersecurity",
       "update_interval_hours": 12
     },
     "techcrunch": {
       "enabled": false,
       "url": "https://techcrunch.com/category/security/feed/",
-      "category": "tech_news",
+      "event_category": "cybersecurity",
       "update_interval_hours": 24
     }
   },
@@ -70,6 +136,9 @@
     "scan_interval_minutes": 15,
     "market_hours_only": false,
     "after_hours_scan": true
+  },
+  "event_watch": {
+    "max_days": 7
   },
   "breach_watch": {
     "max_days": 7

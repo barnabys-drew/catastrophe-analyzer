@@ -1,10 +1,9 @@
 """
 News Scraper Module
-Collects cybersecurity breach news from multiple sources
+Collects event-related news from configured RSS sources
 """
 
 import feedparser
-import requests
 from datetime import datetime, timedelta
 from typing import List, Dict
 import json
@@ -12,7 +11,7 @@ import json
 
 class NewsScraper:
     """
-    Scrapes cybersecurity news from multiple sources looking for breach-related articles
+    Scrapes configured news sources for event-category-specific articles
     """
 
     def __init__(self, config_path: str = "../config/settings.json"):
@@ -29,46 +28,59 @@ class NewsScraper:
             # Use default config if file not found
             self.config = self._get_default_config()
 
-        self.breach_keywords = [
-            'breach',
-            'data breach',
-            'security breach',
-            'hacked',
-            'hack',
-            'hackers',
-            'hacktivist',
-            'cyberattack',
-            'ransomware',
-            'exploit',
-            'vulnerability',
-            'compromised',
-            'attacked',
-            'attack',
-            'security incident',
-            'data exposure',
-            'credentials leaked',
-            # Wiper-style incidents (e.g. "wiper attack", "wipe", "wiped")
-            'wiper',
-            'wipe',
-            'wiped',
-            'wiping',
-            'data wipe',
-            'data-wipe',
-        ]
+        self.event_categories = self.config.get("event_categories", {})
+        if not self.event_categories:
+            self.event_categories = self._get_default_config().get("event_categories", {})
+
+        self.keywords_by_category = {
+            category: [keyword.lower() for keyword in category_config.get("keywords", [])]
+            for category, category_config in self.event_categories.items()
+        }
+        self.breach_keywords = self.keywords_by_category.get("cybersecurity", [])
 
     def _get_default_config(self) -> Dict:
         """Get default configuration"""
         return {
+            "event_categories": {
+                "cybersecurity": {
+                    "enabled": True,
+                    "keywords": [
+                        "breach",
+                        "data breach",
+                        "security breach",
+                        "hacked",
+                        "hack",
+                        "hackers",
+                        "hacktivist",
+                        "cyberattack",
+                        "ransomware",
+                        "exploit",
+                        "vulnerability",
+                        "compromised",
+                        "attacked",
+                        "attack",
+                        "security incident",
+                        "data exposure",
+                        "credentials leaked",
+                        "wiper",
+                        "wipe",
+                        "wiped",
+                        "wiping",
+                        "data wipe",
+                        "data-wipe"
+                    ]
+                }
+            },
             "news_sources": {
                 "bleeping_computer": {
                     "enabled": True,
                     "url": "https://www.bleepingcomputer.com/feed/",
-                    "category": "security"
+                    "event_category": "cybersecurity"
                 },
                 "krebs_on_security": {
                     "enabled": True,
                     "url": "https://krebsonsecurity.com/feed/",
-                    "category": "breaches"
+                    "event_category": "cybersecurity"
                 }
             },
             "scraping": {
@@ -78,16 +90,35 @@ class NewsScraper:
             }
         }
 
-    def scrape_rss_feed(self, feed_url: str, source_name: str) -> List[Dict]:
+    def _is_category_enabled(self, event_category: str) -> bool:
+        """Return True when a configured event category is enabled."""
+        category_config = self.event_categories.get(event_category, {})
+        if not category_config:
+            return False
+        return bool(category_config.get("enabled", False))
+
+    def _get_category_keywords(self, event_category: str) -> List[str]:
+        """Return lowercase keywords for an event category."""
+        return self.keywords_by_category.get(event_category, [])
+
+    def scrape_rss_feed(
+        self,
+        feed_url: str,
+        source_name: str,
+        event_category: str,
+        keywords: List[str]
+    ) -> List[Dict]:
         """
         Scrape RSS feed for articles
 
         Args:
             feed_url: URL of RSS feed
             source_name: Name of news source
+            event_category: Event category to assign to matching articles
+            keywords: Keywords used to filter source content
 
         Returns:
-            list: Articles containing breach keywords
+            list: Articles containing category keywords
         """
         articles = []
 
@@ -105,10 +136,10 @@ class NewsScraper:
                 summary = entry.get('summary', '').lower()
                 content = f"{title} {summary}".lower()
 
-                # Check if article mentions breach
-                if any(keyword in content for keyword in self.breach_keywords):
+                if any(keyword in content for keyword in keywords):
                     articles.append({
                         'source': source_name,
+                        'event_category': event_category,
                         'title': entry.get('title', 'N/A'),
                         'link': entry.get('link', ''),
                         'published': entry.get('published', 'Unknown'),
@@ -144,9 +175,30 @@ class NewsScraper:
                 print(f"Skipping {source_name} (disabled)")
                 continue
 
+            event_category = source_config.get("event_category", "cybersecurity")
+            if not self._is_category_enabled(event_category):
+                print(
+                    f"Skipping {source_name} "
+                    f"(event_category '{event_category}' disabled)"
+                )
+                continue
+
+            keywords = self._get_category_keywords(event_category)
+            if not keywords:
+                print(
+                    f"Skipping {source_name} "
+                    f"(event_category '{event_category}' has no keywords)"
+                )
+                continue
+
             feed_url = source_config.get("url")
             if feed_url:
-                articles = self.scrape_rss_feed(feed_url, source_name)
+                articles = self.scrape_rss_feed(
+                    feed_url=feed_url,
+                    source_name=source_name,
+                    event_category=event_category,
+                    keywords=keywords
+                )
                 all_articles.extend(articles)
 
         print(f"\n{'='*60}")
@@ -234,7 +286,8 @@ class NewsScraper:
                 ' ' + article.get('summary', '').lower()
             )
 
-            for keyword in self.breach_keywords:
+            keywords = self._get_category_keywords(article.get("event_category", "cybersecurity"))
+            for keyword in keywords:
                 if keyword in content:
                     stats['breach_keywords_found'][keyword] = \
                         stats['breach_keywords_found'].get(keyword, 0) + 1

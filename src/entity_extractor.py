@@ -421,6 +421,45 @@ class EntityExtractor:
 
         return results
 
+    def unlisted_mentions(self, article: Dict) -> List[str]:
+        """Names extracted from text that did not resolve to a mapped public ticker."""
+        mapped_lower = {m.get("company", "").strip().lower() for m in article.get("mapped_entities", [])}
+        out: List[str] = []
+        for c in article.get("extracted_companies") or []:
+            key = (c or "").strip().lower()
+            if key and key not in mapped_lower:
+                out.append(c)
+        return out
+
+    def display_scan_preview(self, articles: List[Dict], max_articles: int = 15) -> None:
+        """
+        After a news scan: show each article with public tickers and other extracted names.
+        """
+        print("\nArticles with extracted names (public tickers + other mentions)")
+        print("-" * 80)
+        n_pub = sum(1 for a in articles if a.get("has_publicly_traded"))
+        print(
+            f"Summary: {len(articles)} articles — {n_pub} with at least one listed ticker, "
+            f"{len(articles) - n_pub} with no listed ticker from extraction.\n"
+        )
+        for i, article in enumerate(articles[:max_articles], 1):
+            print(f"{i}. {article.get('title', 'No title')}")
+            print(f"   Source: {article.get('source')}  |  category: {article.get('event_category', 'n/a')}")
+            mapped = article.get("mapped_entities") or []
+            if mapped:
+                pub = ", ".join(f"{m.get('company')} ({m.get('ticker')})" for m in mapped)
+                print(f"   Public / listed: {pub}")
+            else:
+                print("   Public / listed: (none from this headline)")
+            other = self.unlisted_mentions(article)
+            if other:
+                print(f"   Other mentions (no listed ticker in our map): {', '.join(other)}")
+            elif not mapped:
+                print("   Other mentions: (none extracted)")
+            print()
+        if len(articles) > max_articles:
+            print(f"… and {len(articles) - max_articles} more articles (run full analysis to process all).\n")
+
     def display_extraction_results(self, articles: List[Dict]) -> None:
         """
         Display extraction results in readable format
@@ -447,11 +486,16 @@ class EntityExtractor:
         # Show articles with entities
         print("\n" + "="*80)
         for i, article in enumerate(articles[:5], 1):
+            print(f"\n{i}. {article.get('title')}")
             if article.get('mapped_entities'):
-                print(f"\n{i}. {article.get('title')}")
-                print(f"   Companies found:")
+                print("   Listed (ticker):")
                 for entity in article.get('mapped_entities', []):
                     print(f"     - {entity.get('company')} ({entity.get('ticker')})")
+            else:
+                print("   Listed (ticker): (none)")
+            other = self.unlisted_mentions(article)
+            if other:
+                print(f"   Other mentions: {', '.join(other)}")
 
 
 def main():

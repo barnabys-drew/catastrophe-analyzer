@@ -491,14 +491,12 @@ class CatastropheAnalyzerApp:
         if self.current_articles:
             print(f"\n✓ Found {len(self.current_articles)} event-related articles")
 
-            # Show preview
-            print("\nSample articles:")
-            for article in self.current_articles[:3]:
-                print(f"  • {article.get('title', 'No title')}")
-                print(f"    Source: {article.get('source')}")
+            # Entity pass so the scan shows public tickers + other mentions (same data reused if you continue)
+            print("\nExtracting company names from headlines…")
+            self.current_entities = self.entity_extractor.batch_extract(self.current_articles)
+            self.entity_extractor.display_scan_preview(self.current_entities, max_articles=15)
 
-            # Ask if user wants to analyze
-            response = input("\nProceed to entity extraction? (y/n): ").strip().lower()
+            response = input("\nProceed to full analysis (detailed report + optional stock work)? (y/n): ").strip().lower()
             if response == 'y':
                 self.analyze_events()
         else:
@@ -516,8 +514,18 @@ class CatastropheAnalyzerApp:
 
         print(f"\nProcessing {len(self.current_articles)} articles...")
 
-        # Extract entities
-        self.current_entities = self.entity_extractor.batch_extract(self.current_articles)
+        # Reuse extraction from scan when it matches this article set; otherwise refresh
+        def _article_fingerprint(a: Dict) -> str:
+            return (a.get("link") or "") + "|" + (a.get("title") or "")
+
+        need_extract = (
+            not self.current_entities
+            or len(self.current_entities) != len(self.current_articles)
+            or _article_fingerprint(self.current_articles[0])
+            != _article_fingerprint(self.current_entities[0])
+        )
+        if need_extract:
+            self.current_entities = self.entity_extractor.batch_extract(self.current_articles)
         self.entity_extractor.display_extraction_results(self.current_entities)
 
         # Get publicly traded companies

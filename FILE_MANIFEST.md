@@ -1,21 +1,22 @@
-# Breach Analyzer - Complete File Manifest
+# Catastrophe Analyzer - Complete File Manifest
 
 ## Project Overview
 
-- **Name**: Breach Analyzer
+- **Name**: Catastrophe Analyzer
 - **Purpose**: Cyber security breach detection and stock opportunity analysis
 - **Status**: ✓ COMPLETE AND READY FOR USE
-- **Location**: `/home/drew/code/breach-analyzer/`
+- **Location**: `catastrophe-analyzer/`
 - **Python Version**: 3.8+
 - **Total Code**: 2,219 lines of Python
 
 ## Directory Structure
 
 ```
-breach-analyzer/
+catastrophe-analyzer/
 ├── src/                    # Main application code (6 modules + package init)
 ├── data/                   # CSV files created at runtime
 ├── config/                 # Configuration files
+├── docs/                   # Reference docs (event taxonomy, impact notes)
 ├── README.md              # Main documentation
 ├── QUICKSTART.md          # Quick start guide
 ├── ARCHITECTURE.md        # Technical architecture
@@ -106,7 +107,7 @@ breach-analyzer/
 
 ### 7. `main.py` (352 lines)
 - **Purpose**: Interactive CLI application
-- **Key Class**: `BreachAnalyzerApp`
+- **Key Class**: `CatastropheAnalyzerApp`
 - **Menu Options** (1-8):
   1. Scan for breaches
   2. Analyze recent breaches
@@ -218,6 +219,14 @@ pip install -r requirements.txt
   - Security considerations
   - Future enhancements
 
+### `docs/EVENT_CATEGORIES_AND_IMPACT.md`
+- **Purpose**: Canonical `event_category` ids for multi-category shock monitoring and a **full qualitative table** of news impact likelihood (High / Medium–high / …) for firm-specific headlines.
+- **Contents**:
+  - Rating rubric and caveats
+  - Complete impact likelihood table (all shock shapes discussed for the analyzer)
+  - Canonical category list: roadmap categories (`cybersecurity`, `leadership_scandal`, `supply_chain_disruption`) plus **High**-tier categories (`clinical_regulatory_binary`, `product_safety_recall`, `fraud_accounting_enforcement`, `financial_distress`, `dilutive_financing`, `ma_corporate_action`, `positive_earnings_catalyst`)
+  - Optional merge notes for fewer top-level ids
+
 ### `IMPLEMENTATION_COMPLETE.md` (300+ lines)
 - **Sections**:
   - Project status
@@ -326,7 +335,7 @@ main.py → All above modules
 
 ### Installation
 ```bash
-cd /home/drew/code/breach-analyzer
+cd catastrophe-analyzer
 pip install -r requirements.txt
 ```
 
@@ -416,11 +425,11 @@ Menu option 4
 
 ## File Locations Reference
 
-- **Main App**: `/home/drew/code/breach-analyzer/src/main.py`
-- **Config**: `/home/drew/code/breach-analyzer/config/settings.json`
-- **Data**: `/home/drew/code/breach-analyzer/data/`
-- **Docs**: `/home/drew/code/breach-analyzer/*.md`
-- **Requirements**: `/home/drew/code/breach-analyzer/requirements.txt`
+- **Main App**: `catastrophe-analyzer/src/main.py`
+- **Config**: `catastrophe-analyzer/config/settings.json`
+- **Data**: `catastrophe-analyzer/data/`
+- **Docs**: `catastrophe-analyzer/*.md`
+- **Requirements**: `catastrophe-analyzer/requirements.txt`
 
 ## Next Steps
 

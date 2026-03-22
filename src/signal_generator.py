@@ -71,8 +71,9 @@ class SignalGenerator:
         rsi_oversold = analysis.get('rsi_oversold', False)
         significant_drop = analysis.get('max_drop_pct', 0) > drop_threshold
 
-        # Condition 2: Volume spike at breach
-        volume_spike = analysis.get('volume_spike_at_breach', 0) > volume_threshold
+        # Condition 2: Volume spike at event
+        volume_spike_at_event = analysis.get('volume_spike_at_event', analysis.get('volume_spike_at_breach', 0))
+        volume_spike = volume_spike_at_event > volume_threshold
 
         # Determine if signal is generated
         generates_signal = (rsi_oversold or significant_drop) and volume_spike
@@ -87,13 +88,17 @@ class SignalGenerator:
             'ticker': ticker,
             'signal_type': 'BUY_OPPORTUNITY',
             'signal_date': datetime.now().isoformat(),
-            'breach_date': analysis.get('breach_date'),
+            'event_date': analysis.get('event_date', analysis.get('breach_date')),
+            'breach_date': analysis.get('event_date', analysis.get('breach_date')),  # Legacy compatibility
+            'event_category': analysis.get('event_category', ''),
             'price': analysis.get('current_price'),
-            'pre_breach_price': analysis.get('pre_breach_price'),
+            'pre_event_price': analysis.get('pre_event_price', analysis.get('pre_breach_price')),
+            'pre_breach_price': analysis.get('pre_event_price', analysis.get('pre_breach_price')),  # Legacy compatibility
             'rsi': analysis.get('current_rsi'),
             'max_drop_pct': analysis.get('max_drop_pct'),
             'recovery_days': analysis.get('recovery_days'),
-            'volume_spike': analysis.get('volume_spike_at_breach'),
+            'volume_spike_at_event': volume_spike_at_event,
+            'volume_spike': volume_spike_at_event,
             'confidence': confidence_score,
             'confidence_level': self._get_confidence_level(confidence_score),
             'reasons': self._generate_reasons(analysis),
@@ -126,7 +131,7 @@ class SignalGenerator:
             score += 10
 
         # Volume spike confirms selling pressure (20 points)
-        volume_spike = analysis.get('volume_spike_at_breach', 1.0)
+        volume_spike = analysis.get('volume_spike_at_event', analysis.get('volume_spike_at_breach', 1.0))
         if volume_spike > 2.0:
             score += 20
         elif volume_spike > 1.5:
@@ -179,17 +184,17 @@ class SignalGenerator:
 
         drop_pct = analysis.get('max_drop_pct', 0)
         if drop_pct > 10:
-            reasons.append(f"Stock dropped {drop_pct:.1f}% post-breach")
+            reasons.append(f"Stock dropped {drop_pct:.1f}% post-event")
 
-        volume_spike = analysis.get('volume_spike_at_breach', 1.0)
-        reasons.append(f"Volume spike of {volume_spike:.1f}x at breach confirms selling pressure")
+        volume_spike = analysis.get('volume_spike_at_event', analysis.get('volume_spike_at_breach', 1.0))
+        reasons.append(f"Volume spike of {volume_spike:.1f}x at event confirms selling pressure")
 
         if analysis.get('price_below_ma20'):
             reasons.append("Price is below 20-day moving average")
 
         recovery = analysis.get('recovery_days')
         if recovery is None:
-            reasons.append("Stock has not yet recovered to pre-breach price")
+            reasons.append("Stock has not yet recovered to pre-event price")
         elif recovery < 5:
             reasons.append(f"Stock recovered in {recovery} days - quick recovery pattern")
 
@@ -206,7 +211,7 @@ class SignalGenerator:
             float: Suggested entry price
         """
         current_price = analysis.get('current_price', 0)
-        min_price = analysis.get('min_price_post_breach', current_price)
+        min_price = analysis.get('min_price_post_event', analysis.get('min_price_post_breach', current_price))
 
         # Suggest entry at current or slightly below min
         # If current price is near min, use current price
@@ -227,7 +232,7 @@ class SignalGenerator:
         Returns:
             float: Suggested stop loss price
         """
-        min_price = analysis.get('min_price_post_breach', 0)
+        min_price = analysis.get('min_price_post_event', analysis.get('min_price_post_breach', 0))
         # Stop loss 3% below minimum
         return min_price * 0.97
 
@@ -244,14 +249,14 @@ class SignalGenerator:
         current_price = analysis.get('current_price', 0)
         entry_price = self._calculate_entry_price(analysis)
         stop_loss = self._calculate_stop_loss(analysis)
-        pre_breach_price = analysis.get('pre_breach_price', current_price * 1.05)
+        pre_event_price = analysis.get('pre_event_price', analysis.get('pre_breach_price', current_price * 1.05))
 
         # Risk: from entry to stop loss
         risk = entry_price - stop_loss
         risk_pct = (risk / entry_price * 100) if entry_price > 0 else 0
 
-        # Reward: from entry to pre-breach price (target)
-        reward = pre_breach_price - entry_price
+        # Reward: from entry to pre-event price (target)
+        reward = pre_event_price - entry_price
         reward_pct = (reward / entry_price * 100) if entry_price > 0 else 0
 
         # Risk/reward ratio
@@ -260,7 +265,7 @@ class SignalGenerator:
         return {
             'entry_price': entry_price,
             'stop_loss': stop_loss,
-            'target_price': pre_breach_price,
+            'target_price': pre_event_price,
             'risk_pct': risk_pct,
             'reward_pct': reward_pct,
             'risk_reward_ratio': ratio
@@ -342,7 +347,7 @@ class SignalGenerator:
             print(f"   Current Price:       ${signal['price']:.2f}")
             print(f"   Suggested Entry:     ${signal['suggested_entry']:.2f}")
             print(f"   Stop Loss:           ${signal['suggested_stop_loss']:.2f}")
-            print(f"   Target (Pre-breach): ${signal['suggested_entry'] + signal['risk_reward']['reward_pct']/100 * signal['suggested_entry']:.2f}")
+            print(f"   Target (Pre-event):  ${signal['suggested_entry'] + signal['risk_reward']['reward_pct']/100 * signal['suggested_entry']:.2f}")
             print(f"   Confidence Score:    {signal['confidence']:.1f}/100")
             print(f"   Risk/Reward Ratio:   {signal['risk_reward']['risk_reward_ratio']:.2f}:1")
 
@@ -360,29 +365,29 @@ def main():
     test_analyses = [
         {
             'ticker': 'AAPL',
-            'breach_date': '2024-01-15',
-            'pre_breach_price': 180.0,
+            'event_date': '2024-01-15',
+            'pre_event_price': 180.0,
             'current_price': 160.0,
-            'min_price_post_breach': 158.0,
+            'min_price_post_event': 158.0,
             'max_drop_pct': 12.2,
             'recovery_days': None,
             'current_rsi': 28.5,
             'rsi_oversold': True,
             'price_below_ma20': True,
-            'volume_spike_at_breach': 2.1
+            'volume_spike_at_event': 2.1
         },
         {
             'ticker': 'MSFT',
-            'breach_date': '2024-01-16',
-            'pre_breach_price': 380.0,
+            'event_date': '2024-01-16',
+            'pre_event_price': 380.0,
             'current_price': 365.0,
-            'min_price_post_breach': 362.0,
+            'min_price_post_event': 362.0,
             'max_drop_pct': 4.7,
             'recovery_days': 2,
             'current_rsi': 35.2,
             'rsi_oversold': False,
             'price_below_ma20': False,
-            'volume_spike_at_breach': 1.3
+            'volume_spike_at_event': 1.3
         }
     ]
 

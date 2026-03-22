@@ -208,13 +208,14 @@ class StockAnalyzer:
                 spikes.append(spike)
         return spikes
 
-    def analyze_breach_impact(self, ticker: str, breach_date: str) -> Dict:
+    def analyze_event_impact(self, ticker: str, event_date: str, event_category: Optional[str] = None) -> Dict:
         """
-        Analyze stock price impact of a breach
+        Analyze stock price impact of an event.
 
         Args:
             ticker: Stock ticker
-            breach_date: Date of breach (YYYY-MM-DD)
+            event_date: Date of event (YYYY-MM-DD)
+            event_category: Optional event category for downstream consumers
 
         Returns:
             dict: Analysis results including price drop %, recovery time
@@ -224,7 +225,9 @@ class StockAnalyzer:
         if not history:
             return {
                 'ticker': ticker,
-                'breach_date': breach_date,
+                'event_date': event_date,
+                'breach_date': event_date,  # Legacy compatibility
+                'event_category': event_category or '',
                 'error': 'Could not fetch price history'
             }
 
@@ -232,40 +235,42 @@ class StockAnalyzer:
         dates = history['dates']
         volumes = history['volumes']
 
-        # Find breach date index (approximate - use date closest to breach)
-        breach_idx = None
+        # Find event date index (approximate - use date closest to event)
+        event_idx = None
         try:
-            breach_datetime = datetime.strptime(breach_date, '%Y-%m-%d')
+            event_datetime = datetime.strptime(event_date, '%Y-%m-%d')
             for i, date_str in enumerate(dates):
                 date_obj = datetime.strptime(date_str, '%Y-%m-%d')
-                if date_obj >= breach_datetime:
-                    breach_idx = i
+                if date_obj >= event_datetime:
+                    event_idx = i
                     break
         except ValueError:
-            breach_idx = len(prices) // 3  # Default to 1/3 through data
+            event_idx = len(prices) // 3  # Default to 1/3 through data
 
-        if breach_idx is None:
-            breach_idx = len(prices) // 3
+        if event_idx is None:
+            event_idx = len(prices) // 3
 
-        # Get price before breach
-        pre_breach_price = prices[max(0, breach_idx - 5)]
-        post_breach_prices = prices[breach_idx:min(breach_idx + 30, len(prices))]
+        # Get price before event
+        pre_event_price = prices[max(0, event_idx - 5)]
+        post_event_prices = prices[event_idx:min(event_idx + 30, len(prices))]
 
-        if not post_breach_prices:
+        if not post_event_prices:
             return {
                 'ticker': ticker,
-                'breach_date': breach_date,
-                'error': 'No data after breach date'
+                'event_date': event_date,
+                'breach_date': event_date,  # Legacy compatibility
+                'event_category': event_category or '',
+                'error': 'No data after event date'
             }
 
         # Calculate metrics
-        min_price_after = min(post_breach_prices)
-        max_drop_pct = ((pre_breach_price - min_price_after) / pre_breach_price) * 100
+        min_price_after = min(post_event_prices)
+        max_drop_pct = ((pre_event_price - min_price_after) / pre_event_price) * 100
 
-        # Time to recovery (days to get back above pre-breach price)
+        # Time to recovery (days to get back above pre-event price)
         recovery_days = None
-        for i, price in enumerate(post_breach_prices):
-            if price >= pre_breach_price:
+        for i, price in enumerate(post_event_prices):
+            if price >= pre_event_price:
                 recovery_days = i
                 break
 
@@ -277,38 +282,47 @@ class StockAnalyzer:
         # Get current RSI
         current_rsi = rsi[-1] if rsi else 50
 
-        # Volume spike at breach
-        breach_volume_spike = volume_spikes[breach_idx] if breach_idx < len(volume_spikes) else 1.0
+        # Volume spike at event
+        event_volume_spike = volume_spikes[event_idx] if event_idx < len(volume_spikes) else 1.0
 
         return {
             'ticker': ticker,
-            'breach_date': breach_date,
-            'pre_breach_price': float(pre_breach_price),
+            'event_date': event_date,
+            'breach_date': event_date,  # Legacy compatibility
+            'event_category': event_category or '',
+            'pre_event_price': float(pre_event_price),
+            'pre_breach_price': float(pre_event_price),  # Legacy compatibility
             'current_price': float(prices[-1]),
-            'min_price_post_breach': float(min_price_after),
+            'min_price_post_event': float(min_price_after),
+            'min_price_post_breach': float(min_price_after),  # Legacy compatibility
             'max_drop_pct': float(max_drop_pct),
             'recovery_days': recovery_days,
             'current_rsi': float(current_rsi),
             'rsi_oversold': current_rsi < 30,
             'price_below_ma20': (prices[-1] < ma20[-1]) if ma20[-1] else None,
-            'volume_spike_at_breach': float(breach_volume_spike),
+            'volume_spike_at_event': float(event_volume_spike),
+            'volume_spike_at_breach': float(event_volume_spike),  # Legacy compatibility
             'analysis_date': datetime.now().isoformat()
         }
 
-    def get_breach_price_series(
+    # Backward-compatible alias while callers migrate.
+    def analyze_breach_impact(self, ticker: str, breach_date: str, event_category: Optional[str] = None) -> Dict:
+        return self.analyze_event_impact(ticker=ticker, event_date=breach_date, event_category=event_category)
+
+    def get_event_price_series(
         self,
         ticker: str,
-        breach_date: str,
+        event_date: str,
         pre_days: int = 30,
         post_days: int = 30,
     ) -> List[Dict]:
         """
-        Return before/after daily price series around breach_date.
+        Return before/after daily price series around event_date.
 
         Day offsets are based on trading-day index positions from the fetched history.
-        - day_offset < 0: before breach
-        - day_offset == 0: first date >= breach_date (approx)
-        - day_offset > 0: after breach
+        - day_offset < 0: before event
+        - day_offset == 0: first date >= event_date (approx)
+        - day_offset > 0: after event
         """
         # Fetch enough trading days to cover pre+post
         history_days = max(90, pre_days + post_days + 10)
@@ -320,47 +334,49 @@ class StockAnalyzer:
         dates = history["dates"]
         volumes = history["volumes"]
 
-        breach_idx = None
+        event_idx = None
         try:
-            breach_datetime = datetime.strptime(breach_date, "%Y-%m-%d")
+            event_datetime = datetime.strptime(event_date, "%Y-%m-%d")
             for i, date_str in enumerate(dates):
                 date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-                if date_obj >= breach_datetime:
-                    breach_idx = i
+                if date_obj >= event_datetime:
+                    event_idx = i
                     break
         except ValueError:
-            breach_idx = len(prices) // 3
+            event_idx = len(prices) // 3
 
-        if breach_idx is None:
-            breach_idx = len(prices) // 3
+        if event_idx is None:
+            event_idx = len(prices) // 3
 
-        pre_start = max(0, breach_idx - pre_days)
-        pre_end = breach_idx  # exclusive
-        post_start = breach_idx
-        post_end = min(len(prices), breach_idx + post_days)
+        pre_start = max(0, event_idx - pre_days)
+        pre_end = event_idx  # exclusive
+        post_start = event_idx
+        post_end = min(len(prices), event_idx + post_days)
 
         rows: List[Dict] = []
 
-        # Pre-breach: offsets are negative
+        # Pre-event: offsets are negative
         pre_len = pre_end - pre_start
         for j in range(pre_len):
             idx = pre_start + j
             day_offset = j - pre_len  # e.g. -pre_len..-1
             rows.append({
                 "ticker": ticker,
-                "breach_date": breach_date,
+                "event_date": event_date,
+                "breach_date": event_date,  # Legacy compatibility
                 "day_offset": day_offset,
                 "date": dates[idx],
                 "close": float(prices[idx]),
                 "volume": float(volumes[idx]) if idx < len(volumes) else "",
             })
 
-        # Post-breach: offsets are >= 0
+        # Post-event: offsets are >= 0
         for idx in range(post_start, post_end):
             rows.append({
                 "ticker": ticker,
-                "breach_date": breach_date,
-                "day_offset": idx - breach_idx,
+                "event_date": event_date,
+                "breach_date": event_date,  # Legacy compatibility
+                "day_offset": idx - event_idx,
                 "date": dates[idx],
                 "close": float(prices[idx]),
                 "volume": float(volumes[idx]) if idx < len(volumes) else "",
@@ -368,13 +384,29 @@ class StockAnalyzer:
 
         return rows
 
-    def batch_analyze(self, companies: List[Dict], breach_date: str = None) -> List[Dict]:
+    # Backward-compatible alias while callers migrate.
+    def get_breach_price_series(
+        self,
+        ticker: str,
+        breach_date: str,
+        pre_days: int = 30,
+        post_days: int = 30,
+    ) -> List[Dict]:
+        return self.get_event_price_series(
+            ticker=ticker,
+            event_date=breach_date,
+            pre_days=pre_days,
+            post_days=post_days,
+        )
+
+    def batch_analyze(self, companies: List[Dict], event_date: str = None, breach_date: str = None) -> List[Dict]:
         """
         Analyze multiple companies
 
         Args:
             companies: List of company dicts with 'ticker' key
-            breach_date: Date of breach event
+            event_date: Date of event
+            breach_date: Deprecated alias for event_date
 
         Returns:
             list: Analysis results for each company
@@ -384,10 +416,19 @@ class StockAnalyzer:
         for company in companies:
             ticker = company.get('ticker') or company.get('company')
             if ticker:
-                # Allow per-company breach_date override (useful for automated pipelines)
-                per_company_breach_date = company.get('breach_date') if isinstance(company, dict) else None
-                effective_breach_date = per_company_breach_date or breach_date or '2024-01-01'
-                analysis = self.analyze_breach_impact(ticker, effective_breach_date)
+                # Allow per-company event_date override (useful for automated pipelines)
+                per_company_event_date = None
+                event_category = None
+                if isinstance(company, dict):
+                    per_company_event_date = company.get('event_date') or company.get('breach_date')
+                    event_category = company.get('event_category')
+
+                effective_event_date = per_company_event_date or event_date or breach_date or '2024-01-01'
+                analysis = self.analyze_event_impact(
+                    ticker=ticker,
+                    event_date=effective_event_date,
+                    event_category=event_category,
+                )
                 results.append(analysis)
 
         return results
@@ -407,11 +448,11 @@ class StockAnalyzer:
                 print(f"\n{result.get('ticker', 'UNKNOWN')}: {result['error']}")
                 continue
 
-            print(f"\n{result['ticker']} - Breach: {result['breach_date']}")
+            print(f"\n{result['ticker']} - Event: {result.get('event_date', result.get('breach_date'))}")
             print("-"*40)
-            print(f"Pre-breach price:    ${result['pre_breach_price']:.2f}")
+            print(f"Pre-event price:     ${result.get('pre_event_price', result.get('pre_breach_price', 0.0)):.2f}")
             print(f"Current price:       ${result['current_price']:.2f}")
-            print(f"Lowest post-breach:  ${result['min_price_post_breach']:.2f}")
+            print(f"Lowest post-event:   ${result.get('min_price_post_event', result.get('min_price_post_breach', 0.0)):.2f}")
             print(f"Max drop:            {result['max_drop_pct']:.2f}%")
             print(f"Recovery time:       {result['recovery_days']} days" if result['recovery_days'] else "No recovery yet")
             print(f"Current RSI:         {result['current_rsi']:.2f}", end="")
@@ -420,7 +461,7 @@ class StockAnalyzer:
             else:
                 print()
             print(f"Below 20-day MA:     {'Yes' if result['price_below_ma20'] else 'No'}")
-            print(f"Breach volume spike: {result['volume_spike_at_breach']:.2f}x")
+            print(f"Event volume spike:  {result.get('volume_spike_at_event', result.get('volume_spike_at_breach', 0.0)):.2f}x")
 
 
 def main():
@@ -435,7 +476,7 @@ def main():
     ]
 
     # Analyze
-    results = analyzer.batch_analyze(test_companies, breach_date='2024-01-15')
+    results = analyzer.batch_analyze(test_companies, event_date='2024-01-15')
 
     # Display
     analyzer.display_analysis(results)

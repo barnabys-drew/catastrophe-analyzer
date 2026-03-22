@@ -230,7 +230,7 @@ class EntityExtractor:
                 break
         return us_equity if us_equity else None
 
-    def extract_company_mentions(self, text: str) -> List[str]:
+    def extract_company_mentions(self, text: str, event_category: Optional[str] = None) -> List[str]:
         """
         Extract potential company names from text.
         Includes standalone names (e.g. "Stryker was hacked") and Inc/Corp patterns.
@@ -328,7 +328,7 @@ class EntityExtractor:
         ticker_upper = ticker.upper().strip()
         return self.ticker_to_company.get(ticker_upper)
 
-    def extract_and_map_companies(self, article: Dict) -> Dict:
+    def extract_and_map_companies(self, article: Dict, event_category: Optional[str] = None) -> Dict:
         """
         Extract companies from an article and map to tickers
 
@@ -338,11 +338,13 @@ class EntityExtractor:
         Returns:
             dict: Article with extracted companies and tickers
         """
+        resolved_event_category = event_category or article.get("event_category")
+
         # Combine title and summary for searching
         full_text = article.get('title', '') + ' ' + article.get('summary', '')
 
         # Extract company mentions
-        companies = self.extract_company_mentions(full_text)
+        companies = self.extract_company_mentions(full_text, event_category=resolved_event_category)
 
         # Map to tickers
         mapped_entities = []
@@ -357,12 +359,13 @@ class EntityExtractor:
 
         return {
             **article,
+            'event_category': resolved_event_category,
             'extracted_companies': companies,
             'mapped_entities': mapped_entities,
             'has_publicly_traded': len(mapped_entities) > 0
         }
 
-    def batch_extract(self, articles: List[Dict]) -> List[Dict]:
+    def batch_extract(self, articles: List[Dict], event_category: Optional[str] = None) -> List[Dict]:
         """
         Extract entities from multiple articles
 
@@ -374,7 +377,8 @@ class EntityExtractor:
         """
         results = []
         for article in articles:
-            results.append(self.extract_and_map_companies(article))
+            article_event_category = event_category or article.get("event_category")
+            results.append(self.extract_and_map_companies(article, event_category=article_event_category))
         return results
 
     def get_ticker_mentions(self, articles: List[Dict]) -> Dict[str, int]:

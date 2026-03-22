@@ -101,14 +101,21 @@ class AlertManager:
             conf_level = s.get("confidence_level", "")
             entry = s.get("suggested_entry", s.get("entry_price", ""))
             target = s.get("risk_reward", {}).get("target_price", s.get("target_price", ""))
-            print(f"- {ticker} | {conf_level} | entry={entry} target={target} | breach_date={s.get('breach_date')}")
+            event_date = s.get("event_date", s.get("breach_date"))
+            event_category = s.get("event_category", "")
+            category_text = f" | category={event_category}" if event_category else ""
+            print(f"- {ticker} | {conf_level} | entry={entry} target={target} | event_date={event_date}{category_text}")
 
         # Email/SMS (best-effort)
         subject = "Catastrophe Analyzer: New Buy Signal(s)"
         body_lines = ["New buy signal(s) have been generated:\n"]
         for s in signals:
+            event_date = s.get("event_date", s.get("breach_date"))
+            event_category = s.get("event_category", "")
+            category_line = f"  Category: {event_category}\n" if event_category else ""
             body_lines.append(
-                f"- {s.get('ticker')} | {s.get('confidence_level')} | breach_date={s.get('breach_date')}\n"
+                f"- {s.get('ticker')} | {s.get('confidence_level')} | event_date={event_date}\n"
+                f"{category_line}"
                 f"  Entry: {s.get('suggested_entry')}\n"
                 f"  Stop:  {s.get('suggested_stop_loss')}\n"
                 f"  Target:{s.get('risk_reward', {}).get('target_price')}\n"
@@ -124,7 +131,13 @@ class AlertManager:
         try:
             # SMS: one message summarizing the first signal
             first = signals[0]
-            sms_message = f"BUY SIGNAL: {first.get('ticker')} ({first.get('confidence_level')}) breach {first.get('breach_date')}"
+            first_date = first.get("event_date", first.get("breach_date"))
+            first_category = first.get("event_category", "")
+            category_text = f", {first_category}" if first_category else ""
+            sms_message = (
+                f"BUY SIGNAL: {first.get('ticker')} ({first.get('confidence_level')}) "
+                f"event {first_date}{category_text}"
+            )
             self._send_sms_twilio(sms_message)
         except Exception:
             pass

@@ -70,11 +70,11 @@ class CatastropheAnalyzerApp:
         print("\n" + "="*80)
         print("CATASTROPHE ANALYZER - Cyber Security Event & Stock Opportunity Detection")
         print("="*80)
-        print("\n1. Scan for breaches (update news sources)")
-        print("2. Analyze recent breaches (extract entities & stock data)")
+        print("\n1. Scan for events (update news sources)")
+        print("2. Analyze recent events (extract entities & stock data)")
         print("3. Generate buy signals (from analysis)")
         print("4. View signal history")
-        print("5. View breach history")
+        print("5. View event history")
         print("6. Database statistics")
         print("7. Settings & configuration")
         print("8. Exit\n")
@@ -90,15 +90,15 @@ class CatastropheAnalyzerApp:
             choice = input("Enter choice (1-8): ").strip()
 
             if choice == '1':
-                self.scan_breaches()
+                self.scan_events()
             elif choice == '2':
-                self.analyze_breaches()
+                self.analyze_events()
             elif choice == '3':
                 self.generate_signals()
             elif choice == '4':
                 self.view_signals()
             elif choice == '5':
-                self.view_breaches()
+                self.view_events()
             elif choice == '6':
                 self.show_statistics()
             elif choice == '7':
@@ -129,30 +129,34 @@ class CatastropheAnalyzerApp:
         except Exception:
             return fallback_date
 
-    def _classify_breach_type_and_severity(self, title: str, summary: str) -> tuple:
-        """Heuristic breach type + severity. Used for persistence/alert context only."""
+    def _classify_event_subtype_and_severity(self, title: str, summary: str) -> tuple:
+        """Heuristic event subtype + severity. Used for persistence/alert context only."""
         content = f"{title} {summary}".lower()
 
-        breach_type = 'Security Incident'
+        event_subtype = 'Security Incident'
         if 'ransomware' in content:
-            breach_type = 'Ransomware'
+            event_subtype = 'Ransomware'
         elif 'credential' in content or 'credentials leaked' in content:
-            breach_type = 'Credential Leak'
+            event_subtype = 'Credential Leak'
         elif 'zero-day' in content or 'zero day' in content:
-            breach_type = 'Zero-Day Vulnerability'
+            event_subtype = 'Zero-Day Vulnerability'
         elif 'exploit' in content:
-            breach_type = 'Exploit'
+            event_subtype = 'Exploit'
         elif 'vulnerability' in content:
-            breach_type = 'Vulnerability'
+            event_subtype = 'Vulnerability'
         elif 'data exposure' in content or 'data breach' in content or 'data leak' in content:
-            breach_type = 'Data Breach'
+            event_subtype = 'Data Breach'
 
         severity = 'Medium'
         critical_markers = ['ransomware', 'zero-day', 'zero day', 'critical', 'exploit', 'credential', 'data breach', 'data exposure']
         if any(m in content for m in critical_markers):
             severity = 'High'
 
-        return breach_type, severity
+        return event_subtype, severity
+
+    # Backward-compatible alias while callers migrate.
+    def _classify_breach_type_and_severity(self, title: str, summary: str) -> tuple:
+        return self._classify_event_subtype_and_severity(title, summary)
 
     def _select_canonical_entity(self, article: Dict) -> Optional[Dict]:
         """
@@ -208,9 +212,9 @@ class CatastropheAnalyzerApp:
 
         return best
 
-    def detect_new_breaches(self, quiet: bool = False) -> Dict:
+    def detect_new_events(self, quiet: bool = False) -> Dict:
         """
-        Scan recent RSS items and create new breach watch entries.
+        Scan recent RSS items and create new event watch entries.
 
         Uses `scraping.hours_back` only for detection; once created, watches remain active
         for `breach_watch.max_days`.
@@ -247,19 +251,22 @@ class CatastropheAnalyzerApp:
                 continue
 
             published = article.get("published", "Unknown")
-            breach_date = self._parse_published_date(published, fallback_date=today_str)
+            event_date = self._parse_published_date(published, fallback_date=today_str)
+            event_category = article.get("event_category", "cybersecurity")
 
             title = article.get("title", "") or ""
             summary = article.get("summary", "") or ""
-            breach_type, severity = self._classify_breach_type_and_severity(title, summary)
+            event_subtype, severity = self._classify_event_subtype_and_severity(title, summary)
 
             watch = {
                 "ticker": canonical["ticker"],
                 "company": canonical["company"],
-                "breach_date": breach_date,
+                "event_date": event_date,
+                "breach_date": event_date,  # Legacy compatibility for stream-B merge gap.
+                "event_category": event_category,
                 "source": article.get("source", ""),
                 "url": article.get("link", ""),
-                "watch_start_date": breach_date,
+                "watch_start_date": event_date,
                 "last_checked_at": datetime.now().isoformat(),
                 "status": "ACTIVE",
                 "timeseries_saved": "No",
@@ -268,12 +275,15 @@ class CatastropheAnalyzerApp:
             if self.db.add_watch_if_new(watch):
                 created += 1
 
-                # Persist breach record (for a simpler "breached public company list")
+                # Persist event record (legacy add_breach API still used for compatibility).
                 self.db.add_breach({
-                    "date_found": breach_date,
+                    "date_found": event_date,
+                    "event_date": event_date,
+                    "event_category": event_category,
                     "company": canonical["company"],
                     "ticker": canonical["ticker"],
-                    "breach_type": breach_type,
+                    "event_subtype": event_subtype,
+                    "breach_type": event_subtype,
                     "severity": severity,
                     "source": watch.get("source", ""),
                     "url": watch.get("url", ""),
@@ -281,20 +291,20 @@ class CatastropheAnalyzerApp:
                 })
 
                 # Persist price timeseries for the watch (first deliverable)
-                series_rows = self.stock_analyzer.get_breach_price_series(
+                series_rows = self.stock_analyzer.get_event_price_series(
                     ticker=canonical["ticker"],
-                    breach_date=breach_date,
+                    event_date=event_date,
                     pre_days=times_pre_days,
                     post_days=times_post_days,
                 )
                 if series_rows:
                     self.db.add_price_timeseries(series_rows)
-                    self.db.mark_timeseries_saved(canonical["ticker"], breach_date)
+                    self.db.mark_timeseries_saved(canonical["ticker"], event_date)
             else:
                 # Keep watchlist company metadata aligned with latest canonical selection.
                 self.db.update_watch_metadata(
                     ticker=canonical["ticker"],
-                    breach_date=breach_date,
+                    breach_date=event_date,
                     company=canonical["company"],
                     source=article.get("source", ""),
                     url=article.get("link", ""),
@@ -305,11 +315,16 @@ class CatastropheAnalyzerApp:
             "watches_created": created,
         }
 
+    # Backward-compatible alias while monitor/callers migrate.
+    def detect_new_breaches(self, quiet: bool = False) -> Dict:
+        return self.detect_new_events(quiet=quiet)
+
     def update_watches_and_generate_signals(self, quiet: bool = False) -> Dict:
         """
         For each ACTIVE watch in the last `max_days`, analyze stock movement and create buy signals.
         """
-        max_days = int(self.settings.get("breach_watch", {}).get("max_days", 7))
+        watch_cfg = self.settings.get("event_watch", self.settings.get("breach_watch", {}))
+        max_days = int(watch_cfg.get("max_days", 7))
 
         active_watches = self.db.get_active_watches(max_days=max_days)
         if not active_watches:
@@ -323,13 +338,22 @@ class CatastropheAnalyzerApp:
         # Don't spam with repeated signals
         existing_signals = self.db.get_signals()
         existing_signal_keys = {
-            (s.get("ticker", ""), s.get("breach_date", ""), s.get("signal_type", ""))
+            (
+                s.get("ticker", ""),
+                s.get("event_date", s.get("breach_date", "")),
+                s.get("event_category", ""),
+                s.get("signal_type", ""),
+            )
             for s in existing_signals
         }
 
         existing_analyses = self.db.get_analysis_history()
         existing_analysis_keys = {
-            (a.get("ticker", ""), a.get("breach_date", ""))
+            (
+                a.get("ticker", ""),
+                a.get("event_date", a.get("breach_date", "")),
+                a.get("event_category", ""),
+            )
             for a in existing_analyses
         }
 
@@ -339,16 +363,25 @@ class CatastropheAnalyzerApp:
             status = (w.get("status") or "").upper()
             if status == "SIGNAL_CREATED":
                 # Already signaled; still update timestamp but don't re-signal.
-                self.db.mark_watch_last_checked(w.get("ticker", ""), w.get("breach_date", ""))
+                self.db.mark_watch_last_checked(w.get("ticker", ""), w.get("event_date", w.get("breach_date", "")))
                 continue
 
             ticker = w.get("ticker", "")
-            breach_date = w.get("breach_date", "")
-            if not ticker or not breach_date:
+            event_date = w.get("event_date", w.get("breach_date", ""))
+            event_category = w.get("event_category", "")
+            if not ticker or not event_date:
                 continue
 
             watches_to_check.append(w)
-            analyses_requests.append({"ticker": ticker, "company": w.get("company", ""), "breach_date": breach_date})
+            analyses_requests.append(
+                {
+                    "ticker": ticker,
+                    "company": w.get("company", ""),
+                    "event_date": event_date,
+                    "breach_date": event_date,
+                    "event_category": event_category,
+                }
+            )
 
         if not analyses_requests:
             return {
@@ -371,7 +404,11 @@ class CatastropheAnalyzerApp:
 
         # Save analysis metrics
         for analysis in analyses:
-            a_key = (analysis.get("ticker", ""), analysis.get("breach_date", ""))
+            a_key = (
+                analysis.get("ticker", ""),
+                analysis.get("event_date", analysis.get("breach_date", "")),
+                analysis.get("event_category", ""),
+            )
             if a_key in existing_analysis_keys or "error" in analysis:
                 continue
             if self.db.add_analysis(analysis):
@@ -379,27 +416,41 @@ class CatastropheAnalyzerApp:
 
         # Save signals + mark watch
         for signal in ranked_signals:
-            s_key = (signal.get("ticker", ""), signal.get("breach_date", ""), signal.get("signal_type", ""))
+            s_key = (
+                signal.get("ticker", ""),
+                signal.get("event_date", signal.get("breach_date", "")),
+                signal.get("event_category", ""),
+                signal.get("signal_type", ""),
+            )
             if s_key in existing_signal_keys:
                 continue
             if self.db.add_signal(signal):
                 saved_signals += 1
                 existing_signal_keys.add(s_key)
                 new_signals.append(signal)
-                self.db.mark_watch_signal_created(signal.get("ticker", ""), signal.get("breach_date", ""))
+                self.db.mark_watch_signal_created(
+                    signal.get("ticker", ""),
+                    signal.get("event_date", signal.get("breach_date", "")),
+                )
 
         # Update watch timestamps for those we checked
         for w in watches_to_check:
-            self.db.mark_watch_last_checked(w.get("ticker", ""), w.get("breach_date", ""))
+            self.db.mark_watch_last_checked(
+                w.get("ticker", ""),
+                w.get("event_date", w.get("breach_date", "")),
+            )
 
         # Expire watches that are now out of window
         # (Keep this lightweight; full scan is fine for CSV sizes in this MVP.)
         now = datetime.now()
         for w in active_watches:
             try:
-                bd = datetime.strptime(w.get("breach_date", ""), "%Y-%m-%d")
+                bd = datetime.strptime(w.get("event_date", w.get("breach_date", "")), "%Y-%m-%d")
                 if (now - bd).days > max_days:
-                    self.db.mark_watch_expired(w.get("ticker", ""), w.get("breach_date", ""))
+                    self.db.mark_watch_expired(
+                        w.get("ticker", ""),
+                        w.get("event_date", w.get("breach_date", "")),
+                    )
             except ValueError:
                 continue
 
@@ -413,10 +464,10 @@ class CatastropheAnalyzerApp:
     def run_one_cycle(self, quiet: bool = False) -> Dict:
         """
         Run a single automatic cycle:
-        1) scan for new breaches (create watch entries)
+        1) scan for new events (create watch entries)
         2) update active watches and generate signals
         """
-        detect_summary = self.detect_new_breaches(quiet=quiet)
+        detect_summary = self.detect_new_events(quiet=quiet)
         update_summary = self.update_watches_and_generate_signals(quiet=quiet)
 
         return {
@@ -428,8 +479,8 @@ class CatastropheAnalyzerApp:
             "new_signals": update_summary.get("new_signals", []),
         }
 
-    def scan_breaches(self) -> None:
-        """Scan news sources for breaches"""
+    def scan_events(self) -> None:
+        """Scan news sources for events"""
         print("\n" + "-"*80)
         print("SCANNING NEWS SOURCES")
         print("-"*80)
@@ -438,7 +489,7 @@ class CatastropheAnalyzerApp:
         self.current_articles = self.news_scraper.scrape_all_sources()
 
         if self.current_articles:
-            print(f"\n✓ Found {len(self.current_articles)} breach-related articles")
+            print(f"\n✓ Found {len(self.current_articles)} event-related articles")
 
             # Show preview
             print("\nSample articles:")
@@ -449,14 +500,14 @@ class CatastropheAnalyzerApp:
             # Ask if user wants to analyze
             response = input("\nProceed to entity extraction? (y/n): ").strip().lower()
             if response == 'y':
-                self.analyze_breaches()
+                self.analyze_events()
         else:
-            print("\n✗ No breach articles found in this scan")
+            print("\n✗ No event articles found in this scan")
 
-    def analyze_breaches(self) -> None:
+    def analyze_events(self) -> None:
         """Extract entities and analyze stocks"""
         print("\n" + "-"*80)
-        print("ANALYZING BREACHES")
+        print("ANALYZING EVENTS")
         print("-"*80)
 
         if not self.current_articles:
@@ -494,10 +545,10 @@ class CatastropheAnalyzerApp:
                 ]
 
                 # Get breach date (use today for demo)
-                breach_date = datetime.now().strftime('%Y-%m-%d')
+                event_date = datetime.now().strftime('%Y-%m-%d')
                 self.current_analyses = self.stock_analyzer.batch_analyze(
                     companies_to_analyze,
-                    breach_date=breach_date
+                    event_date=event_date
                 )
 
                 self.stock_analyzer.display_analysis(self.current_analyses)
@@ -516,7 +567,7 @@ class CatastropheAnalyzerApp:
         print("-"*80)
 
         if not self.current_analyses:
-            print("No analyses available. Please analyze breaches first.")
+            print("No analyses available. Please analyze events first.")
             return
 
         print(f"\nGenerating signals from {len(self.current_analyses)} analyses...")
@@ -589,16 +640,16 @@ class CatastropheAnalyzerApp:
             print(f"   Target:      ${float(signal.get('target_price', 0)):.2f}")
             print(f"   Signal Date: {signal.get('signal_date', 'Unknown')[:10]}")
 
-    def view_breaches(self) -> None:
-        """View breach history"""
+    def view_events(self) -> None:
+        """View event history"""
         print("\n" + "-"*80)
-        print("BREACH HISTORY")
+        print("EVENT HISTORY")
         print("-"*80)
 
         breaches = self.db.get_breaches()
 
         if not breaches:
-            print("No breaches in database yet")
+            print("No events in database yet")
             return
 
         # Group by severity
@@ -607,12 +658,12 @@ class CatastropheAnalyzerApp:
             sev = breach.get('severity', 'Unknown')
             severity_counts[sev] = severity_counts.get(sev, 0) + 1
 
-        print(f"\nTotal breaches: {len(breaches)}")
+        print(f"\nTotal events: {len(breaches)}")
         for sev, count in severity_counts.items():
             print(f"  {sev}: {count}")
 
         # Show recent breaches
-        print("\nMost recent breaches:")
+        print("\nMost recent events:")
         print("-"*40)
 
         for i, breach in enumerate(breaches[-10:], 1):
@@ -621,6 +672,16 @@ class CatastropheAnalyzerApp:
             print(f"   Type:     {breach.get('breach_type', 'Unknown')}")
             print(f"   Severity: {breach.get('severity', 'Unknown')}")
             print(f"   Source:   {breach.get('source', 'Unknown')}")
+
+    # Backward-compatible aliases for existing call sites.
+    def scan_breaches(self) -> None:
+        self.scan_events()
+
+    def analyze_breaches(self) -> None:
+        self.analyze_events()
+
+    def view_breaches(self) -> None:
+        self.view_events()
 
     def show_statistics(self) -> None:
         """Display database statistics"""

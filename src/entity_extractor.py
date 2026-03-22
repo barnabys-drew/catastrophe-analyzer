@@ -1,20 +1,35 @@
 """
 Entity Extractor Module
-Extracts company names from breach articles and maps them to stock tickers
+Extracts company names from breach articles and maps them to stock tickers.
+Supports the full public company set via dynamic lookup (Yahoo Finance search).
 """
 
 import re
+import os
 from typing import List, Dict, Optional, Tuple
 import json
+
+try:
+    import requests
+except ImportError:
+    requests = None
 
 
 class EntityExtractor:
     """
-    Extracts company entities from breach article text and validates ticker symbols
+    Extracts company entities from breach article text and validates ticker symbols.
+    Uses a pre-seeded cache plus on-demand Yahoo Finance search for any public company.
     """
 
-    def __init__(self):
-        """Initialize with common company patterns"""
+    YAHOO_SEARCH_URL = "https://query2.finance.yahoo.com/v1/finance/search"
+    USER_AGENT = "Mozilla/5.0 (compatible; CatastropheAnalyzer/1.0)"
+
+    def __init__(self, config_path: Optional[str] = None):
+        """Initialize with common company patterns and optional config."""
+        if config_path is None:
+            # Default: config next to repo root when running from src/
+            _dir = os.path.dirname(os.path.abspath(__file__))
+            config_path = os.path.join(_dir, "..", "config", "settings.json")
         self.company_patterns = [
             r'(?:Inc|Inc\.|Corp|Corp\.|Company|Co\.|Ltd|LLC|CORPORATION|CORPORATION\.)',
             r'(?:\(.*?\))',  # Parenthetical company identifiers
@@ -28,7 +43,13 @@ class EntityExtractor:
             'energy', 'oil', 'gas', 'insurance', 'services'
         ]
 
-        # Load known company-ticker mappings (extended list)
+        # Config: dynamic lookup and cache (defaults)
+        self._config = self._load_config(config_path)
+        self._use_dynamic_lookup = self._config.get("use_dynamic_lookup", True)
+        self._cache_lookups = self._config.get("cache_lookups", True)
+        self._cache_file = self._config.get("cache_file")  # optional path
+
+        # Pre-seeded cache (fast path); also stores results from dynamic lookups
         self.company_to_ticker = {
             # Large tech companies
             'apple': 'AAPL',
@@ -122,54 +143,174 @@ class EntityExtractor:
             'general electric': 'GE',
         }
 
+        # In-memory lookup cache (dynamic lookups added here when cache_lookups is True)
+        self._lookup_cache: Dict[str, Optional[str]] = {}
+        if self._cache_file and os.path.isfile(self._cache_file):
+            self._load_lookup_cache()
+
         self.ticker_to_company = {v: k for k, v in self.company_to_ticker.items()}
+
+    def _load_config(self, config_path: Optional[str]) -> Dict:
+        """Load entity_extraction section from config file."""
+        defaults = {
+            "use_dynamic_lookup": True,
+            "cache_lookups": True,
+            "cache_file": None,
+        }
+        if not config_path:
+            return defaults
+        try:
+            with open(config_path, "r") as f:
+                full = json.load(f)
+            section = full.get("entity_extraction", {})
+            return {**defaults, **section}
+        except (FileNotFoundError, json.JSONDecodeError):
+            return defaults
+
+    def _load_lookup_cache(self) -> None:
+        """Load persisted lookup cache from cache_file into cache and company_to_ticker."""
+        if not self._cache_file:
+            return
+        try:
+            with open(self._cache_file, "r") as f:
+                data = json.load(f)
+            for k, v in data.items():
+                if v and v != "UNKNOWN":
+                    key = k.lower()
+                    self._lookup_cache[key] = v
+                    self.company_to_ticker[key] = v
+            self.ticker_to_company = {v: k for k, v in self.company_to_ticker.items()}
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+    def _save_lookup_cache(self) -> None:
+        """Persist lookup cache to cache_file (only dynamic entries beyond initial seed)."""
+        if not self._cache_file:
+            return
+        try:
+            with open(self._cache_file, "w") as f:
+                json.dump(self._lookup_cache, f, indent=2)
+        except OSError:
+            pass
+
+    def _dynamic_lookup_company(self, company_name: str) -> Optional[str]:
+        """
+        Resolve company name to ticker via Yahoo Finance search API.
+        Returns first US equity symbol. If no US equity is found, returns None.
+        """
+        if not requests:
+            return None
+        name = (company_name or "").strip()
+        if not name or len(name) < 2:
+            return None
+        try:
+            resp = requests.get(
+                self.YAHOO_SEARCH_URL,
+                params={"q": name, "quotes_count": 10},
+                headers={"User-Agent": self.USER_AGENT},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except (requests.RequestException, ValueError, KeyError):
+            return None
+        quotes = data.get("quotes", [])
+        # Prefer US equity (symbol without exchange suffix like .VI, .L, .F)
+        us_equity = None
+        any_equity = None
+        for q in quotes:
+            if (q.get("quoteType") or "").upper() != "EQUITY":
+                continue
+            sym = (q.get("symbol") or "").strip()
+            if not sym:
+                continue
+            any_equity = sym
+            if "." not in sym:
+                us_equity = sym
+                break
+        return us_equity if us_equity else None
 
     def extract_company_mentions(self, text: str) -> List[str]:
         """
-        Extract potential company names from text
-
-        Args:
-            text: Article text to search
-
-        Returns:
-            list: Potential company names found
+        Extract potential company names from text.
+        Includes standalone names (e.g. "Stryker was hacked") and Inc/Corp patterns.
         """
         companies = []
 
-        # Look for patterns like "Company Name Inc." or "Company Name Corp."
+        # Patterns like "Company Name Inc." or "Company Name Corp." (limit to 3 words to avoid sentence capture)
+        # Limit to 1-2 word company names to avoid capturing generic phrases
+        # (e.g. "Medtech Firm Stryker" -> should ideally yield "Stryker").
         patterns = [
-            r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:Inc|Corp|Ltd|LLC)',
-            r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:announced|said|reported)',
+            r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,1})\s+(?:Inc|Corp|Ltd|LLC)\.?",
+            r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,1})\s+(?:announced|said|reported|confirmed|disclosed)\s+",
+            # Standalone company name before breach-related verbs: "Stryker was hacked"
+            r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,1})\s+(?:was|is|has been|gets|got)\s+(?:hacked|breached|compromised|attacked|hit)",
+            r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,1})\s+(?:says|confirmed|reported|announced|disclosed)\s+",
+            # After breach context: "breach at Stryker", "attack on Microsoft"
+            r"(?:breach|attack|incident|ransomware|hack)\s+(?:at|on|hits?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,1})",
         ]
 
         for pattern in patterns:
-            matches = re.finditer(pattern, text)
-            for match in matches:
-                company_name = match.group(1).strip()
-                if len(company_name) > 2:  # Filter out very short names
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                # Handle different group positions (some patterns capture company in group 1)
+                company_name = (match.group(1) or "").strip()
+                if len(company_name) > 2 and company_name not in ("The", "The Company", "A"):
                     companies.append(company_name)
+
+        # Single capitalized word (4+ chars) in breach context: "Stryker hacked" or "breach at Stryker"
+        min_len = self._config.get("min_company_name_length", 2)
+        breach_words = "breach hacked hack hackers hacktivist cyberattack ransomware exploit vulnerability compromised attacked attack incident disclosed announced wiper wipe wiped data-wiping data wipe"
+        stop_words = (
+            "the and said have this that with from when company medical device maker firm "
+            "medical medtech device maker monday tuesday wednesday thursday friday saturday "
+            "sunday security week breach city state country region european internet union claim "
+            "center management"
+        ).split()
+        text_lower = text.lower()
+        for m in re.finditer(r"\b([A-Z][a-z]{3,})\b", text):
+            name = m.group(1)
+            if name.lower() in stop_words:
+                continue
+            # Must appear near a breach-related word (same sentence or within ~40 chars)
+            start = max(0, m.start() - 50)
+            end = min(len(text), m.end() + 50)
+            snippet = text_lower[start:end]
+            if any(bw in snippet for bw in breach_words.split()):
+                companies.append(name)
 
         return list(set(companies))  # Remove duplicates
 
     def get_ticker_for_company(self, company_name: str) -> Optional[str]:
         """
-        Get stock ticker for a company name
-
-        Args:
-            company_name: Company name to look up
-
-        Returns:
-            str: Stock ticker symbol or None
+        Get stock ticker for a company name.
+        Uses cache/static map first, then dynamic Yahoo Finance search for full public set.
         """
         normalized_name = company_name.lower().strip()
+        if not normalized_name:
+            return None
 
-        # Direct match
+        # Fast path: direct match
         if normalized_name in self.company_to_ticker:
-            return self.company_to_ticker[normalized_name]
+            ticker = self.company_to_ticker[normalized_name]
+            return ticker if ticker != "UNKNOWN" else None
 
-        # Partial match (for company name variations)
+        # Partial match (company name variations)
         for known_name, ticker in self.company_to_ticker.items():
             if known_name in normalized_name or normalized_name in known_name:
+                if ticker != "UNKNOWN":
+                    return ticker
+                break
+
+        # Dynamic lookup: full public company set via Yahoo Finance
+        if self._use_dynamic_lookup and requests:
+            ticker = self._dynamic_lookup_company(company_name)
+            if ticker:
+                if self._cache_lookups:
+                    self.company_to_ticker[normalized_name] = ticker
+                    self._lookup_cache[normalized_name] = ticker
+                    self.ticker_to_company[ticker] = normalized_name
+                    if self._cache_file:
+                        self._save_lookup_cache()
                 return ticker
 
         return None

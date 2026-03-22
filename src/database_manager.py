@@ -29,6 +29,8 @@ class DatabaseManager:
         self.breaches_file = os.path.join(data_dir, 'breaches.csv')
         self.analysis_file = os.path.join(data_dir, 'analysis_results.csv')
         self.signals_file = os.path.join(data_dir, 'buy_signals.csv')
+        self.watchlist_file = os.path.join(data_dir, 'breach_watchlist.csv')
+        self.timeseries_file = os.path.join(data_dir, 'breach_price_timeseries.csv')
 
         # Initialize files if they don't exist
         self._initialize_files()
@@ -62,6 +64,25 @@ class DatabaseManager:
                     'confidence_score', 'entry_price', 'stop_loss', 'target_price',
                     'risk_reward_ratio', 'breach_date', 'executed', 'execution_price',
                     'execution_date', 'outcome'
+                ])
+                writer.writeheader()
+
+        # Watchlist file (tracks companies whose stock gets monitored)
+        if not os.path.exists(self.watchlist_file):
+            with open(self.watchlist_file, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=[
+                    'ticker', 'company', 'breach_date', 'source', 'url',
+                    'watch_start_date', 'last_checked_at',
+                    'status',  # ACTIVE, SIGNAL_CREATED, EXPIRED
+                    'timeseries_saved'  # Yes/No
+                ])
+                writer.writeheader()
+
+        # Price timeseries file (before/after around breach date)
+        if not os.path.exists(self.timeseries_file):
+            with open(self.timeseries_file, 'w', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=[
+                    'ticker', 'breach_date', 'day_offset', 'date', 'close', 'volume'
                 ])
                 writer.writeheader()
 
@@ -196,6 +217,258 @@ class DatabaseManager:
 
         except Exception as e:
             print(f"Error adding signal: {e}")
+            return False
+
+    def _watch_exists(self, ticker: str, breach_date: str) -> bool:
+        """Check if a watch already exists for (ticker, breach_date)."""
+        if not os.path.exists(self.watchlist_file):
+            return False
+        with open(self.watchlist_file, "r") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get("ticker") == ticker and row.get("breach_date") == breach_date:
+                    return True
+        return False
+
+    def add_watch_if_new(self, watch: Dict) -> bool:
+        """
+        Add a new breach watch record if one doesn't already exist.
+
+        Args:
+            watch: keys: ticker, company, breach_date, source, url
+        """
+        try:
+            ticker = watch.get("ticker", "")
+            breach_date = watch.get("breach_date", "")
+            if not ticker or not breach_date:
+                return False
+
+            if self._watch_exists(ticker, breach_date):
+                return False
+
+            with open(self.watchlist_file, "a", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=[
+                    'ticker', 'company', 'breach_date', 'source', 'url',
+                    'watch_start_date', 'last_checked_at',
+                    'status',
+                    'timeseries_saved'
+                ])
+                writer.writerow({
+                    'ticker': ticker,
+                    'company': watch.get('company', ''),
+                    'breach_date': breach_date,
+                    'source': watch.get('source', ''),
+                    'url': watch.get('url', ''),
+                    'watch_start_date': watch.get('watch_start_date', datetime.now().strftime('%Y-%m-%d')),
+                    'last_checked_at': watch.get('last_checked_at', datetime.now().isoformat()),
+                    'status': watch.get('status', 'ACTIVE'),
+                    'timeseries_saved': watch.get('timeseries_saved', 'No'),
+                })
+
+            return True
+        except Exception as e:
+            print(f"Error adding watch: {e}")
+            return False
+
+    def get_active_watches(self, max_days: int) -> List[Dict]:
+        """
+        Get active watches that are still within the monitoring window.
+        """
+        results: List[Dict] = []
+        if not os.path.exists(self.watchlist_file):
+            return results
+
+        now = datetime.now()
+        with open(self.watchlist_file, "r") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                status = (row.get("status") or "").upper()
+                if status not in ("ACTIVE", "SIGNAL_CREATED"):
+                    continue
+
+                breach_date = row.get("breach_date", "")
+                try:
+                    bd = datetime.strptime(breach_date, "%Y-%m-%d")
+                except ValueError:
+                    continue
+
+                if (now - bd).days <= max_days:
+                    row["status"] = status
+                    results.append(row)
+
+        return results
+
+    def mark_watch_last_checked(self, ticker: str, breach_date: str) -> bool:
+        """Update last_checked_at timestamp for a watch."""
+        try:
+            with open(self.watchlist_file, "r", newline="") as f:
+                reader = csv.DictReader(f)
+                fieldnames = reader.fieldnames or []
+                rows = list(reader)
+
+            updated = False
+            for r in rows:
+                if r.get("ticker") == ticker and r.get("breach_date") == breach_date:
+                    r["last_checked_at"] = datetime.now().isoformat()
+                    updated = True
+
+            if not updated:
+                return False
+
+            with open(self.watchlist_file, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+
+            return True
+        except Exception as e:
+            print(f"Error updating watch timestamp: {e}")
+            return False
+
+    def mark_watch_signal_created(self, ticker: str, breach_date: str) -> bool:
+        """Mark watch as having had a signal created."""
+        return self._mark_watch_status(ticker, breach_date, "SIGNAL_CREATED")
+
+    def update_watch_metadata(
+        self,
+        ticker: str,
+        breach_date: str,
+        company: Optional[str] = None,
+        source: Optional[str] = None,
+        url: Optional[str] = None,
+    ) -> bool:
+        """
+        Update company/source/url metadata for an existing watch.
+
+        Useful when canonical entity selection logic improves over time.
+        """
+        try:
+            with open(self.watchlist_file, "r", newline="") as f:
+                reader = csv.DictReader(f)
+                fieldnames = reader.fieldnames or []
+                rows = list(reader)
+
+            updated = False
+            for r in rows:
+                if r.get("ticker") == ticker and r.get("breach_date") == breach_date:
+                    if company is not None:
+                        r["company"] = company
+                    if source is not None:
+                        r["source"] = source
+                    if url is not None:
+                        r["url"] = url
+                    updated = True
+
+            if not updated:
+                return False
+
+            with open(self.watchlist_file, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+            return True
+        except Exception as e:
+            print(f"Error updating watch metadata: {e}")
+            return False
+
+    def mark_watch_expired(self, ticker: str, breach_date: str) -> bool:
+        """Mark watch as expired."""
+        return self._mark_watch_status(ticker, breach_date, "EXPIRED")
+
+    def _mark_watch_status(self, ticker: str, breach_date: str, status: str) -> bool:
+        try:
+            with open(self.watchlist_file, "r", newline="") as f:
+                reader = csv.DictReader(f)
+                fieldnames = reader.fieldnames or []
+                rows = list(reader)
+
+            updated = False
+            for r in rows:
+                if r.get("ticker") == ticker and r.get("breach_date") == breach_date:
+                    r["status"] = status
+                    updated = True
+
+            if not updated:
+                return False
+
+            with open(self.watchlist_file, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+
+            return True
+        except Exception as e:
+            print(f"Error updating watch status: {e}")
+            return False
+
+    def _timeseries_exists(self, ticker: str, breach_date: str) -> bool:
+        if not os.path.exists(self.timeseries_file):
+            return False
+        with open(self.timeseries_file, "r") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get("ticker") == ticker and row.get("breach_date") == breach_date:
+                    return True
+        return False
+
+    def mark_timeseries_saved(self, ticker: str, breach_date: str) -> bool:
+        """Mark timeseries_saved=Yes in watchlist for (ticker, breach_date)."""
+        try:
+            with open(self.watchlist_file, "r", newline="") as f:
+                reader = csv.DictReader(f)
+                fieldnames = reader.fieldnames or []
+                rows = list(reader)
+
+            updated = False
+            for r in rows:
+                if r.get("ticker") == ticker and r.get("breach_date") == breach_date:
+                    r["timeseries_saved"] = "Yes"
+                    updated = True
+
+            if not updated:
+                return False
+
+            with open(self.watchlist_file, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(rows)
+            return True
+        except Exception as e:
+            print(f"Error marking timeseries saved: {e}")
+            return False
+
+    def add_price_timeseries(self, rows: List[Dict]) -> bool:
+        """
+        Append price timeseries rows to breaches price timeseries file.
+        """
+        try:
+            if not rows:
+                return False
+            # Idempotency: only append if first row set doesn't exist
+            first = rows[0]
+            ticker = first.get("ticker", "")
+            breach_date = first.get("breach_date", "")
+            if not ticker or not breach_date:
+                return False
+            if self._timeseries_exists(ticker, breach_date):
+                return False
+
+            with open(self.timeseries_file, "a", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=[
+                    'ticker', 'breach_date', 'day_offset', 'date', 'close', 'volume'
+                ])
+                for r in rows:
+                    writer.writerow({
+                        'ticker': r.get('ticker', ''),
+                        'breach_date': r.get('breach_date', ''),
+                        'day_offset': r.get('day_offset', ''),
+                        'date': r.get('date', ''),
+                        'close': r.get('close', ''),
+                        'volume': r.get('volume', ''),
+                    })
+            return True
+        except Exception as e:
+            print(f"Error adding price timeseries: {e}")
             return False
 
     def get_breaches(self, ticker: str = None) -> List[Dict]:

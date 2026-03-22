@@ -1,0 +1,23 @@
+{
+  "alert_channels": {
+    "email": {
+      "enabled": false,
+      "smtp_server": "smtp.gmail.com",
+      "smtp_port": 587,
+      "email_from": "catastrophe-alerts@yourdomain.com",
+      "email_to": "your-email@example.com",
+      "require_auth": true,
+      "username": "your-email@gmail.com",
+      "password": "YOUR_APP_PASSWORD"
+    },
+    "sms": {
+      "enabled": false,
+      "provider": "twilio",
+      "account_sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "auth_token": "YOUR_TWILIO_AUTH_TOKEN",
+      "from_number": "+1234567890",
+      "to_number": "+1234567890"
+    }
+  }
+}
+

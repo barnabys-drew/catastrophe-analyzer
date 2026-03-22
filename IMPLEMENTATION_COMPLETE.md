@@ -1,4 +1,4 @@
-# Breach Analyzer - Implementation Complete ✓
+# Catastrophe Analyzer - Implementation Complete ✓
 
 ## Project Status: FULLY FUNCTIONAL
 
@@ -200,7 +200,7 @@ All core modules have been implemented, tested, and integrated. The tool is read
 
 ### Installation
 ```bash
-cd /home/drew/code/breach-analyzer
+cd catastrophe-analyzer
 pip install -r requirements.txt
 ```
 
@@ -212,7 +212,7 @@ python3 main.py
 
 ### First Run Menu
 ```
-BREACH ANALYZER - Main Menu
+CATASTROPHE ANALYZER - Main Menu
 1. Scan for breaches (update news sources)
 2. Analyze recent breaches (extract entities & stock data)
 3. Generate buy signals
@@ -226,7 +226,7 @@ BREACH ANALYZER - Main Menu
 ## File Structure
 
 ```
-breach-analyzer/
+catastrophe-analyzer/
 ├── src/
 │   ├── __init__.py                 # Package initialization
 │   ├── main.py                     # CLI orchestrator (420 lines)
@@ -251,7 +251,7 @@ breach-analyzer/
 ## Integration Points
 
 ### With Portfolio Analyzer
-- Can consume buy signals from breach analyzer
+- Can consume buy signals from catastrophe analyzer
 - Checks if opportunities fit sector allocation
 - Helps coordinate sector rebalancing with event-driven signals
 
@@ -403,7 +403,7 @@ From README documentation:
 
 ## Version Information
 
-- **Tool Name**: Breach Analyzer
+- **Tool Name**: Catastrophe Analyzer
 - **Version**: 1.0.0
 - **Status**: COMPLETE & READY FOR USE
 - **Python**: 3.8+

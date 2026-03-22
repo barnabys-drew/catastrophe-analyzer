@@ -1,4 +1,4 @@
-# 🎉 PROJECT COMPLETE - Breach Analyzer Implementation
+# 🎉 PROJECT COMPLETE - Catastrophe Analyzer Implementation
 
 ## Executive Summary
 
@@ -17,7 +17,7 @@ You asked for a new tool to analyze cyber security breaches and identify stock t
 
 ## Project Deliverables
 
-### Core Application (/home/drew/code/breach-analyzer/)
+### Core Application (catastrophe-analyzer/)
 
 ```
 300 KB total project size
@@ -116,7 +116,7 @@ You asked for a new tool to analyze cyber security breaches and identify stock t
 
 ### Installation
 ```bash
-cd /home/drew/code/breach-analyzer
+cd catastrophe-analyzer
 pip install -r requirements.txt
 ```
 
@@ -128,7 +128,7 @@ python3 main.py
 
 ### First Use
 ```
-BREACH ANALYZER - Main Menu
+CATASTROPHE ANALYZER - Main Menu
 1. Scan for breaches
 2. Analyze recent breaches
 3. Generate buy signals
@@ -169,7 +169,7 @@ Enter choice: 1
 ### How They Work Together
 
 **Portfolio Analyzer** identifies sectors that are underweight
-**Breach Analyzer** finds breached companies in those sectors
+**Catastrophe Analyzer** finds breached companies in those sectors
 **Concentration Manager** executes the buy with proper position sizing
 **Result**: Coordinated decision across all three tools
 
@@ -271,7 +271,7 @@ Enter choice: 1
 ## File Structure Reference
 
 ```
-/home/drew/code/breach-analyzer/
+catastrophe-analyzer/
 ├── src/                              # Python modules
 │   ├── __init__.py                   # Package init (21 lines)
 │   ├── main.py                       # CLI app (352 lines)
@@ -348,7 +348,7 @@ Enter choice: 1
 ## Support & Troubleshooting
 
 ### Installation Issues
-- **Import Error**: Run `pip install -r requirements.txt` in breach-analyzer directory
+- **Import Error**: Run `pip install -r requirements.txt` in catastrophe-analyzer directory
 - **No Articles Found**: Check internet connection, verify RSS feeds are accessible
 - **Mock vs Real Data**: Change `use_mock=False` in main.py to use real yfinance data
 
@@ -404,7 +404,7 @@ Enter choice: 1
 
 ## Version Information
 
-- **Tool Name**: Breach Analyzer
+- **Tool Name**: Catastrophe Analyzer
 - **Version**: 1.0.0
 - **Status**: ✓ COMPLETE & PRODUCTION-READY
 - **Created**: January 2024
@@ -437,9 +437,9 @@ This tool is:
 
 ## 🚀 Ready to Launch!
 
-**Your breach-analyzer tool is complete and ready to use.**
+**Your catastrophe-analyzer tool is complete and ready to use.**
 
-**Next action**: Run `python3 src/main.py` in `/home/drew/code/breach-analyzer/src/`
+**Next action**: Run `python3 src/main.py` in `catastrophe-analyzer/src/`
 
 **Questions?** See documentation files (README.md, QUICKSTART.md, ARCHITECTURE.md)
 

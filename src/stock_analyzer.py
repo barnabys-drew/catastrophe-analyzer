@@ -295,6 +295,79 @@ class StockAnalyzer:
             'analysis_date': datetime.now().isoformat()
         }
 
+    def get_breach_price_series(
+        self,
+        ticker: str,
+        breach_date: str,
+        pre_days: int = 30,
+        post_days: int = 30,
+    ) -> List[Dict]:
+        """
+        Return before/after daily price series around breach_date.
+
+        Day offsets are based on trading-day index positions from the fetched history.
+        - day_offset < 0: before breach
+        - day_offset == 0: first date >= breach_date (approx)
+        - day_offset > 0: after breach
+        """
+        # Fetch enough trading days to cover pre+post
+        history_days = max(90, pre_days + post_days + 10)
+        history = self.get_price_history(ticker, days=history_days)
+        if not history:
+            return []
+
+        prices = history["prices"]
+        dates = history["dates"]
+        volumes = history["volumes"]
+
+        breach_idx = None
+        try:
+            breach_datetime = datetime.strptime(breach_date, "%Y-%m-%d")
+            for i, date_str in enumerate(dates):
+                date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+                if date_obj >= breach_datetime:
+                    breach_idx = i
+                    break
+        except ValueError:
+            breach_idx = len(prices) // 3
+
+        if breach_idx is None:
+            breach_idx = len(prices) // 3
+
+        pre_start = max(0, breach_idx - pre_days)
+        pre_end = breach_idx  # exclusive
+        post_start = breach_idx
+        post_end = min(len(prices), breach_idx + post_days)
+
+        rows: List[Dict] = []
+
+        # Pre-breach: offsets are negative
+        pre_len = pre_end - pre_start
+        for j in range(pre_len):
+            idx = pre_start + j
+            day_offset = j - pre_len  # e.g. -pre_len..-1
+            rows.append({
+                "ticker": ticker,
+                "breach_date": breach_date,
+                "day_offset": day_offset,
+                "date": dates[idx],
+                "close": float(prices[idx]),
+                "volume": float(volumes[idx]) if idx < len(volumes) else "",
+            })
+
+        # Post-breach: offsets are >= 0
+        for idx in range(post_start, post_end):
+            rows.append({
+                "ticker": ticker,
+                "breach_date": breach_date,
+                "day_offset": idx - breach_idx,
+                "date": dates[idx],
+                "close": float(prices[idx]),
+                "volume": float(volumes[idx]) if idx < len(volumes) else "",
+            })
+
+        return rows
+
     def batch_analyze(self, companies: List[Dict], breach_date: str = None) -> List[Dict]:
         """
         Analyze multiple companies
@@ -311,7 +384,10 @@ class StockAnalyzer:
         for company in companies:
             ticker = company.get('ticker') or company.get('company')
             if ticker:
-                analysis = self.analyze_breach_impact(ticker, breach_date or '2024-01-01')
+                # Allow per-company breach_date override (useful for automated pipelines)
+                per_company_breach_date = company.get('breach_date') if isinstance(company, dict) else None
+                effective_breach_date = per_company_breach_date or breach_date or '2024-01-01'
+                analysis = self.analyze_breach_impact(ticker, effective_breach_date)
                 results.append(analysis)
 
         return results

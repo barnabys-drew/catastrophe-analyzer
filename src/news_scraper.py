@@ -34,15 +34,26 @@ class NewsScraper:
             'data breach',
             'security breach',
             'hacked',
+            'hack',
+            'hackers',
+            'hacktivist',
             'cyberattack',
             'ransomware',
             'exploit',
             'vulnerability',
             'compromised',
             'attacked',
+            'attack',
             'security incident',
             'data exposure',
-            'credentials leaked'
+            'credentials leaked',
+            # Wiper-style incidents (e.g. "wiper attack", "wipe", "wiped")
+            'wiper',
+            'wipe',
+            'wiped',
+            'wiping',
+            'data wipe',
+            'data-wipe',
         ]
 
     def _get_default_config(self) -> Dict:

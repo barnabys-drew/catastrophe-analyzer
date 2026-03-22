@@ -16,13 +16,14 @@ catastrophe-analyzer/
 ├── src/                    # Main application code (6 modules + package init)
 ├── data/                   # CSV files created at runtime
 ├── config/                 # Configuration files
-├── docs/                   # Reference docs (event taxonomy, impact notes)
+├── docs/                   # Reference docs (taxonomy, implementation plan)
+├── AGENTS.md              # Handoff for AI/human contributors (read first in new sessions)
 ├── README.md              # Main documentation
 ├── QUICKSTART.md          # Quick start guide
 ├── ARCHITECTURE.md        # Technical architecture
 ├── IMPLEMENTATION_COMPLETE.md  # Completion report
 ├── requirements.txt       # Python dependencies
-└── (no .gitignore initially, add as needed)
+└── .gitignore             # venv, __pycache__, data/* (keep data/.gitkeep)
 ```
 
 ## Python Modules (src/)
@@ -219,6 +220,10 @@ pip install -r requirements.txt
   - Security considerations
   - Future enhancements
 
+### `AGENTS.md`
+- **Purpose**: **Start here in a new chat** — links to README, taxonomy, implementation plan, architecture; naming rules (`event_category`); run commands; git hygiene.
+- **Audience**: AI agents and human contributors continuing multi-category work.
+
 ### `docs/EVENT_CATEGORIES_AND_IMPACT.md`
 - **Purpose**: Canonical `event_category` ids for multi-category shock monitoring and a **full qualitative table** of news impact likelihood (High / Medium–high / …) for firm-specific headlines.
 - **Contents**:
@@ -226,6 +231,10 @@ pip install -r requirements.txt
   - Complete impact likelihood table (all shock shapes discussed for the analyzer)
   - Canonical category list: roadmap categories (`cybersecurity`, `leadership_scandal`, `supply_chain_disruption`) plus **High**-tier categories (`clinical_regulatory_binary`, `product_safety_recall`, `fraud_accounting_enforcement`, `financial_distress`, `dilutive_financing`, `ma_corporate_action`, `positive_earnings_catalyst`)
   - Optional merge notes for fewer top-level ids
+
+### `docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md`
+- **Purpose**: **Actionable build spec** for Phase 1 (neutral CSV/schema, config-driven categories, scraper tags) and later phases; includes **checklist**, migration table, mermaid diagram, and pointers to every module to change.
+- **Use**: Primary reference when implementing or reviewing the multi-category refactor.
 
 ### `IMPLEMENTATION_COMPLETE.md` (300+ lines)
 - **Sections**:

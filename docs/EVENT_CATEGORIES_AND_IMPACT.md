@@ -86,6 +86,7 @@ Each row below maps to the **High** tier in the table (or the “good shock” r
 
 ## Related project files
 
-- Implementation plan (multi-category pipeline, Phase 1 cyber): see the Cursor plan *Catastrophe categories Phase 1*.
-- [README.md](../README.md) — broader shock-event direction and example category table.
+- [IMPLEMENTATION_PLAN_MULTI_CATEGORY.md](IMPLEMENTATION_PLAN_MULTI_CATEGORY.md) — Phase 1 checklist, CSV migration, modules to change.
+- [../AGENTS.md](../AGENTS.md) — handoff for new sessions (read order, conventions, run commands).
+- [README.md](../README.md) — product direction and scripts vs agents.
 - [ARCHITECTURE.md](../ARCHITECTURE.md) — system modules and data flow.

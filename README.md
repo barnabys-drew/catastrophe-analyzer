@@ -10,6 +10,8 @@ An automated Python pipeline that **runs continuously in the background**: inges
 
 The tool is a **catastrophe / shock analyzer** for **listed equities**: classify or route stories by **category**, attach **tickers**, measure **post-headline** behavior (drawdown, RSI, volume), and persist history for review and backtests. Categories and impact expectations are documented in [docs/EVENT_CATEGORIES_AND_IMPACT.md](docs/EVENT_CATEGORIES_AND_IMPACT.md).
 
+**Continuing implementation (new chat / another model):** read [AGENTS.md](AGENTS.md) first, then [docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md](docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md) for the Phase 1 checklist and CSV migration spec.
+
 ### Scripts vs live research agents (design stance)
 
 | Approach | Role | Strengths | Tradeoffs |

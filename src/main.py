@@ -528,11 +528,11 @@ class CatastropheAnalyzerApp:
             self.current_entities = self.entity_extractor.batch_extract(self.current_articles)
         self.entity_extractor.display_extraction_results(self.current_entities)
 
-        # Get publicly traded companies
+        # Articles with at least one US-listed ticker (per entity_extraction rules)
         publicly_traded = [e for e in self.current_entities if e.get('has_publicly_traded')]
 
         if publicly_traded:
-            print(f"\n✓ Found {len(publicly_traded)} articles with publicly traded companies")
+            print(f"\n✓ Found {len(publicly_traded)} articles with US-listed tickers")
 
             # Get unique companies
             unique_companies = set()
@@ -566,7 +566,7 @@ class CatastropheAnalyzerApp:
                 if response == 'y':
                     self.generate_signals()
         else:
-            print("\n✗ No publicly traded companies found in these articles")
+            print("\n✗ No US-listed tickers found in these articles (see scan preview for other mentions)")
 
     def generate_signals(self) -> None:
         """Generate trading signals from analysis"""

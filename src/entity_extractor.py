@@ -24,6 +24,33 @@ class EntityExtractor:
     YAHOO_SEARCH_URL = "https://query2.finance.yahoo.com/v1/finance/search"
     USER_AGENT = "Mozilla/5.0 (compatible; CatastropheAnalyzer/1.0)"
 
+    # Yahoo / search "exchange" values that indicate US listing (major venues).
+    _US_EXCHANGES = frozenset({
+        "NMS", "NAS", "NGM", "NCM", "NYQ", "NYM", "PCX", "ASE", "BTS", "CBOE",
+        "NASDAQ", "NYSE", "NYSEARCA", "AMEX", "NYSE MKT", "OTC", "PNK", "BATS",
+    })
+
+    # Never treat as a company for ticker lookup (countries, generic headline words).
+    _ENTITY_BLOCKLIST = frozenset({
+        "iran", "iraq", "china", "russia", "india", "israel", "ukraine", "brazil",
+        "korea", "japan", "france", "germany", "canada", "mexico", "europe", "nato",
+        "things", "internet", "department", "huge", "manager", "services", "actions",
+        "geopolitical", "identity", "emergency", "medtech", "magento", "federal", "feds",
+        "botnets", "android", "signal", "github", "azure",
+        "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+        "winter", "summer", "spring", "fall", "government", "security", "national",
+        "american", "european", "asian", "global", "public", "private", "critical",
+        "firm", "maker", "device", "medical", "attack", "attacks", "phishing",
+    })
+
+    _BLOCKLIST_PHRASES = frozenset({
+        "medtech firm", "medical device", "device maker", "identity manager",
+        "git hub", "e stores",
+    })
+
+    # Minimum length for fuzzy substring match against seed map (avoids "ge" in "geopolitical" -> GE).
+    _MIN_PARTIAL_NAME_LEN = 5
+
     def __init__(self, config_path: Optional[str] = None):
         """Initialize with common company patterns and optional config."""
         if config_path is None:
@@ -45,6 +72,7 @@ class EntityExtractor:
 
         # Config: dynamic lookup and cache (defaults)
         self._config = self._load_config(config_path)
+        self._us_listed_only = self._config.get("us_listed_equities_only", True)
         self._use_dynamic_lookup = self._config.get("use_dynamic_lookup", True)
         self._cache_lookups = self._config.get("cache_lookups", True)
         self._cache_file = self._config.get("cache_file")  # optional path
@@ -141,6 +169,8 @@ class EntityExtractor:
             'lockheed martin': 'LMT',
             'ge': 'GE',
             'general electric': 'GE',
+            'stryker': 'SYK',
+            'stryker corporation': 'SYK',
         }
 
         # In-memory lookup cache (dynamic lookups added here when cache_lookups is True)
@@ -156,6 +186,7 @@ class EntityExtractor:
             "use_dynamic_lookup": True,
             "cache_lookups": True,
             "cache_file": None,
+            "us_listed_equities_only": True,
         }
         if not config_path:
             return defaults
@@ -176,6 +207,8 @@ class EntityExtractor:
                 data = json.load(f)
             for k, v in data.items():
                 if v and v != "UNKNOWN":
+                    if self._us_listed_only and not self._is_us_primary_symbol(str(v)):
+                        continue
                     key = k.lower()
                     self._lookup_cache[key] = v
                     self.company_to_ticker[key] = v
@@ -193,10 +226,42 @@ class EntityExtractor:
         except OSError:
             pass
 
+    @staticmethod
+    def _is_us_primary_symbol(symbol: str) -> bool:
+        """Reject foreign listings (e.g. RANI3.SA); allow optional class suffix BRK.A."""
+        if not symbol:
+            return False
+        s = symbol.upper().strip()
+        if re.search(
+            r"\.(SA|L|DE|F|VI|HK|KS|T|AX|TO|PA|MI|AS|SW|ST|BR|MX|NS|BO)$",
+            s,
+        ):
+            return False
+        if "." in s:
+            return bool(re.match(r"^[A-Z]{1,5}\.[A-Z]$", s))
+        return bool(re.match(r"^[A-Z]{1,5}$", s))
+
+    def _yahoo_quote_is_us_equity(self, quote: Dict) -> bool:
+        if (quote.get("quoteType") or "").upper() != "EQUITY":
+            return False
+        sym = (quote.get("symbol") or "").strip().upper()
+        if not self._is_us_primary_symbol(sym):
+            return False
+        if not self._us_listed_only:
+            return True
+        ex = (quote.get("exchange") or "").strip().upper()
+        if not ex:
+            return True
+        if ex in self._US_EXCHANGES:
+            return True
+        if "NASDAQ" in ex or "NYSE" in ex or "AMEX" in ex or "BATS" in ex:
+            return True
+        return False
+
     def _dynamic_lookup_company(self, company_name: str) -> Optional[str]:
         """
         Resolve company name to ticker via Yahoo Finance search API.
-        Returns first US equity symbol. If no US equity is found, returns None.
+        When us_listed_equities_only: first match that is US-listed equity only.
         """
         if not requests:
             return None
@@ -206,7 +271,7 @@ class EntityExtractor:
         try:
             resp = requests.get(
                 self.YAHOO_SEARCH_URL,
-                params={"q": name, "quotes_count": 10},
+                params={"q": name, "quotes_count": 12},
                 headers={"User-Agent": self.USER_AGENT},
                 timeout=10,
             )
@@ -215,20 +280,13 @@ class EntityExtractor:
         except (requests.RequestException, ValueError, KeyError):
             return None
         quotes = data.get("quotes", [])
-        # Prefer US equity (symbol without exchange suffix like .VI, .L, .F)
-        us_equity = None
-        any_equity = None
         for q in quotes:
-            if (q.get("quoteType") or "").upper() != "EQUITY":
+            if not self._yahoo_quote_is_us_equity(q):
                 continue
             sym = (q.get("symbol") or "").strip()
-            if not sym:
-                continue
-            any_equity = sym
-            if "." not in sym:
-                us_equity = sym
-                break
-        return us_equity if us_equity else None
+            if sym:
+                return sym.upper()
+        return None
 
     def extract_company_mentions(self, text: str, event_category: Optional[str] = None) -> List[str]:
         """
@@ -264,7 +322,10 @@ class EntityExtractor:
             "the and said have this that with from when company medical device maker firm "
             "medical medtech device maker monday tuesday wednesday thursday friday saturday "
             "sunday security week breach city state country region european internet union claim "
-            "center management"
+            "center management iran iraq china russia india israel brazil canada japan france "
+            "germany korea ukraine nato federal feds department identity emergency geopolitical "
+            "magento actions manager services things internet huge botnets phishing android "
+            "signal github azure monitor magento identity things department"
         ).split()
         text_lower = text.lower()
         for m in re.finditer(r"\b([A-Z][a-z]{3,})\b", text):
@@ -288,23 +349,46 @@ class EntityExtractor:
         normalized_name = company_name.lower().strip()
         if not normalized_name:
             return None
+        if normalized_name in self._ENTITY_BLOCKLIST:
+            return None
+        if normalized_name in self._BLOCKLIST_PHRASES:
+            return None
 
         # Fast path: direct match
         if normalized_name in self.company_to_ticker:
             ticker = self.company_to_ticker[normalized_name]
-            return ticker if ticker != "UNKNOWN" else None
+            if ticker == "UNKNOWN":
+                return None
+            if self._us_listed_only and not self._is_us_primary_symbol(ticker):
+                return None
+            return ticker
 
-        # Partial match (company name variations)
+        # Partial match (longer seed keys, word-boundary style — avoids "united" in "unitedhealth")
+        padded = f" {normalized_name} "
         for known_name, ticker in self.company_to_ticker.items():
-            if known_name in normalized_name or normalized_name in known_name:
-                if ticker != "UNKNOWN":
-                    return ticker
-                break
+            if len(known_name) < self._MIN_PARTIAL_NAME_LEN:
+                continue
+            in_padded = f" {known_name} " in padded
+            at_start = normalized_name.startswith(known_name + " ")
+            at_end = normalized_name.endswith(" " + known_name)
+            # Longer canonical name contains query as a distinct word (e.g. query "apple" vs key "apple inc")
+            longer = len(known_name) > len(normalized_name) and (
+                known_name.startswith(normalized_name + " ")
+                or known_name.endswith(" " + normalized_name)
+                or f" {normalized_name} " in f" {known_name} "
+            )
+            if not (in_padded or at_start or at_end or longer):
+                continue
+            if ticker == "UNKNOWN":
+                continue
+            if self._us_listed_only and not self._is_us_primary_symbol(ticker):
+                continue
+            return ticker
 
         # Dynamic lookup: full public company set via Yahoo Finance
         if self._use_dynamic_lookup and requests:
             ticker = self._dynamic_lookup_company(company_name)
-            if ticker:
+            if ticker and (not self._us_listed_only or self._is_us_primary_symbol(ticker)):
                 if self._cache_lookups:
                     self.company_to_ticker[normalized_name] = ticker
                     self._lookup_cache[normalized_name] = ticker
@@ -439,8 +523,8 @@ class EntityExtractor:
         print("-" * 80)
         n_pub = sum(1 for a in articles if a.get("has_publicly_traded"))
         print(
-            f"Summary: {len(articles)} articles — {n_pub} with at least one listed ticker, "
-            f"{len(articles) - n_pub} with no listed ticker from extraction.\n"
+            f"Summary: {len(articles)} articles — {n_pub} with at least one US-listed ticker, "
+            f"{len(articles) - n_pub} with none from extraction.\n"
         )
         for i, article in enumerate(articles[:max_articles], 1):
             print(f"{i}. {article.get('title', 'No title')}")
@@ -448,9 +532,9 @@ class EntityExtractor:
             mapped = article.get("mapped_entities") or []
             if mapped:
                 pub = ", ".join(f"{m.get('company')} ({m.get('ticker')})" for m in mapped)
-                print(f"   Public / listed: {pub}")
+                print(f"   US-listed (NYSE/Nasdaq-style): {pub}")
             else:
-                print("   Public / listed: (none from this headline)")
+                print("   US-listed (NYSE/Nasdaq-style): (none from this headline)")
             other = self.unlisted_mentions(article)
             if other:
                 print(f"   Other mentions (no listed ticker in our map): {', '.join(other)}")
@@ -471,7 +555,7 @@ class EntityExtractor:
         print("="*80)
 
         publicly_traded_count = sum(1 for a in articles if a.get('has_publicly_traded'))
-        print(f"Articles with publicly traded companies: {publicly_traded_count}/{len(articles)}\n")
+        print(f"Articles with US-listed tickers: {publicly_traded_count}/{len(articles)}\n")
 
         # Show most mentioned companies
         most_mentioned = self.get_most_mentioned_companies(articles)
@@ -481,7 +565,7 @@ class EntityExtractor:
             for i, (company, ticker, count) in enumerate(most_mentioned, 1):
                 print(f"{i}. {company} ({ticker}): {count} mentions")
         else:
-            print("No publicly traded companies found in articles")
+            print("No US-listed tickers found in articles")
 
         # Show articles with entities
         print("\n" + "="*80)

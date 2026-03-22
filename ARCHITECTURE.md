@@ -1,22 +1,24 @@
-# Breach Analyzer - Architecture Document
+# Catastrophe Analyzer - Architecture Document
 
 ## System Overview
 
-Breach Analyzer is an event-driven trading signal generator that:
-1. Monitors cyber security news in real-time
-2. Extracts publicly traded companies from breach articles
-3. Analyzes stock price movements around breach events
-4. Generates buy signals when specific conditions are met
-5. Persists all data for historical analysis and backtesting
+Catastrophe Analyzer is an **event-driven** pipeline for **firm-specific shock headlines** and **listed equities**:
+1. Monitors configured **RSS** sources on a schedule (today: **cybersecurity**-biased feeds and keywords)
+2. Extracts **company → ticker** candidates from matching articles (**roadmap:** per-`event_category` extraction)
+3. Analyzes **price, RSI, volume** around the **event date**
+4. Applies **rule-based signals** (e.g. dip + volume heuristics)
+5. Persists rows for **history, alerts, and backtests**
+
+Canonical **event categories** and qualitative **news→price impact** notes: [docs/EVENT_CATEGORIES_AND_IMPACT.md](docs/EVENT_CATEGORIES_AND_IMPACT.md). Optional **LLM / agent** layers are a product direction (summarization, disambiguation, gap-filling)—not required for the core loop; see README *Scripts vs live research agents*.
 
 ```
 ┌─────────────────┐
-│  News Sources   │  (RSS Feeds from BleepingComputer, KrebsOnSecurity, etc)
+│  News Sources   │  (RSS; e.g. BleepingComputer, KrebsOnSecurity — expand per category)
 └────────┬────────┘
          │
          ▼
     ┌─────────────────────┐
-    │  News Scraper       │  (Extract breach articles)
+    │  News Scraper       │  (Keyword-filtered shock articles)
     │  (news_scraper.py)  │
     └────────┬────────────┘
              │
@@ -46,7 +48,7 @@ Breach Analyzer is an event-driven trading signal generator that:
              │
              ▼
     ┌──────────────────────────┐
-    │  CSV Data Files          │  (breaches, analysis, signals)
+    │  CSV Data Files          │  (events/breaches, analysis, signals)
     └──────────────────────────┘
 ```
 
@@ -331,7 +333,7 @@ signal_date, ticker, signal_type, confidence_level, confidence_score, entry_pric
 **Purpose**: Orchestrate all modules through interactive menu
 
 **Key Classes**:
-- `BreachAnalyzerApp`: Main application controller
+- `CatastropheAnalyzerApp`: Main application controller
 
 **Menu Options**:
 1. Scan for breaches (scrape all news sources)
@@ -360,7 +362,7 @@ Scan News → Extract Entities → Analyze Stocks → Generate Signals → Save 
 
 **File Structure**:
 ```
-breach-analyzer/
+catastrophe-analyzer/
 ├── data/
 │   ├── breaches.csv           # Breach events
 │   ├── analysis_results.csv   # Stock analyses  
@@ -405,7 +407,7 @@ Save to CSV files (breaches.csv, analysis.csv, signals.csv)
 ### With Portfolio Analyzer
 
 **Data Exchange**:
-- Breach Analyzer generates BUY_OPPORTUNITY signals for specific tickers
+- Catastrophe Analyzer generates BUY_OPPORTUNITY signals for specific tickers
 - Portfolio Analyzer reads signals and checks sector allocation
 - If breach is in underweight sector, can recommend purchase
 
@@ -413,7 +415,7 @@ Save to CSV files (breaches.csv, analysis.csv, signals.csv)
 ```
 Tech sector: 15% (target 20%)
 Breach in MSFT (tech company)
-Breach Analyzer: MSFT BUY signal
+Catastrophe Analyzer: MSFT BUY signal
 Portfolio Analyzer: Confirms buying fits target allocation
 Decision: BUY MSFT
 ```
@@ -421,7 +423,7 @@ Decision: BUY MSFT
 ### With Concentration Manager
 
 **Data Exchange**:
-- Breach Analyzer generates signals with confidence scores and risk/reward
+- Catastrophe Analyzer generates signals with confidence scores and risk/reward
 - Concentration Manager's Opportunity Module can use these as decision input
 - Can compare breach signals with other buying opportunities
 
@@ -429,7 +431,7 @@ Decision: BUY MSFT
 ```
 Concentration Manager checking buying opportunities:
   1. Market dip detected (portfolio analyzer)
-  2. Breach signal: CSCO oversold (breach analyzer)
+  2. Shock/breach signal: CSCO oversold (catastrophe analyzer)
   3. Governor approves buying (position < target)
   Decision: Both signals agree, strong buy recommendation
 ```
@@ -466,8 +468,7 @@ Concentration Manager checking buying opportunities:
 ```
 
 **Environment Variables** (optional):
-- `BREACH_ANALYZER_DATA_DIR`: Override data directory
-- `BREACH_ANALYZER_CONFIG`: Override config file location
+- `CATASTROPHE_ANALYZER_USE_MOCK_DATA`: set to `1`, `true`, or `yes` to force mock stock data (see `main.py`). `BREACH_ANALYZER_USE_MOCK_DATA` is still read as a legacy alias.
 
 ---
 

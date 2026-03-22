@@ -1,9 +1,11 @@
-# Breach Analyzer - Quick Start Guide
+# Catastrophe Analyzer - Quick Start Guide
+
+This project targets **firm-specific shock news** (breaches, scandals, supply hits, regulatory shocks, etc.) and **stock reaction** metrics. **Today**, the default feeds and keywords skew **cybersecurity**; the **long-term goal** is the same pipeline for **multiple event categories** ([docs/EVENT_CATEGORIES_AND_IMPACT.md](docs/EVENT_CATEGORIES_AND_IMPACT.md)). The CLI may still say “breach” in places.
 
 ## Installation
 
 ```bash
-cd /home/drew/code/breach-analyzer
+cd catastrophe-analyzer
 pip install -r requirements.txt
 ```
 
@@ -48,7 +50,7 @@ python3 main.py
 ## Complete End-to-End Example
 
 ```
-BREACH ANALYZER - Main Menu
+CATASTROPHE ANALYZER - Main Menu
 1. Scan for breaches (update news sources)
 2. Analyze recent breaches (extract entities & stock data)
 3. Generate buy signals
@@ -147,7 +149,7 @@ Based on historical backtest data:
 Example:
 ```
 Portfolio Analyzer: Tech sector is 15% (target: 20%)
-Breach Analyzer: Detects MSFT breach, oversold signal
+Catastrophe Analyzer: Detects MSFT breach, oversold signal
 Concentration Manager: Flags MSFT as buying opportunity
 Decision: Buy MSFT to both increase tech exposure and take advantage of dip
 ```

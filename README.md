@@ -1,16 +1,27 @@
-# Breach Analyzer - Cybersecurity Incident Stock Market Tool
+# Catastrophe Analyzer — shock events and equity opportunities
 
-**Identify cyber security breaches in the news and analyze stock price movements for buying opportunities**
+**Monitor major firm-specific shocks in the news, link them to tickers, and study price action for potential dip-buy setups.**
 
-An automated Python tool that **runs continuously in the background**, monitoring major cybersecurity breach announcements, extracting affected company information, analyzing stock price reactions, and identifying potential "buy the dip" opportunities. **Alerts you via text message and email when new breaches are detected and buying opportunities arise.**
+An automated Python pipeline that **runs continuously in the background**: ingest headlines from configured sources, extract affected **public companies**, pull price and technical context around the event date, and surface **buy-style signals** when rules fire. Optional **email and SMS** alerts notify you when new events or signals appear.
+
+**Current implementation focus:** **cybersecurity incidents** (breaches, ransomware, major IT/security stories) are wired end-to-end first. The **product goal** is the same pipeline for additional **event categories** (leadership scandals, supply disruptions, regulatory shocks, M&A stress, and others—see [docs/EVENT_CATEGORIES_AND_IMPACT.md](docs/EVENT_CATEGORIES_AND_IMPACT.md)). Until each category is enabled, some menus, CSV columns, and code names may still say “breach.”
 
 ## Project direction
 
-The implementation today centers on **cybersecurity breaches**, but the intended direction is a broader **catastrophe (or shock) analyzer**: watch major real-world events in the news, tie them to tickers and sectors, and study how prices move after the headline. Until those areas are built out, docs and code may still say “breach” while the scope widens.
+The tool is a **catastrophe / shock analyzer** for **listed equities**: classify or route stories by **category**, attach **tickers**, measure **post-headline** behavior (drawdown, RSI, volume), and persist history for review and backtests. Categories and impact expectations are documented in [docs/EVENT_CATEGORIES_AND_IMPACT.md](docs/EVENT_CATEGORIES_AND_IMPACT.md).
 
-### Event categories (examples for a future build)
+### Scripts vs live research agents (design stance)
 
-When we generalize the pipeline, each story should land in a **category** (and possibly sub-tags) so monitoring sources, extraction prompts, and severity rules stay consistent. Below are **buckets with concrete headline shapes**—not a final taxonomy, but context for implementation.
+| Approach | Role | Strengths | Tradeoffs |
+|----------|------|-----------|-----------|
+| **Deterministic pipeline** (this repo today) | Scheduled RSS fetch → keyword/category filters → entity → prices → rules | Cheap, fast, repeatable, easy to audit and version in git | Misses paywalled or non-RSS stories; keywords need maintenance; little “reasoning” about second-order names |
+| **Live research agents** | LLM or agent loop searches, reads pages, summarizes, proposes tickers and thesis | Can chase breaking stories, disambiguate companies, synthesize context | Higher cost and latency; needs guardrails (hallucination, compliance); harder to reproduce identical runs |
+
+**Practical ideal:** keep the **scripted core** as the **system of record** (what was seen, when, which ticker, which signal). Add **agents as optional enrichers**—e.g. post-ingestion summarization, “confirm this maps to ticker X,” or filling gaps when RSS is thin—not as the only path to a trade signal. That preserves **auditability** while gaining **coverage** where agents excel.
+
+### Event categories (roadmap + taxonomy)
+
+Each story should eventually land in an **`event_category`** (and **`event_subtype`**) so sources, keywords, extraction, and alerts stay consistent. High-level examples (canonical ids and a full impact table are in [docs/EVENT_CATEGORIES_AND_IMPACT.md](docs/EVENT_CATEGORIES_AND_IMPACT.md)):
 
 | Category | What it covers | Example headline / situation |
 |----------|----------------|------------------------------|
@@ -21,102 +32,61 @@ When we generalize the pipeline, each story should land in a **category** (and p
 | **Regulatory, policy & product safety** | Rules, recalls, antitrust | Antitrust suit or breakup talk; FDA recall or clinical hold; FAA grounding |
 | **Natural disasters & climate shocks** | Weather, fires, floods on real assets | Hurricane hits concentrated manufacturing or logistics; wildfire threatens facilities |
 
-**Cross-cutting notes for later design:** one article can touch **multiple tickers** (e.g. supplier + customer), **multiple categories** (legal + supply chain), or **second-order effects** (sector ETFs, regional banks). Buckets above are where we’d attach routing, source lists, and alert templates when we build that layer.
+**Cross-cutting notes:** one article can touch **multiple tickers** (e.g. supplier + customer), **multiple categories** (legal + supply chain), or **second-order effects** (sector ETFs). Routing, source lists, and alert templates attach per category as the build progresses.
 
 ## Purpose
 
-This tool answers a specific, high-value question:
+Core question the tool is built around:
 
-**"When a major company experiences a cybersecurity breach, does its stock price drop to a level that represents a buying opportunity?"**
+**When a major, firm-specific shock hits the news, does the stock dislocate enough (technically and in the window we measure) that our rules flag a potential dip-buy or watchlist entry?**
 
 ### Use Case
-- Monitor news for significant cybersecurity incidents
-- Identify publicly-traded companies affected by breaches
-- Analyze stock price movements following breach announcements
-- Generate buying signals when stocks appear oversold
-- Track recovery patterns and historical performance
-- Make data-driven decisions on breach-related equity opportunities
+- Monitor news for **material shocks** (today: **cybersecurity**; later: additional categories in config)
+- Identify **publicly traded** companies tied to those headlines
+- Analyze **price, RSI, volume** around the event date
+- Generate **signals** when rule thresholds are met
+- Track patterns and history for **judgment and backtests** (not financial advice)
 
 ---
 
 ## Features
 
-### 1. Breach News Monitoring
-- Scrapes major cybersecurity news sources in real-time
-- Sources:
-  - BleepingComputer (industry standard for breach reporting)
-  - KrebsOnSecurity (investigative reporting)
-  - Dark Reading (enterprise security news)
-  - TechCrunch (technology breaches)
-  - General news APIs (broader coverage)
+### 1. Shock-oriented news monitoring
+- Pulls RSS feeds on a schedule; filters by **keywords** (today: **cybersecurity**-oriented lists)
+- Configured sources include, for example:
+  - BleepingComputer, KrebsOnSecurity (and optional Dark Reading, TechCrunch security, etc.)
+- **Roadmap:** per-**category** sources and keyword sets (see [docs/EVENT_CATEGORIES_AND_IMPACT.md](docs/EVENT_CATEGORIES_AND_IMPACT.md))
 
-### 2. Event Extraction & Structuring
-- Identifies company names from breach articles
-- Extracts key details:
-  - Breach date (announcement or discovery date)
-  - Company name and ticker (if publicly traded)
-  - Type of breach (data, ransomware, outage, etc.)
-  - Severity indicators
-  - Number of records/customers affected
-- Validates companies are publicly traded on major exchanges
-- Handles similar company names and disambiguates
+### 2. Entity extraction and structuring
+- Finds **company names** in article text and maps to **tickers** (cache + dynamic lookup)
+- Extracts context for persistence and alerts: dates, **incident type** (e.g. breach subtype today), severity heuristics
+- **Roadmap:** category-specific extraction (e.g. leadership vs supply chain headlines)
 
-### 3. Stock Price Analysis
-- Fetches historical stock data around breach announcement
-- Analyzes price movements:
-  - Pre-breach baseline (30-day average)
-  - Post-breach drop (% from baseline)
-  - Time to recovery
-  - 52-week context
-- Calculates technical indicators:
-  - RSI (oversold identification)
-  - Moving averages (trend confirmation)
-  - Volume analysis (capitulation indicators)
+### 3. Stock price analysis
+- Loads history around the **event date** (configurable pre/post window)
+- Drawdown vs baseline, recovery timing, RSI, moving averages, volume spike metrics
 
-### 4. Buying Opportunity Detection
-- Two-condition framework:
-  1. **Stock is oversold**: Price dropped X% from 52-week high OR RSI < 30
-  2. **Market context**: Overall market conditions support recovery potential
-- Generates BUY signals when both conditions met
-- Ranks opportunities by:
-  - Depth of dip
-  - Time since announcement
-  - Company fundamentals
-  - Market conditions
+### 4. Signal generation
+- Rule-based **buy-style signals** (e.g. oversold / drop + volume conditions—see `config/settings.json`)
+- Ranking and confidence heuristics for triage
 
-### 5. Historical Analysis & Backtesting
-- Analyzes past breach events for pattern recognition
-- Calculates recovery statistics:
-  - Average time to recovery
-  - Average return from low point
-  - Success rate of buying near breach lows
-- Backtests strategy on historical data
-- Identifies which breach types lead to best buying opportunities
+### 5. History and backtests
+- Persists events, analyses, and signals for **review and experimentation**
+- Backtest-oriented settings where enabled
 
-### 6. Automated Monitoring & Alerting
-- ✅ **Continuous Monitoring**: Runs 24/7, scanning news sources every 5-15 minutes
-- ✅ **Real-Time Breach Alerts**: Immediate notifications when new breaches are detected
-- ✅ **Buy Signal Alerts**: Alerts when buying opportunities are identified
-- ✅ **Email Alerts**: Detailed breach analysis sent to your email
-- ✅ **SMS Alerts**: Critical breach notifications via text message
-- ✅ **Alert Customization**: Configure alert thresholds and priorities
-- ✅ **Daily Summary Reports**: Comprehensive daily digest of all activity
+### 6. Monitoring and alerting
+- **Docker-friendly** monitor loop (`monitor.py`) with optional **email / SMS** (`config/alerts_config.json`)
+- Scans on an interval; alerts on **new signals** (and can be extended per category)
 
-### 7. Reporting & Analysis
-- Daily breach monitoring summary
-- BUY/HOLD signals with reasoning
-- Performance tracking:
-  - How previous breach-based purchases performed
-  - Win rate and average returns
-  - Risk/reward profile
-- Historical comparisons
+### 7. Reporting
+- CLI views of history and stats; export paths for further analysis
 
 ---
 
 ## Project Structure
 
 ```
-breach-analyzer/
+catastrophe-analyzer/
 ├── src/
 │   ├── main.py                     # Main CLI menu & workflow
 │   ├── monitor.py                  # Automated monitoring daemon
@@ -237,7 +207,7 @@ BREACH DETECTED: SolarWinds (December 2020)
 ### 1. Install Dependencies
 
 ```bash
-cd breach-analyzer
+cd catastrophe-analyzer
 pip install -r requirements.txt
 ```
 
@@ -302,7 +272,7 @@ Create/edit `config/alerts_config.json`:
       "enabled": true,
       "smtp_server": "smtp.gmail.com",
       "smtp_port": 587,
-      "email_from": "breach-alerts@yourdomain.com",
+      "email_from": "catastrophe-alerts@yourdomain.com",
       "email_to": "your-email@example.com",
       "require_auth": true,
       "username": "your-email@gmail.com",
@@ -510,7 +480,7 @@ Sent daily at configured time (default: 6 PM):
 
 **Email Alert Example:**
 ```
-Subject: 📊 Daily Breach Analyzer Summary - November 15, 2024
+Subject: 📊 Daily Catastrophe Analyzer Summary - November 15, 2024
 
 DAILY SUMMARY REPORT
 ═══════════════════════════════════════════════════
@@ -601,28 +571,28 @@ View dashboard: http://localhost:8080
 **Linux (systemd):**
 ```bash
 # Create service file
-sudo nano /etc/systemd/system/breach-analyzer.service
+sudo nano /etc/systemd/system/catastrophe-analyzer.service
 
 # Enable and start
-sudo systemctl enable breach-analyzer
-sudo systemctl start breach-analyzer
-sudo systemctl status breach-analyzer
+sudo systemctl enable catastrophe-analyzer
+sudo systemctl start catastrophe-analyzer
+sudo systemctl status catastrophe-analyzer
 ```
 
 **macOS (launchd):**
 ```bash
 # Install plist file
-cp config/com.breachanalyzer.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.breachanalyzer.plist
+cp config/com.catastropheanalyzer.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.catastropheanalyzer.plist
 ```
 
 **Docker:**
 ```bash
 docker run -d \
-  --name breach-analyzer \
+  --name catastrophe-analyzer \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/config:/app/config \
-  breach-analyzer:latest
+  catastrophe-analyzer:latest
 ```
 
 ### Alert Priority Levels
@@ -653,7 +623,7 @@ All configurable in `alerts_config.json`.
 ```bash
 $ python3 main.py
 
-BREACH ANALYZER - Main Menu
+CATASTROPHE ANALYZER - Main Menu
 1. Scan for breaches (update news)
 2. Analyze recent breaches
 3. Generate buy signals
@@ -854,10 +824,10 @@ A strong buying opportunity requires:
 
 ## Integration with Other Tools
 
-### How Breach Analyzer Connects
+### How Catastrophe Analyzer Connects
 
 ```
-BREACH ANALYZER (This Tool)
+CATASTROPHE ANALYZER (This Tool)
   │
   ├─ Detects breach events daily
   ├─ Generates buy signals
@@ -876,7 +846,7 @@ PORTFOLIO ANALYZER (Strategic View)
 ```
 
 **Example Integration**:
-- Breach Analyzer finds CRWD dropped 8.5%
+- Catastrophe Analyzer finds CRWD dropped 8.5%
 - CONCENTRATION MANAGER sees this as market dip
 - PORTFOLIO ANALYZER confirms sector is underweight
 - All three tools agree: This is a strong buy
@@ -979,6 +949,18 @@ Edit `config/settings.json` to customize:
 5. **Adjust** thresholds based on results
 6. **Integrate** with other tools (Portfolio Analyzer, Concentration Manager)
 7. **Monitor** and track outcomes
+
+---
+
+## Repository name
+
+The project and default clone directory name is **`catastrophe-analyzer`**. Spell **catastrophe** *c-a-t-a-s-t-r-o-p-h-e*—it starts with **cata-** (like *catalog*), not **cas-** (“castrophe”). To rename an existing GitHub repository, use **Settings → General → Repository name**, then update your local remote, for example:
+
+```bash
+git remote set-url origin git@github.com:YOUR_USER/catastrophe-analyzer.git
+```
+
+If you use a Python virtual environment under `.venv`, recreate it after moving the folder so paths inside the venv stay correct.
 
 ---
 

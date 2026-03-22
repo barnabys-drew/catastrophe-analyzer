@@ -3,8 +3,8 @@
 ## Project Overview
 
 - **Name**: Catastrophe Analyzer
-- **Purpose**: Cyber security breach detection and stock opportunity analysis
-- **Status**: ✓ COMPLETE AND READY FOR USE
+- **Purpose**: **Shock / catastrophe headline monitor** for **public equities**—ingest news, map companies to tickers, measure post-event price behavior, emit **rule-based signals**. **Cybersecurity** is the first fully wired category; others are defined in [docs/EVENT_CATEGORIES_AND_IMPACT.md](docs/EVENT_CATEGORIES_AND_IMPACT.md).
+- **Status**: Usable for cyber-focused workflows; **multi-category config and neutral “event” schema** are in active design (see README and plan docs)
 - **Location**: `catastrophe-analyzer/`
 - **Python Version**: 3.8+
 - **Total Code**: 2,219 lines of Python

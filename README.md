@@ -4,6 +4,25 @@
 
 An automated Python tool that **runs continuously in the background**, monitoring major cybersecurity breach announcements, extracting affected company information, analyzing stock price reactions, and identifying potential "buy the dip" opportunities. **Alerts you via text message and email when new breaches are detected and buying opportunities arise.**
 
+## Project direction
+
+The implementation today centers on **cybersecurity breaches**, but the intended direction is a broader **catastrophe (or shock) analyzer**: watch major real-world events in the news, tie them to tickers and sectors, and study how prices move after the headline. Until those areas are built out, docs and code may still say “breach” while the scope widens.
+
+### Event categories (examples for a future build)
+
+When we generalize the pipeline, each story should land in a **category** (and possibly sub-tags) so monitoring sources, extraction prompts, and severity rules stay consistent. Below are **buckets with concrete headline shapes**—not a final taxonomy, but context for implementation.
+
+| Category | What it covers | Example headline / situation |
+|----------|----------------|------------------------------|
+| **Cybersecurity & IT** | Breaches, ransomware, outages, zero-days | “Fortune 500 firm discloses data breach affecting millions”; critical vulnerability in widely deployed software |
+| **Geopolitics & conflict** | War, escalation, sanctions, trade war | Outbreak or escalation of conflict; sanctions on a country or sector; Strait or other chokepoint risk |
+| **Supply chain & operations** | Logistics, manufacturing, commodities | Port closure or strike; fire at a key plant; shortage tied to named suppliers; shipping rate spike |
+| **Leadership, legal & governance** | Executives, boards, criminal/civil exposure | CEO ousted amid scandal; **co-founder indicted (e.g. smuggling or export-control charges involving a major customer) and leaves the board**; accounting restatement; DOJ/SEC investigation |
+| **Regulatory, policy & product safety** | Rules, recalls, antitrust | Antitrust suit or breakup talk; FDA recall or clinical hold; FAA grounding |
+| **Natural disasters & climate shocks** | Weather, fires, floods on real assets | Hurricane hits concentrated manufacturing or logistics; wildfire threatens facilities |
+
+**Cross-cutting notes for later design:** one article can touch **multiple tickers** (e.g. supplier + customer), **multiple categories** (legal + supply chain), or **second-order effects** (sector ETFs, regional banks). Buckets above are where we’d attach routing, source lists, and alert templates when we build that layer.
+
 ## Purpose
 
 This tool answers a specific, high-value question:

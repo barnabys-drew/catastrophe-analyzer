@@ -6,8 +6,35 @@ This project targets **firm-specific shock news** (breaches, scandals, supply hi
 
 ```bash
 cd catastrophe-analyzer
-pip install -r requirements.txt
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python3 -m pip install -r requirements.txt
 ```
+
+Use **`python3 -m pip`**, not plain `pip`, right after creating the venv (avoids broken `pip` scripts on some WSL setups).
+
+### If `pip` says “cannot execute: required file not found”
+
+Your `.venv` is likely stale or was built with a different Python. Recreate it:
+
+```bash
+deactivate 2>/dev/null || true
+rm -rf .venv
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install --upgrade pip
+python3 -m pip install -r requirements.txt
+```
+
+### Paste mistakes in the terminal
+
+Only paste **commands** (lines starting with things like `cd`, `python3`, `git`). Do **not** paste:
+
+- Output from `git remote -v` (e.g. a line starting with `origin`)
+- The shell prompt (e.g. `(.venv) drewpweiner@C3PO:...$`)
+- Lines that start with `bash:` — those are **error messages**, not commands
+
+Pasting those will produce `syntax error near unexpected token '('` or `command not found`.
 
 ## First Run
 

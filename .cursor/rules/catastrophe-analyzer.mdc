@@ -9,7 +9,7 @@ Before **substantive** edits under `src/` or `config/`:
 
 1. Read [AGENTS.md](AGENTS.md) (repo root).
 2. Read [docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md](docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md) for the Phase 1 checklist and CSV migration spec.
-3. For **parallel Cursor sessions**, follow [docs/MULTI_AGENT_WORKSTREAMS.md](docs/MULTI_AGENT_WORKSTREAMS.md) (branch per stream, file ownership).
+3. For **multiple chats / one repo**, follow [docs/ONE_REPO_MULTI_CHAT.md](docs/ONE_REPO_MULTI_CHAT.md) and [docs/MULTI_AGENT_WORKSTREAMS.md](docs/MULTI_AGENT_WORKSTREAMS.md).
 4. Start new chats with the template in [docs/SESSION_PREAMBLE.md](docs/SESSION_PREAMBLE.md).
 
 ## Naming

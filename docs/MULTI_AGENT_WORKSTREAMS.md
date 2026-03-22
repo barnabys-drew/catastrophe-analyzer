@@ -67,6 +67,7 @@ Work in **one branch per session**; merge to `main` in the order above when each
 
 ## Coordination
 
+- **One repo, multiple chats:** follow [ONE_REPO_MULTI_CHAT.md](ONE_REPO_MULTI_CHAT.md) so only one stream edits at a time (or stash-split if mixed).
 - Use the **checkboxes** in [IMPLEMENTATION_PLAN_MULTI_CATEGORY.md](IMPLEMENTATION_PLAN_MULTI_CATEGORY.md) to avoid duplicate work.
 - After a stream merges, other sessions: `git checkout <branch> && git merge main` (or rebase).
 - Paste [SESSION_PREAMBLE.md](SESSION_PREAMBLE.md) at the start of each new Cursor chat.

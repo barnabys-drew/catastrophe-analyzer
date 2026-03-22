@@ -244,6 +244,9 @@ pip install -r requirements.txt
 ### `docs/SESSION_PREAMBLE.md`
 - **Purpose**: **Copy-paste** first message for new Cursor chats (read AGENTS + plan + assigned stream only).
 
+### `docs/ONE_REPO_MULTI_CHAT.md`
+- **Purpose**: **Single-clone** workflow — one chat coding at a time, branch checkout, commit/push, pause/stash, stash-split if streams mix.
+
 ### `.cursor/rules/catastrophe-analyzer.mdc`
 - **Purpose**: **alwaysApply** rule — read AGENTS + implementation plan before editing `src/` or `config/`; naming and git hygiene reminders.
 

@@ -15,6 +15,7 @@ Use this file at the **start of a new session** so work stays aligned with the p
 
 ## Multi-agent workflow (Cursor)
 
+- [docs/ONE_REPO_MULTI_CHAT.md](docs/ONE_REPO_MULTI_CHAT.md) — **one clone**: serial coding, pause/stash, how to avoid mixed streams.
 - [docs/MULTI_AGENT_WORKSTREAMS.md](docs/MULTI_AGENT_WORKSTREAMS.md) — **streams A/B/C**, git branch names, merge order, file ownership.
 - [docs/SESSION_PREAMBLE.md](docs/SESSION_PREAMBLE.md) — **copy-paste** text for the first message in each new Chat/Composer session.
 

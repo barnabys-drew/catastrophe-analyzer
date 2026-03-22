@@ -16,7 +16,8 @@ catastrophe-analyzer/
 ├── src/                    # Main application code (6 modules + package init)
 ├── data/                   # CSV files created at runtime
 ├── config/                 # Configuration files
-├── docs/                   # Reference docs (taxonomy, implementation plan)
+├── docs/                   # Reference docs (taxonomy, implementation plan, multi-agent)
+├── .cursor/rules/          # Cursor always-on project rules for agents
 ├── AGENTS.md              # Handoff for AI/human contributors (read first in new sessions)
 ├── README.md              # Main documentation
 ├── QUICKSTART.md          # Quick start guide
@@ -235,6 +236,16 @@ pip install -r requirements.txt
 ### `docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md`
 - **Purpose**: **Actionable build spec** for Phase 1 (neutral CSV/schema, config-driven categories, scraper tags) and later phases; includes **checklist**, migration table, mermaid diagram, and pointers to every module to change.
 - **Use**: Primary reference when implementing or reviewing the multi-category refactor.
+
+### `docs/MULTI_AGENT_WORKSTREAMS.md`
+- **Purpose**: Parallel Cursor “agents” — **streams A/B/C**, git **branch names** (`workstream/...`), **merge order**, and **file ownership** so sessions do not conflict.
+- **Use**: Pick one branch per Composer/Chat session; merge B → A → C as documented.
+
+### `docs/SESSION_PREAMBLE.md`
+- **Purpose**: **Copy-paste** first message for new Cursor chats (read AGENTS + plan + assigned stream only).
+
+### `.cursor/rules/catastrophe-analyzer.mdc`
+- **Purpose**: **alwaysApply** rule — read AGENTS + implementation plan before editing `src/` or `config/`; naming and git hygiene reminders.
 
 ### `IMPLEMENTATION_COMPLETE.md` (300+ lines)
 - **Sections**:

@@ -13,6 +13,11 @@ Use this file at the **start of a new session** so work stays aligned with the p
 3. [docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md](docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md) — **concrete Phase 1 checklist** (config, scraper, CSV migration, renames).
 4. [ARCHITECTURE.md](ARCHITECTURE.md) — module responsibilities and data flow.
 
+## Multi-agent workflow (Cursor)
+
+- [docs/MULTI_AGENT_WORKSTREAMS.md](docs/MULTI_AGENT_WORKSTREAMS.md) — **streams A/B/C**, git branch names, merge order, file ownership.
+- [docs/SESSION_PREAMBLE.md](docs/SESSION_PREAMBLE.md) — **copy-paste** text for the first message in each new Chat/Composer session.
+
 ## Naming and design rules
 
 - Prefer **`event_category`** / **`event_categories`** in new code and config; avoid “buckets.”
@@ -36,8 +41,8 @@ Until Phase 1 is implemented, expect **`breach_*` names**, **`breaches.csv`**, a
 
 ## Git hygiene
 
-Do **not** commit: `.venv/`, `data/*.csv` (runtime), `**/__pycache__/**`. Add or refresh `.gitignore` if missing.
+Do **not** commit: `.venv/`, `data/*` (runtime; keep `data/.gitkeep`), `**/__pycache__/**`. `.gitignore` is in repo root.
 
-## Optional: Cursor rules
+## Cursor rules (repo)
 
-For persistent editor hints, add rules under `.cursor/rules/` pointing to this file and `docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md`.
+Project rules live under [`.cursor/rules/`](.cursor/rules/) (e.g. `catastrophe-analyzer.mdc`) and apply **always-on** reminders to read this file and the implementation plan before editing `src/` or `config/`.

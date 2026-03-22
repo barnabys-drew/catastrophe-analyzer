@@ -1,0 +1,26 @@
+---
+description: Handoff and naming for Catastrophe Analyzer (read AGENTS + plan before editing src/config)
+alwaysApply: true
+---
+
+# Catastrophe Analyzer — agent constraints
+
+Before **substantive** edits under `src/` or `config/`:
+
+1. Read [AGENTS.md](AGENTS.md) (repo root).
+2. Read [docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md](docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md) for the Phase 1 checklist and CSV migration spec.
+3. For **parallel Cursor sessions**, follow [docs/MULTI_AGENT_WORKSTREAMS.md](docs/MULTI_AGENT_WORKSTREAMS.md) (branch per stream, file ownership).
+4. Start new chats with the template in [docs/SESSION_PREAMBLE.md](docs/SESSION_PREAMBLE.md).
+
+## Naming
+
+- Use **`event_category`** / **`event_categories`** in new code and config. Do **not** use “buckets” for this concept.
+- Target neutral persistence: `events.csv`, `event_date`, `event_subtype` (see implementation plan).
+
+## Architecture
+
+- Keep the **deterministic pipeline** (RSS → entities → prices → rules) as the **system of record**. Optional LLM/agents are **enrichers only** (see README).
+
+## Git
+
+- Do **not** commit: `.venv/`, `data/*` (except `data/.gitkeep`), `**/__pycache__/**`, `.env`.

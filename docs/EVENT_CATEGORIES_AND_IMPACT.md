@@ -1,92 +1,60 @@
-# Event categories and news impact likelihood
+# Event Categories and Impact Likelihood
 
-This document is the **reference list** for `event_category` values (see `event_categories` in `config/settings.json` when implemented) and a **qualitative rating** of how often **firm-specific** headlines tend to produce **material short-horizon price moves** (intraday to a few days) for **listed equities**.
+This is the taxonomy reference for `event_category` values and category expansion planning.
 
-It is **not** investment advice, not a forecast, and **not** a guarantee of volatility. Ratings are rules-of-thumb for **prioritizing ingestion and alert design**.
+It helps prioritize ingestion depth and signal design by category.
 
-## How to read the ratings
+## Reading the impact levels
 
-**Question answered:** If a credible news headline **clearly names (or unambiguously implies) one public company**, how **often** do you typically see a **meaningful** price reaction **soon** after the headline?
+These ratings describe how often firm-specific headlines create meaningful short-horizon price moves.
 
-| Rating | Meaning |
-|--------|---------|
-| **High** | Very often a sharp move when the story is firm-specific and **new**. |
-| **Medium–high** | Often material; sometimes waits for details, confirmation, or sizing. |
-| **Medium** | Sometimes large; often smaller, or sector breadth dominates single names. |
-| **Low–medium** | Frequently noisy; big moves usually need **specifics** (numbers, duration, guidance). |
-| **Low** | Usually second-order, slow-burn, or hard to attribute to one ticker. |
-| **Variable** | Depends heavily on **subtype** (split in the table). |
+- **High**: often sharp, immediate repricing
+- **Medium-high**: frequently material, depends on detail quality
+- **Medium**: mixed, often needs context to move single names
+- **Low-medium / Low**: usually noisy or second-order
 
-**Caveats:** Reaction size depends on **ticker identifiability**, **novelty** (vs priced-in), **liquidity**, **short interest**, and **macro regime** (risk-on days can dampen idiosyncratic shocks).
+## Impact table (condensed)
 
----
+| Shock shape | Likelihood | Why it matters |
+|---|---|---|
+| FDA/clinical binary outcomes | High | Binary value resets are common |
+| Product recall / grounding / major safety action | High | Direct revenue and liability pressure |
+| Fraud/accounting/enforcement | High | Credibility and capital access risk |
+| Financial distress / covenant / restructuring | High | Solvency risk reprices quickly |
+| Dilutive emergency financing | High | Immediate cap table impact |
+| M&A announce / competing bid | High | Event-driven repricing |
+| Cyber incident (material) | Medium-high | Often material when scope is clear |
+| Leadership scandal / forced exits | Medium-high | Governance and execution uncertainty |
+| Supply chain disruption (firm-specific) | Medium-high | Throughput and margin risk |
+| Commodity/policy/geopolitical transmission | Medium | Exposure clarity varies |
+| Natural disaster concentrated footprint | Medium | Depends on concentration and duration |
 
-## Full impact likelihood table (by shock shape)
+## Canonical `event_category` ids
 
-| Area / shock shape | Impact likelihood | Notes |
-|--------------------|-------------------|--------|
-| FDA / clinical (failure, hold, approval) | **High** | Binary outcomes; fast repricing. |
-| Major recall / grounding / safety order | **High** | Revenue / legal tail risk priced quickly when scope is clear. |
-| Antitrust / breakup / huge fine (firm-specific) | **Medium–high** | Large when it is *the* named company; sometimes partly anticipated. |
-| Fraud / accounting / restatement / SEC–DOJ (firm-specific) | **High** | Especially when earnings credibility is in question. |
-| Distress / covenant / restructuring / Ch.11 chatter | **High** | Capital-structure shocks; stronger in leveraged names. |
-| Emergency financing / highly dilutive raise | **High** | Cap table math moves immediately. |
-| M&A: deal announced / competing bids | **High** | Targets often gap; acquirer can move a lot too. |
-| M&A: blocked deal / walk / break fee | **Medium–high** | Big for targets; acquirer reaction varies. |
-| Major plant / refinery / mine / DC disaster (firm-specific) | **Medium–high** | Needs scale, duration, and clear revenue linkage. |
-| Force majeure (firm-specific, quantified) | **Medium–high** | Stronger when volumes or timeline are concrete. |
-| Large-scale outage (non-cyber ops / IT) | **Medium** | Leaders move; magnitude depends on revenue exposure clarity. |
-| Cyber incident (material breach / ransom / outage) | **Medium–high** | High when **new and large**; many headlines are incremental. |
-| Leadership scandal / CEO exit / indictment | **Medium–high** | Large when governance or cash flows are at risk; sometimes one-day. |
-| Labor: national strike / prolonged stoppage (firm-specific) | **Medium–high** | Strong when cash burn or EPS path is obvious. |
-| Consumer boycott / viral scandal | **Medium** | Huge for consumer brands when sales evidence appears; otherwise hype. |
-| Geopolitics / war / sanctions (firm-specific transmission) | **Medium–high** | High when facilities, exports, or compliance are directly hit. |
-| Trade policy (tariffs) hitting a named supply chain | **Medium** | Often sector ETFs move more unless exposure is obvious. |
-| Commodity spike (helps / hurts one operator) | **Medium** | Clear for E&P vs airlines; murkier for diversified industrials. |
-| Natural disaster hitting concentrated footprint | **Medium** | Insurance / complexity can dampen immediate single-name clarity. |
-| Patent win / loss / cliff | **Medium–high** | High when revenue is concentrated; less for diversified portfolios. |
-| Competitive “killer” launch / major share shift | **Medium** | Can be high; markets debate durability → slower or choppier. |
-| AI / platform policy shifts affecting dependents | **Medium** | Often reprices groups; single-name attribution can lag. |
-| “Good” shocks: beat-and-raise / major contract win | **High** | Often from **earnings / PR**, not general RSS—still very market-moving when **new**. |
+### Active depth today
 
----
+- `cybersecurity`
+- `clinical_regulatory_binary`
+- `product_safety_recall` (next priority to wire from this High-impact row)
 
-## Canonical `event_category` ids (config + CSV)
+### Next expansion candidates (keep these)
 
-Use these **stable snake_case** ids in configuration and in the `event_category` column on stored events.
+- `leadership_scandal`
+- `supply_chain_disruption`
+- `product_safety_recall`
+- `fraud_accounting_enforcement`
+- `financial_distress`
+- `dilutive_financing`
+- `ma_corporate_action`
+- `positive_earnings_catalyst`
 
-### Prioritized for implementation (already on the product roadmap)
+### Optional structural notes
 
-| `event_category` | Description |
-|------------------|-------------|
-| `cybersecurity` | Breaches, ransomware, major security incidents, large-scale cyber-driven outages. |
-| `leadership_scandal` | CEO exit, board scandal, indictment, investigations with leadership / governance focus. |
-| `supply_chain_disruption` | Ports, strikes, shortages, fires, logistics shocks with clear operational impact. |
+- If needed, merge `clinical_regulatory_binary` + `product_safety_recall` into one regulatory/product safety family, then split later when source and keyword sets diverge.
+- Keep M&A outcomes as subtypes under `ma_corporate_action` rather than creating many top-level categories.
 
-### Added from **High** impact likelihood rows above
+## Usage guidance
 
-Each row below maps to the **High** tier in the table (or the “good shock” row rated High).
-
-| `event_category` | Description |
-|------------------|-------------|
-| `clinical_regulatory_binary` | FDA actions, clinical holds / failures / approvals, binary regulatory outcomes for a named drug/device program. |
-| `product_safety_recall` | Recalls, groundings, safety orders with immediate demand or liability implications. |
-| `fraud_accounting_enforcement` | Fraud allegations, restatements, material accounting issues, significant SEC / DOJ enforcement against the issuer. |
-| `financial_distress` | Covenant breach, restructuring, bankruptcy chatter, solvency stress for a named company. |
-| `dilutive_financing` | Emergency equity, highly dilutive raises, sudden capital raises that reshape the cap table. |
-| `ma_corporate_action` | M&A announced, competing bids, transformative deals (block / break in **medium–high** but same category id can cover subtypes). |
-| `positive_earnings_catalyst` | Beat-and-raise, major contract win, transformative “good news” catalysts (often from earnings / company PR). |
-
-### Optional merge notes
-
-- You can **collapse** `clinical_regulatory_binary` and `product_safety_recall` into a single `regulatory_and_product_safety` category if you want fewer ids; split when keyword / source sets diverge.
-- `ma_corporate_action` can hold both “deal on” and “deal off” **subtypes** via `event_subtype` without new top-level ids.
-
----
-
-## Related project files
-
-- [IMPLEMENTATION_PLAN_MULTI_CATEGORY.md](IMPLEMENTATION_PLAN_MULTI_CATEGORY.md) — Phase 1 checklist, CSV migration, modules to change.
-- [../AGENTS.md](../AGENTS.md) — handoff for new sessions (read order, conventions, run commands).
-- [README.md](../README.md) — product direction and scripts vs agents.
-- [ARCHITECTURE.md](../ARCHITECTURE.md) — system modules and data flow.
+- Keep category ids stable once used in persisted data.
+- Add per-category keyword/source bundles in `config/settings.json`.
+- Keep category-specific subtype and distress heuristics in `src/main.py`.

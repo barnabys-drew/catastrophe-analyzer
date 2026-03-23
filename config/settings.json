@@ -25,7 +25,25 @@
         "wiped",
         "wiping",
         "data wipe",
-        "data-wipe"
+        "data-wipe",
+        "unauthorized access",
+        "unauthorised access",
+        "zero-day",
+        "zero day",
+        "supply chain attack",
+        "malware",
+        "intrusion",
+        "stolen data",
+        "customer data",
+        "patient data",
+        "discloses breach",
+        "disclosed a breach",
+        "material cybersecurity incident",
+        "service outage",
+        "operations disrupted",
+        "class action",
+        "regulator investigation",
+        "sec filing"
       ]
     },
     "leadership_scandal": {
@@ -37,12 +55,48 @@
       "keywords": []
     },
     "clinical_regulatory_binary": {
-      "enabled": false,
-      "keywords": []
+      "enabled": true,
+      "keywords": [
+        "fda approval",
+        "approved by the fda",
+        "complete response letter",
+        "crl",
+        "clinical hold",
+        "trial hold",
+        "phase 3",
+        "phase iii",
+        "met primary endpoint",
+        "missed primary endpoint",
+        "topline data",
+        "top-line data",
+        "pdufa",
+        "nda",
+        "bla",
+        "refuse to file",
+        "adcom",
+        "regulatory decision",
+        "adverse event",
+        "safety signal",
+        "failed trial",
+        "positive topline",
+        "pivotal trial"
+      ]
     },
     "product_safety_recall": {
-      "enabled": false,
-      "keywords": []
+      "enabled": true,
+      "keywords": [
+        "recall",
+        "product recall",
+        "safety recall",
+        "grounding",
+        "safety alert",
+        "defect",
+        "contamination",
+        "warning letter",
+        "hazard",
+        "injury reports",
+        "production halt"
+      ]
     },
     "fraud_accounting_enforcement": {
       "enabled": false,
@@ -79,16 +133,110 @@
       "update_interval_hours": 12
     },
     "dark_reading": {
-      "enabled": false,
-      "url": "https://www.darkreading.com/feed/",
+      "enabled": true,
+      "url": "https://www.darkreading.com/rss.xml",
       "event_category": "cybersecurity",
       "update_interval_hours": 12
     },
-    "techcrunch": {
-      "enabled": false,
+    "techcrunch_security": {
+      "enabled": true,
       "url": "https://techcrunch.com/category/security/feed/",
       "event_category": "cybersecurity",
       "update_interval_hours": 24
+    },
+    "arstechnica_security": {
+      "enabled": true,
+      "url": "https://arstechnica.com/security/feed/",
+      "event_category": "cybersecurity",
+      "update_interval_hours": 12
+    },
+    "wired_security": {
+      "enabled": true,
+      "url": "https://www.wired.com/feed/category/security/latest/rss",
+      "event_category": "cybersecurity",
+      "update_interval_hours": 24
+    },
+    "the_record": {
+      "enabled": true,
+      "url": "https://therecord.media/feed/",
+      "event_category": "cybersecurity",
+      "update_interval_hours": 6
+    },
+    "securityweek": {
+      "enabled": true,
+      "url": "https://www.securityweek.com/feed/",
+      "event_category": "cybersecurity",
+      "update_interval_hours": 12
+    },
+    "helpnet_security": {
+      "enabled": true,
+      "url": "https://www.helpnetsecurity.com/feed/",
+      "event_category": "cybersecurity",
+      "update_interval_hours": 12
+    },
+    "security_affairs": {
+      "enabled": true,
+      "url": "https://securityaffairs.com/feed",
+      "event_category": "cybersecurity",
+      "update_interval_hours": 12
+    },
+    "cyberscoop": {
+      "enabled": true,
+      "url": "https://www.cyberscoop.com/feed/",
+      "event_category": "cybersecurity",
+      "update_interval_hours": 12
+    },
+    "google_news_cyber_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22data+breach%22+OR+ransomware+OR+cyberattack+OR+%22security+incident%22+OR+hacked)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "cybersecurity",
+      "update_interval_hours": 4,
+      "max_results": 80
+    },
+    "fierce_biotech": {
+      "enabled": true,
+      "url": "https://www.fiercebiotech.com/rss/xml",
+      "event_category": "clinical_regulatory_binary",
+      "update_interval_hours": 8
+    },
+    "fierce_pharma": {
+      "enabled": true,
+      "url": "https://www.fiercepharma.com/rss/xml",
+      "event_category": "clinical_regulatory_binary",
+      "update_interval_hours": 8
+    },
+    "biopharmadive": {
+      "enabled": true,
+      "url": "https://www.biopharmadive.com/feeds/news/",
+      "event_category": "clinical_regulatory_binary",
+      "update_interval_hours": 8
+    },
+    "endpoints_news": {
+      "enabled": true,
+      "url": "https://endpts.com/feed/",
+      "event_category": "clinical_regulatory_binary",
+      "update_interval_hours": 8
+    },
+    "fda_press_releases": {
+      "enabled": true,
+      "url": "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/press-releases/rss.xml",
+      "event_category": "clinical_regulatory_binary",
+      "update_interval_hours": 12,
+      "max_results": 30
+    },
+    "google_news_clinical_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22fda+approval%22+OR+%22complete+response+letter%22+OR+%22clinical+hold%22+OR+%22phase+3%22+OR+%22topline+data%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "clinical_regulatory_binary",
+      "update_interval_hours": 4,
+      "max_results": 60
+    },
+    "google_news_product_recall_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22product+recall%22+OR+grounding+OR+%22safety+alert%22+OR+%22defective%22+OR+%22warning+letter%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "product_safety_recall",
+      "update_interval_hours": 4,
+      "max_results": 50
     }
   },
 
@@ -123,6 +271,24 @@
       "medium": 0.5,
       "low": 0.25
     }
+  },
+  "distress_model": {
+    "min_score_for_watch_default": 35,
+    "min_score_for_watch_by_category": {
+      "cybersecurity": 35,
+      "clinical_regulatory_binary": 40,
+      "product_safety_recall": 40
+    }
+  },
+  "triage": {
+    "enabled": true,
+    "min_impact_score_for_alert": 60,
+    "min_distress_score_for_alert": 35,
+    "agent_enabled": true,
+    "agent_timeout_seconds": 8,
+    "fallback_to_deterministic": true,
+    "agent_endpoint": "",
+    "agent_api_key": ""
   },
 
   "stock_analysis": {

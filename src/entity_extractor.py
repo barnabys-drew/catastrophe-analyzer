@@ -50,6 +50,9 @@ class EntityExtractor:
 
     # Minimum length for fuzzy substring match against seed map (avoids "ge" in "geopolitical" -> GE).
     _MIN_PARTIAL_NAME_LEN = 5
+    _TRAILING_TRIM_WORDS = frozenset({
+        "for", "in", "on", "after", "amid", "as", "with", "from", "into", "at",
+    })
 
     def __init__(self, config_path: Optional[str] = None):
         """Initialize with common company patterns and optional config."""
@@ -307,6 +310,23 @@ class EntityExtractor:
             # After breach context: "breach at Stryker", "attack on Microsoft"
             r"(?:breach|attack|incident|ransomware|hack)\s+(?:at|on|hits?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,1})",
         ]
+        if event_category == "clinical_regulatory_binary":
+            patterns.extend(
+                [
+                    # "Company announced phase 3/topline/FDA decision ..."
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:announced|reports?|reported|posted|disclosed)\s+"
+                    r"(?:phase\s*(?:2|ii|3|iii)|topline|top-line|fda|clinical|trial)",
+                    # "FDA issues CRL to Company"
+                    r"(?:fda|food and drug administration)\s+(?:issues?|issued|sent)\s+"
+                    r"(?:a\s+)?(?:complete response letter|crl)\s+to\s+"
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})",
+                    # "Company receives FDA approval"
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:receives?|received|wins?|won|gets?|got)\s+"
+                    r"(?:fda approval|approval|complete response letter|crl|clinical hold)",
+                ]
+            )
 
         for pattern in patterns:
             for match in re.finditer(pattern, text, re.IGNORECASE):
@@ -317,7 +337,17 @@ class EntityExtractor:
 
         # Single capitalized word (4+ chars) in breach context: "Stryker hacked" or "breach at Stryker"
         min_len = self._config.get("min_company_name_length", 2)
-        breach_words = "breach hacked hack hackers hacktivist cyberattack ransomware exploit vulnerability compromised attacked attack incident disclosed announced wiper wipe wiped data-wiping data wipe"
+        breach_words = (
+            "breach hacked hack hackers hacktivist cyberattack ransomware exploit vulnerability "
+            "compromised attacked attack incident disclosed announced wiper wipe wiped data-wiping data wipe"
+        )
+        clinical_words = (
+            "fda approval complete response letter crl clinical hold trial hold phase 2 phase 3 "
+            "phase ii phase iii topline top-line endpoint adverse event safety signal pdufa nda bla"
+        )
+        context_words = breach_words
+        if event_category == "clinical_regulatory_binary":
+            context_words = f"{breach_words} {clinical_words}"
         stop_words = (
             "the and said have this that with from when company medical device maker firm "
             "medical medtech device maker monday tuesday wednesday thursday friday saturday "
@@ -325,7 +355,7 @@ class EntityExtractor:
             "center management iran iraq china russia india israel brazil canada japan france "
             "germany korea ukraine nato federal feds department identity emergency geopolitical "
             "magento actions manager services things internet huge botnets phishing android "
-            "signal github azure monitor magento identity things department"
+            "signal github azure monitor magento identity things department fda phase trial topline"
         ).split()
         text_lower = text.lower()
         for m in re.finditer(r"\b([A-Z][a-z]{3,})\b", text):
@@ -336,10 +366,39 @@ class EntityExtractor:
             start = max(0, m.start() - 50)
             end = min(len(text), m.end() + 50)
             snippet = text_lower[start:end]
-            if any(bw in snippet for bw in breach_words.split()):
+            if any(bw in snippet for bw in context_words.split()):
                 companies.append(name)
 
-        return list(set(companies))  # Remove duplicates
+        return self._clean_company_mentions(companies)
+
+    def _clean_company_mentions(self, raw_companies: List[str]) -> List[str]:
+        """Normalize and dedupe extracted company mentions."""
+        cleaned: List[str] = []
+        for raw in raw_companies:
+            name = re.sub(r"\s+", " ", (raw or "").strip(" ,.;:-")).strip()
+            if not name:
+                continue
+            parts = name.split()
+            while parts and parts[-1].lower() in self._TRAILING_TRIM_WORDS:
+                parts = parts[:-1]
+            if not parts:
+                continue
+            name = " ".join(parts)
+            if len(name) < 3:
+                continue
+            if name.lower() in self._ENTITY_BLOCKLIST:
+                continue
+            cleaned.append(name)
+
+        # Keep longer/more-specific names first (e.g. "Sarepta Therapeutics" over "Sarepta").
+        unique = sorted(set(cleaned), key=lambda x: (-len(x), x))
+        kept: List[str] = []
+        for candidate in unique:
+            padded = f" {candidate.lower()} "
+            if any(padded in f" {k.lower()} " for k in kept):
+                continue
+            kept.append(candidate)
+        return kept
 
     def get_ticker_for_company(self, company_name: str) -> Optional[str]:
         """

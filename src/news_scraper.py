@@ -4,9 +4,13 @@ Collects event-related news from configured RSS sources
 """
 
 import feedparser
-from datetime import datetime, timedelta
-from typing import List, Dict
+from calendar import timegm
+from datetime import datetime, timedelta, timezone
+from typing import List, Dict, Tuple
+from urllib.parse import urlparse, urlunparse
 import json
+
+from dateutil import parser as date_parser
 
 
 class NewsScraper:
@@ -86,9 +90,54 @@ class NewsScraper:
             "scraping": {
                 "timeout": 10,
                 "max_results": 50,
+                "max_results_per_source": 50,
                 "hours_back": 24
             }
         }
+
+    def _scraping_limits(self) -> Tuple[int, int]:
+        """Return (max_results_per_source, timeout_seconds) from config."""
+        scraping = self.config.get("scraping", {})
+        max_n = int(
+            scraping.get("max_results_per_source")
+            or scraping.get("max_results")
+            or 50
+        )
+        timeout = int(scraping.get("timeout") or 10)
+        return max_n, timeout
+
+    @staticmethod
+    def _normalize_article_url(url: str) -> str:
+        """Strip tracking query params and trailing slash for deduplication."""
+        if not url:
+            return ""
+        try:
+            p = urlparse(url.strip())
+            path = p.path.rstrip("/") or "/"
+            clean = urlunparse((p.scheme, p.netloc.lower(), path, "", "", ""))
+            return clean
+        except Exception:
+            return url.strip().lower()
+
+    def _entry_published_iso(self, entry: Dict) -> str:
+        """Best-effort ISO 8601 timestamp for recency filtering."""
+        parsed = entry.get("published_parsed") or entry.get("updated_parsed")
+        if parsed:
+            try:
+                ts = timegm(parsed[:6])
+                return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+            except (TypeError, ValueError, OverflowError):
+                pass
+        raw = entry.get("published") or entry.get("updated")
+        if raw:
+            try:
+                dt = date_parser.parse(raw)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt.isoformat()
+            except (ValueError, TypeError, OverflowError):
+                pass
+        return str(raw or "Unknown")
 
     def _is_category_enabled(self, event_category: str) -> bool:
         """Return True when a configured event category is enabled."""
@@ -106,7 +155,8 @@ class NewsScraper:
         feed_url: str,
         source_name: str,
         event_category: str,
-        keywords: List[str]
+        keywords: List[str],
+        max_entries: int,
     ) -> List[Dict]:
         """
         Scrape RSS feed for articles
@@ -130,19 +180,22 @@ class NewsScraper:
                 print(" No articles found")
                 return articles
 
+            entries = feed.entries[: max(1, max_entries)]
+
             # Look for breach-related articles
-            for entry in feed.entries:
+            for entry in entries:
                 title = entry.get('title', '').lower()
                 summary = entry.get('summary', '').lower()
                 content = f"{title} {summary}".lower()
 
                 if any(keyword in content for keyword in keywords):
+                    published_iso = self._entry_published_iso(entry)
                     articles.append({
                         'source': source_name,
                         'event_category': event_category,
                         'title': entry.get('title', 'N/A'),
                         'link': entry.get('link', ''),
-                        'published': entry.get('published', 'Unknown'),
+                        'published': published_iso,
                         'summary': entry.get('summary', ''),
                         'date_fetched': datetime.now().isoformat(),
                         'content_preview': content[:500]
@@ -162,12 +215,14 @@ class NewsScraper:
         Returns:
             list: All breach-related articles from all sources
         """
-        all_articles = []
+        all_articles: List[Dict] = []
+        seen_urls: set = set()
 
         print("\n" + "="*60)
         print("SCANNING NEWS SOURCES")
         print("="*60)
 
+        max_entries, _ = self._scraping_limits()
         sources = self.config.get("news_sources", {})
 
         for source_name, source_config in sources.items():
@@ -193,13 +248,25 @@ class NewsScraper:
 
             feed_url = source_config.get("url")
             if feed_url:
+                per_source = int(
+                    source_config.get("max_results")
+                    or source_config.get("max_results_per_source")
+                    or max_entries
+                )
                 articles = self.scrape_rss_feed(
                     feed_url=feed_url,
                     source_name=source_name,
                     event_category=event_category,
-                    keywords=keywords
+                    keywords=keywords,
+                    max_entries=per_source,
                 )
-                all_articles.extend(articles)
+                for a in articles:
+                    key = self._normalize_article_url(a.get("link", ""))
+                    if key and key in seen_urls:
+                        continue
+                    if key:
+                        seen_urls.add(key)
+                    all_articles.append(a)
 
         print(f"\n{'='*60}")
         print(f"Total articles found: {len(all_articles)}")
@@ -218,18 +285,29 @@ class NewsScraper:
         Returns:
             list: Articles from the past N hours
         """
-        cutoff_time = datetime.now() - timedelta(hours=hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
         recent = []
 
         for article in articles:
+            pub_raw = article.get("published", "Unknown")
             try:
-                # Try to parse publication date
-                pub_date = datetime.fromisoformat(article['published'].replace('Z', '+00:00'))
+                pub_date = datetime.fromisoformat(
+                    str(pub_raw).replace("Z", "+00:00")
+                )
+                if pub_date.tzinfo is None:
+                    pub_date = pub_date.replace(tzinfo=timezone.utc)
                 if pub_date > cutoff_time:
                     recent.append(article)
-            except (ValueError, AttributeError):
-                # If date parsing fails, include the article anyway
-                recent.append(article)
+            except (ValueError, AttributeError, TypeError):
+                try:
+                    pub_date = date_parser.parse(str(pub_raw))
+                    if pub_date.tzinfo is None:
+                        pub_date = pub_date.replace(tzinfo=timezone.utc)
+                    if pub_date > cutoff_time:
+                        recent.append(article)
+                except (ValueError, TypeError, OverflowError):
+                    # If date parsing fails, include the article anyway
+                    recent.append(article)
 
         return recent
 

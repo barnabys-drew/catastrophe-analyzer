@@ -54,7 +54,12 @@ def main() -> None:
     # Loop until stopped
     while not terminated["value"]:
         summary: Dict = app.run_one_cycle(quiet=args.quiet)
+        new_high_value_events = summary.get("new_high_value_events", []) or []
         new_signals = summary.get("new_signals", []) or []
+
+        if new_high_value_events:
+            alerts.send_high_value_event_alerts(new_high_value_events)
+            app.db.mark_triage_sent([e.get("event_key", "") for e in new_high_value_events])
 
         if new_signals:
             alerts.send_buy_signal_alerts(new_signals)

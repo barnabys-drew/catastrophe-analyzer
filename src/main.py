@@ -10,7 +10,7 @@ import json
 import io
 import contextlib
 from email.utils import parsedate_to_datetime
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -20,6 +20,7 @@ from entity_extractor import EntityExtractor
 from stock_analyzer import StockAnalyzer
 from signal_generator import SignalGenerator
 from database_manager import DatabaseManager
+from impact_triage import ImpactTriage
 
 
 class CatastropheAnalyzerApp:
@@ -50,6 +51,7 @@ class CatastropheAnalyzerApp:
         )
         self.signal_generator = SignalGenerator(config_path=self.config_path)
         self.db = DatabaseManager(data_dir=self.data_dir)
+        self.impact_triage = ImpactTriage(config=self.settings)
 
         self.current_articles = []
         self.current_entities = []
@@ -65,10 +67,173 @@ class CatastropheAnalyzerApp:
         except (FileNotFoundError, json.JSONDecodeError):
             return defaults
 
+    @staticmethod
+    def _severity_rank(value: str) -> int:
+        mapping = {"LOW": 1, "MEDIUM": 2, "HIGH": 3}
+        return mapping.get((value or "").upper(), 2)
+
+    def _financial_distress_assessment(
+        self,
+        title: str,
+        summary: str,
+        event_category: str,
+    ) -> Dict:
+        """
+        Estimate probability that an event will trigger financial distress pressure.
+
+        The score is a heuristic (0-100) based on language cues in title/summary.
+        """
+        content = f"{title} {summary}".lower()
+        score = 15
+        reasons: List[str] = []
+
+        if event_category == "cybersecurity":
+            weighted_markers = [
+                ("ransomware", 22, "Ransomware often causes direct operational/financial disruption"),
+                ("wiper", 24, "Wiper-style activity implies destructive impact"),
+                ("material cybersecurity incident", 28, "Material incident language implies meaningful financial risk"),
+                ("operations disrupted", 20, "Operational disruption can pressure revenue and margin"),
+                ("service outage", 14, "Customer-facing outage may create churn/penalties"),
+                ("class action", 12, "Legal follow-on risk increases expected costs"),
+                ("regulator investigation", 14, "Regulatory investigations can lead to fines/compliance spend"),
+                ("credentials leaked", 10, "Credential leaks can drive remediation and fraud costs"),
+                ("millions", 8, "Large-scale impact tends to elevate downstream cost"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+
+            if "fda approval" in content or "met primary endpoint" in content:
+                score -= 10
+        elif event_category == "clinical_regulatory_binary":
+            weighted_markers = [
+                ("complete response letter", 32, "CRL usually delays/blocks commercialization"),
+                ("clinical hold", 28, "Clinical hold can pause trial progression and timelines"),
+                ("trial hold", 28, "Trial hold can pause trial progression and timelines"),
+                ("rejected", 18, "Regulatory rejection raises uncertainty and delay risk"),
+                ("refuse to file", 24, "Refuse-to-file meaningfully delays path to market"),
+                ("missed primary endpoint", 26, "Missed endpoint weakens program value"),
+                ("failed", 16, "Negative trial language indicates development risk"),
+                ("adverse event", 14, "Safety issues can impair approval/commercial outlook"),
+                ("safety signal", 16, "Safety signals can trigger restrictions or delay"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+
+            positive_offsets = [
+                ("fda approval", 22, "Approval is a de-risking catalyst"),
+                ("approved by the fda", 22, "Approval is a de-risking catalyst"),
+                ("met primary endpoint", 16, "Positive efficacy readout lowers distress risk"),
+                ("positive topline", 12, "Positive topline readout lowers distress risk"),
+                ("top-line results met", 12, "Positive topline readout lowers distress risk"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if marker in content:
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "product_safety_recall":
+            weighted_markers = [
+                ("recall", 22, "Recall language signals direct product and liability risk"),
+                ("grounding", 24, "Grounding can halt core revenue operations"),
+                ("safety alert", 16, "Safety alerts increase remediation and legal exposure"),
+                ("warning letter", 16, "Regulatory warning letters can constrain operations"),
+                ("defect", 14, "Defect disclosures can drive replacement and litigation costs"),
+                ("contamination", 18, "Contamination events can trigger broad product withdrawals"),
+                ("production halt", 20, "Production halts directly pressure near-term revenue"),
+                ("injury", 16, "Injury reports increase legal and reputational risk"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+
+        score = max(0, min(100, score))
+        if score >= 70:
+            likelihood = "HIGH"
+        elif score >= 45:
+            likelihood = "MEDIUM"
+        else:
+            likelihood = "LOW"
+
+        return {
+            "score": score,
+            "likelihood": likelihood,
+            "reasons": reasons[:4],
+        }
+
+    @staticmethod
+    def _depth_categories() -> List[str]:
+        return ["cybersecurity", "clinical_regulatory_binary", "product_safety_recall"]
+
+    def _event_distress_fields(self, event: Dict) -> tuple:
+        """Return (likelihood, score_int) from explicit fields or legacy tags."""
+        like = str(event.get("distress_likelihood", "")).upper().strip()
+        score_raw = str(event.get("distress_score", "")).strip()
+
+        if not like or not score_raw:
+            subtype = str(event.get("event_subtype") or event.get("breach_type") or "")
+            summary = str(event.get("summary") or "")
+            import re as _re
+            m = _re.search(r"\[Distress\s+(LOW|MEDIUM|HIGH)\s+(\d{1,3})/100\]", f"{subtype} {summary}", _re.IGNORECASE)
+            if m:
+                like = like or m.group(1).upper()
+                score_raw = score_raw or m.group(2)
+
+        try:
+            score = int(score_raw)
+        except ValueError:
+            score = 0
+        score = max(0, min(100, score))
+        return like or "UNKNOWN", score
+
+    def _distress_gate_min_score(self, event_category: str) -> int:
+        """
+        Minimum distress score required to create a watch for a category.
+
+        Config shape:
+        {
+          "distress_model": {
+            "min_score_for_watch_default": 35,
+            "min_score_for_watch_by_category": {"clinical_regulatory_binary": 40}
+          }
+        }
+        """
+        cfg = self.settings.get("distress_model", {})
+        by_category = cfg.get("min_score_for_watch_by_category", {})
+        if isinstance(by_category, dict):
+            value = by_category.get(event_category)
+            if value is not None:
+                try:
+                    return max(0, min(100, int(value)))
+                except (TypeError, ValueError):
+                    pass
+
+        default_value = cfg.get("min_score_for_watch_default", 0)
+        try:
+            return max(0, min(100, int(default_value)))
+        except (TypeError, ValueError):
+            return 0
+
+    def _triage_thresholds(self) -> tuple:
+        """Return (min_impact_score, min_distress_score) from triage config."""
+        triage_cfg = self.settings.get("triage", {})
+        try:
+            min_impact = int(triage_cfg.get("min_impact_score_for_alert", 60))
+        except (TypeError, ValueError):
+            min_impact = 60
+        try:
+            min_distress = int(triage_cfg.get("min_distress_score_for_alert", 35))
+        except (TypeError, ValueError):
+            min_distress = 35
+        return max(0, min(100, min_impact)), max(0, min(100, min_distress))
+
     def display_menu(self) -> None:
         """Display main menu"""
         print("\n" + "="*80)
-        print("CATASTROPHE ANALYZER - Cyber Security Event & Stock Opportunity Detection")
+        print("CATASTROPHE ANALYZER - Event & Stock Opportunity Detection")
         print("="*80)
         print("\n1. Scan for events (update news sources)")
         print("2. Analyze recent events (extract entities & stock data)")
@@ -77,7 +242,8 @@ class CatastropheAnalyzerApp:
         print("5. View event history")
         print("6. Database statistics")
         print("7. Settings & configuration")
-        print("8. Exit\n")
+        print("8. Manage triage alert state (ACK/SUPPRESS)")
+        print("9. Exit\n")
 
     def run(self) -> None:
         """Run the application"""
@@ -87,7 +253,7 @@ class CatastropheAnalyzerApp:
 
         while True:
             self.display_menu()
-            choice = input("Enter choice (1-8): ").strip()
+            choice = input("Enter choice (1-9): ").strip()
 
             if choice == '1':
                 self.scan_events()
@@ -104,10 +270,89 @@ class CatastropheAnalyzerApp:
             elif choice == '7':
                 self.settings_menu()
             elif choice == '8':
+                self.manage_triage_alert_state()
+            elif choice == '9':
                 print("\nExiting Catastrophe Analyzer. Goodbye!")
                 break
             else:
                 print("Invalid choice. Please try again.")
+
+    def manage_triage_alert_state(self) -> None:
+        """Manage triage sent-state rows (ACK/SUPPRESS/RESET)."""
+        print("\n" + "-" * 80)
+        print("TRIAGE ALERT STATE")
+        print("-" * 80)
+
+        state_input = input(
+            "Filter state [NEW/SENT/ACKED/SUPPRESSED/all] (default=SENT): "
+        ).strip().upper()
+        if not state_input:
+            state_input = "SENT"
+        if state_input not in ("NEW", "SENT", "ACKED", "SUPPRESSED", "ALL"):
+            print("Invalid state filter.")
+            return
+
+        state_filter = None if state_input == "ALL" else state_input
+        rows = self.db.get_triage_events(alert_state=state_filter)
+        if not rows:
+            print("No triage rows match this filter.")
+            return
+
+        # Most recent first by last_seen_at
+        rows = sorted(rows, key=lambda r: r.get("last_seen_at", ""), reverse=True)
+        max_show = min(len(rows), 25)
+        print(f"\nShowing {max_show} of {len(rows)} triage rows:")
+        print("-" * 80)
+        for i, row in enumerate(rows[:max_show], 1):
+            print(
+                f"{i:>2}. {row.get('ticker', ''):<8} "
+                f"{row.get('event_category', ''):<28} "
+                f"impact={row.get('impact_likelihood', '')}({row.get('impact_score', '')}) "
+                f"distress={row.get('distress_likelihood', '')}({row.get('distress_score', '')}) "
+                f"state={row.get('alert_state', '')}"
+            )
+
+        print("\nActions:")
+        print("  1) ACK selected rows")
+        print("  2) SUPPRESS selected rows")
+        print("  3) RESET selected rows to NEW")
+        print("  4) Back")
+        action = input("Choose action (1-4): ").strip()
+        if action == "4":
+            return
+        action_map = {"1": "ACKED", "2": "SUPPRESSED", "3": "NEW"}
+        target_state = action_map.get(action)
+        if not target_state:
+            print("Invalid action.")
+            return
+
+        index_input = input(
+            "Enter row numbers (comma-separated, e.g. 1,3,5): "
+        ).strip()
+        if not index_input:
+            print("No rows selected.")
+            return
+
+        selected_indices = []
+        for token in index_input.split(","):
+            token = token.strip()
+            if not token.isdigit():
+                continue
+            n = int(token)
+            if 1 <= n <= max_show:
+                selected_indices.append(n - 1)
+
+        if not selected_indices:
+            print("No valid row numbers selected.")
+            return
+
+        updated = 0
+        for idx in selected_indices:
+            event_key = rows[idx].get("event_key", "")
+            if event_key and self.db.mark_triage_state(event_key, target_state):
+                updated += 1
+
+        print(f"Updated {updated} row(s) to state {target_state}.")
 
     def _parse_published_date(self, published: str, fallback_date: str) -> str:
         """Parse RSS published string into YYYY-MM-DD."""
@@ -129,30 +374,99 @@ class CatastropheAnalyzerApp:
         except Exception:
             return fallback_date
 
-    def _classify_event_subtype_and_severity(self, title: str, summary: str) -> tuple:
+    def _classify_event_subtype_and_severity(
+        self,
+        title: str,
+        summary: str,
+        event_category: str = "cybersecurity",
+    ) -> tuple:
         """Heuristic event subtype + severity. Used for persistence/alert context only."""
         content = f"{title} {summary}".lower()
 
-        event_subtype = 'Security Incident'
-        if 'ransomware' in content:
-            event_subtype = 'Ransomware'
-        elif 'credential' in content or 'credentials leaked' in content:
-            event_subtype = 'Credential Leak'
-        elif 'zero-day' in content or 'zero day' in content:
-            event_subtype = 'Zero-Day Vulnerability'
-        elif 'exploit' in content:
-            event_subtype = 'Exploit'
-        elif 'vulnerability' in content:
-            event_subtype = 'Vulnerability'
-        elif 'data exposure' in content or 'data breach' in content or 'data leak' in content:
-            event_subtype = 'Data Breach'
+        if event_category == "clinical_regulatory_binary":
+            event_subtype = "Clinical/Regulatory Update"
+            if "complete response letter" in content or "crl" in content:
+                event_subtype = "FDA Complete Response Letter"
+            elif "trial hold" in content or "clinical hold" in content:
+                event_subtype = "Clinical Hold"
+            elif "fda approval" in content or "approved by the fda" in content:
+                event_subtype = "FDA Approval"
+            elif "phase 3" in content and any(
+                marker in content for marker in ("failed", "fails", "missed", "did not meet")
+            ):
+                event_subtype = "Phase 3 Trial Failure"
+            elif "phase 3" in content and any(
+                marker in content for marker in ("met primary endpoint", "met endpoint", "positive data")
+            ):
+                event_subtype = "Phase 3 Trial Success"
+            elif "fda" in content and any(marker in content for marker in ("reject", "rejected", "refuse to file")):
+                event_subtype = "Regulatory Rejection"
 
-        severity = 'Medium'
-        critical_markers = ['ransomware', 'zero-day', 'zero day', 'critical', 'exploit', 'credential', 'data breach', 'data exposure']
-        if any(m in content for m in critical_markers):
-            severity = 'High'
+            severity = "Medium"
+            high_markers = [
+                "complete response letter",
+                "crl",
+                "clinical hold",
+                "trial hold",
+                "rejected",
+                "refuse to file",
+                "phase 3 trial failure",
+            ]
+            if any(marker in content for marker in high_markers):
+                severity = "High"
+            return event_subtype, severity
+        if event_category == "product_safety_recall":
+            event_subtype = "Product Safety Event"
+            if "grounding" in content:
+                event_subtype = "Product Grounding"
+            elif "recall" in content:
+                event_subtype = "Product Recall"
+            elif "warning letter" in content:
+                event_subtype = "Regulatory Warning Letter"
+            elif "contamination" in content:
+                event_subtype = "Contamination Incident"
 
+            severity = "Medium"
+            if any(marker in content for marker in ("grounding", "recall", "injury", "contamination", "production halt")):
+                severity = "High"
+            return event_subtype, severity
+
+        event_subtype = "Security Incident"
+        if "ransomware" in content:
+            event_subtype = "Ransomware"
+        elif "credential" in content or "credentials leaked" in content:
+            event_subtype = "Credential Leak"
+        elif "zero-day" in content or "zero day" in content:
+            event_subtype = "Zero-Day Vulnerability"
+        elif "exploit" in content:
+            event_subtype = "Exploit"
+        elif "vulnerability" in content:
+            event_subtype = "Vulnerability"
+        elif "data exposure" in content or "data breach" in content or "data leak" in content:
+            event_subtype = "Data Breach"
+
+        severity = "Medium"
+        critical_markers = [
+            "ransomware",
+            "zero-day",
+            "zero day",
+            "critical",
+            "exploit",
+            "credential",
+            "data breach",
+            "data exposure",
+        ]
+        if any(marker in content for marker in critical_markers):
+            severity = "High"
         return event_subtype, severity
+
+    def _article_category_keywords(self, article: Dict) -> list:
+        """Keywords for the article category, with cybersecurity fallback."""
+        event_category = article.get("event_category", "cybersecurity")
+        category_keywords = self.news_scraper.keywords_by_category.get(event_category, [])
+        if category_keywords:
+            return category_keywords
+        return self.news_scraper.breach_keywords
 
     # Backward-compatible alias while callers migrate.
     def _classify_breach_type_and_severity(self, title: str, summary: str) -> tuple:
@@ -173,11 +487,11 @@ class CatastropheAnalyzerApp:
         title = article.get("title", "") or ""
         summary = article.get("summary", "") or ""
         content_lower = f"{title} {summary}".lower()
-        breach_keywords = [k.lower() for k in self.news_scraper.breach_keywords]
+        category_keywords = [k.lower() for k in self._article_category_keywords(article)]
 
         # Find candidate keyword positions once
         kw_positions = []
-        for kw in breach_keywords:
+        for kw in category_keywords:
             pos = content_lower.find(kw)
             if pos != -1:
                 kw_positions.append(pos)
@@ -232,6 +546,7 @@ class CatastropheAnalyzerApp:
             return {
                 "articles": 0,
                 "watches_created": 0,
+                "new_high_value_events": [],
             }
 
         recent_articles = self.news_scraper.filter_recent_articles(raw_articles, hours_back)
@@ -241,6 +556,7 @@ class CatastropheAnalyzerApp:
         times_post_days = int(self.settings.get("price_series", {}).get("post_days", 30))
 
         created = 0
+        skipped_low_distress = 0
 
         for article in entities:
             if not article.get("has_publicly_traded"):
@@ -256,7 +572,60 @@ class CatastropheAnalyzerApp:
 
             title = article.get("title", "") or ""
             summary = article.get("summary", "") or ""
-            event_subtype, severity = self._classify_event_subtype_and_severity(title, summary)
+            event_subtype, severity = self._classify_event_subtype_and_severity(
+                title=title,
+                summary=summary,
+                event_category=event_category,
+            )
+            distress = self._financial_distress_assessment(
+                title=title,
+                summary=summary,
+                event_category=event_category,
+            )
+            distress_label = distress.get("likelihood", "LOW")
+            distress_score = distress.get("score", 0)
+            distress_gate = self._distress_gate_min_score(event_category)
+            if distress_score < distress_gate:
+                skipped_low_distress += 1
+                continue
+
+            triage_payload = {
+                "title": title,
+                "summary": summary,
+                "event_category": event_category,
+                "event_subtype": event_subtype,
+                "distress_score": distress_score,
+                "distress_likelihood": distress_label,
+            }
+            triage = self.impact_triage.evaluate(triage_payload)
+            if self._severity_rank(distress_label) > self._severity_rank(severity):
+                severity = distress_label.title()
+
+            event_key = self.db.build_event_key(
+                ticker=canonical["ticker"],
+                event_date=event_date,
+                event_category=event_category,
+                source_url=article.get("link", ""),
+                title=title,
+            )
+            triage_record = {
+                "event_key": event_key,
+                "ticker": canonical["ticker"],
+                "company": canonical["company"],
+                "event_date": event_date,
+                "event_category": event_category,
+                "event_subtype": event_subtype,
+                "distress_score": distress_score,
+                "distress_likelihood": distress_label,
+                "impact_score": triage.get("impact_score", 0),
+                "impact_likelihood": triage.get("impact_likelihood", "LOW"),
+                "impact_summary": triage.get("impact_summary", ""),
+                "triage_engine": triage.get("triage_engine", "deterministic"),
+                "alert_state": "NEW",
+                "url": article.get("link", ""),
+                "title": title,
+            }
+            self.db.upsert_triage_event(triage_record)
 
             watch = {
                 "ticker": canonical["ticker"],
@@ -264,6 +633,9 @@ class CatastropheAnalyzerApp:
                 "event_date": event_date,
                 "breach_date": event_date,  # Legacy compatibility for stream-B merge gap.
                 "event_category": event_category,
+                "event_subtype": event_subtype,
+                "distress_likelihood": distress_label,
+                "distress_score": distress_score,
                 "source": article.get("source", ""),
                 "url": article.get("link", ""),
                 "watch_start_date": event_date,
@@ -283,6 +655,8 @@ class CatastropheAnalyzerApp:
                     "company": canonical["company"],
                     "ticker": canonical["ticker"],
                     "event_subtype": event_subtype,
+                    "distress_likelihood": distress_label,
+                    "distress_score": distress_score,
                     "breach_type": event_subtype,
                     "severity": severity,
                     "source": watch.get("source", ""),
@@ -313,6 +687,12 @@ class CatastropheAnalyzerApp:
         return {
             "articles": len(recent_articles),
             "watches_created": created,
+            "skipped_low_distress": skipped_low_distress,
+            "new_high_value_events": self.db.get_triage_events(
+                alert_state="NEW",
+                min_impact_score=self._triage_thresholds()[0],
+                min_distress_score=self._triage_thresholds()[1],
+            ),
         }
 
     # Backward-compatible alias while monitor/callers migrate.
@@ -473,6 +853,8 @@ class CatastropheAnalyzerApp:
         return {
             "articles": detect_summary.get("articles", 0),
             "watches_created": detect_summary.get("watches_created", 0),
+            "skipped_low_distress": detect_summary.get("skipped_low_distress", 0),
+            "new_high_value_events": detect_summary.get("new_high_value_events", []),
             "watches_checked": update_summary.get("watches_checked", 0),
             "signals_generated": update_summary.get("signals_generated", 0),
             "signals_saved": update_summary.get("signals_saved", 0),
@@ -660,6 +1042,26 @@ class CatastropheAnalyzerApp:
             print("No events in database yet")
             return
 
+        depth_categories = self._depth_categories()
+        category_choice = input(
+            f"Filter category [all/{'/'.join(depth_categories)}] (default=all): "
+        ).strip().lower()
+        if category_choice in depth_categories:
+            breaches = [b for b in breaches if b.get("event_category", "").lower() == category_choice]
+
+        distress_choice = input("Show only high distress events? (y/n, default=n): ").strip().lower()
+        if distress_choice == "y":
+            filtered = []
+            for b in breaches:
+                likelihood, score = self._event_distress_fields(b)
+                if likelihood == "HIGH" or score >= 70:
+                    filtered.append(b)
+            breaches = filtered
+
+        if not breaches:
+            print("No events match current filters.")
+            return
+
         # Group by severity
         severity_counts = {}
         for breach in breaches:
@@ -670,15 +1072,26 @@ class CatastropheAnalyzerApp:
         for sev, count in severity_counts.items():
             print(f"  {sev}: {count}")
 
+        by_category = {}
+        for b in breaches:
+            cat = b.get("event_category", "Unknown")
+            by_category[cat] = by_category.get(cat, 0) + 1
+        print("\nBy category:")
+        for cat, count in by_category.items():
+            print(f"  {cat}: {count}")
+
         # Show recent breaches
         print("\nMost recent events:")
         print("-"*40)
 
         for i, breach in enumerate(breaches[-10:], 1):
+            distress_like, distress_score = self._event_distress_fields(breach)
             print(f"\n{i}. {breach.get('company')} ({breach.get('ticker')})")
             print(f"   Date:     {breach.get('date_found', 'Unknown')}")
             print(f"   Type:     {breach.get('breach_type', 'Unknown')}")
+            print(f"   Category: {breach.get('event_category', 'Unknown')}")
             print(f"   Severity: {breach.get('severity', 'Unknown')}")
+            print(f"   Distress: {distress_like} ({distress_score}/100)")
             print(f"   Source:   {breach.get('source', 'Unknown')}")
 
     # Backward-compatible aliases for existing call sites.

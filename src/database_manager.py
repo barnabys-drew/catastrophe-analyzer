@@ -3,6 +3,7 @@
 import csv
 import json
 import os
+import re
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 
@@ -16,6 +17,8 @@ class DatabaseManager:
         "ticker",
         "event_category",
         "event_subtype",
+        "distress_likelihood",
+        "distress_score",
         "severity",
         "source",
         "url",
@@ -61,6 +64,8 @@ class DatabaseManager:
         "event_date",
         "event_category",
         "event_subtype",
+        "distress_likelihood",
+        "distress_score",
         "source",
         "url",
         "watch_start_date",
@@ -68,6 +73,11 @@ class DatabaseManager:
         "status",
         "timeseries_saved",
     ]
+
+    _DISTRESS_PATTERN = re.compile(
+        r"\[Distress\s+(LOW|MEDIUM|HIGH)\s+(\d{1,3})/100\]",
+        re.IGNORECASE,
+    )
 
     TIMESERIES_FIELDS = [
         "ticker",
@@ -77,6 +87,25 @@ class DatabaseManager:
         "date",
         "close",
         "volume",
+    ]
+
+    TRIAGE_FIELDS = [
+        "event_key",
+        "ticker",
+        "company",
+        "event_date",
+        "event_category",
+        "event_subtype",
+        "distress_score",
+        "distress_likelihood",
+        "impact_score",
+        "impact_likelihood",
+        "impact_summary",
+        "triage_engine",
+        "alert_state",
+        "first_seen_at",
+        "last_seen_at",
+        "last_alerted_at",
     ]
 
     def __init__(self, data_dir: str = "../data"):
@@ -89,6 +118,7 @@ class DatabaseManager:
         self.signals_file = os.path.join(data_dir, "buy_signals.csv")
         self.watchlist_file = os.path.join(data_dir, "event_watchlist.csv")
         self.timeseries_file = os.path.join(data_dir, "event_price_timeseries.csv")
+        self.triage_file = os.path.join(data_dir, "event_triage.csv")
 
         # Legacy breach paths retained only for migration/fallback.
         self.legacy_breaches_file = os.path.join(data_dir, "breaches.csv")
@@ -129,6 +159,11 @@ class DatabaseManager:
             self.TIMESERIES_FIELDS,
             self._normalize_timeseries_row,
             fallback_path=self.legacy_timeseries_file,
+        )
+        self._ensure_canonical_csv(
+            self.triage_file,
+            self.TRIAGE_FIELDS,
+            self._normalize_triage_row,
         )
 
     def _read_csv(self, path: str) -> Tuple[List[str], List[Dict]]:
@@ -188,6 +223,7 @@ class DatabaseManager:
             )
 
     def _normalize_event_row(self, row: Dict) -> Dict:
+        distress_likelihood, distress_score = self._extract_distress_fields(row)
         return {
             "event_date": row.get("event_date")
             or row.get("breach_date")
@@ -197,6 +233,8 @@ class DatabaseManager:
             "ticker": row.get("ticker", ""),
             "event_category": row.get("event_category") or "cybersecurity",
             "event_subtype": row.get("event_subtype") or row.get("breach_type") or "Unknown",
+            "distress_likelihood": distress_likelihood,
+            "distress_score": distress_score,
             "severity": row.get("severity", "Unknown"),
             "source": row.get("source", ""),
             "url": row.get("url", ""),
@@ -245,12 +283,15 @@ class DatabaseManager:
         }
 
     def _normalize_watch_row(self, row: Dict) -> Dict:
+        distress_likelihood, distress_score = self._extract_distress_fields(row)
         return {
             "ticker": row.get("ticker", ""),
             "company": row.get("company", ""),
             "event_date": row.get("event_date") or row.get("breach_date") or "",
             "event_category": row.get("event_category") or "cybersecurity",
             "event_subtype": row.get("event_subtype") or row.get("breach_type") or "",
+            "distress_likelihood": distress_likelihood,
+            "distress_score": distress_score,
             "source": row.get("source", ""),
             "url": row.get("url", ""),
             "watch_start_date": row.get("watch_start_date") or datetime.now().strftime("%Y-%m-%d"),
@@ -258,6 +299,35 @@ class DatabaseManager:
             "status": row.get("status", "ACTIVE"),
             "timeseries_saved": row.get("timeseries_saved", "No"),
         }
+
+    def _extract_distress_fields(self, row: Dict) -> Tuple[str, str]:
+        """Populate distress fields from explicit keys or legacy text tags."""
+        likelihood = (row.get("distress_likelihood") or "").upper().strip()
+        score = str(row.get("distress_score") or "").strip()
+
+        if likelihood and score:
+            return likelihood, score
+
+        text_candidates = [
+            row.get("event_subtype", ""),
+            row.get("breach_type", ""),
+            row.get("summary", ""),
+        ]
+        for text in text_candidates:
+            m = self._DISTRESS_PATTERN.search(str(text or ""))
+            if not m:
+                continue
+            like = (likelihood or m.group(1).upper()).strip()
+            val = score or m.group(2)
+            try:
+                val_int = max(0, min(100, int(val)))
+            except ValueError:
+                val_int = 0
+            return like, str(val_int)
+
+        if likelihood and not score:
+            return likelihood, ""
+        return "", score
 
     def _normalize_timeseries_row(self, row: Dict) -> Dict:
         return {
@@ -269,6 +339,160 @@ class DatabaseManager:
             "close": row.get("close", ""),
             "volume": row.get("volume", ""),
         }
+
+    def _normalize_triage_row(self, row: Dict) -> Dict:
+        now_iso = datetime.now().isoformat()
+        event_key = row.get("event_key") or self.build_event_key(
+            ticker=row.get("ticker", ""),
+            event_date=row.get("event_date") or row.get("breach_date") or "",
+            event_category=row.get("event_category") or "cybersecurity",
+            source_url=row.get("url", ""),
+            title=row.get("title", ""),
+        )
+        alert_state = (row.get("alert_state") or "NEW").upper()
+        if alert_state not in ("NEW", "SENT", "ACKED", "SUPPRESSED"):
+            alert_state = "NEW"
+        return {
+            "event_key": event_key,
+            "ticker": row.get("ticker", ""),
+            "company": row.get("company", ""),
+            "event_date": row.get("event_date") or row.get("breach_date") or "",
+            "event_category": row.get("event_category") or "cybersecurity",
+            "event_subtype": row.get("event_subtype") or row.get("breach_type") or "",
+            "distress_score": str(row.get("distress_score", "")).strip(),
+            "distress_likelihood": str(row.get("distress_likelihood", "")).upper().strip(),
+            "impact_score": str(row.get("impact_score", "")).strip(),
+            "impact_likelihood": str(row.get("impact_likelihood", "")).upper().strip(),
+            "impact_summary": (row.get("impact_summary") or "")[:500],
+            "triage_engine": (row.get("triage_engine") or "deterministic").strip(),
+            "alert_state": alert_state,
+            "first_seen_at": row.get("first_seen_at") or now_iso,
+            "last_seen_at": row.get("last_seen_at") or now_iso,
+            "last_alerted_at": row.get("last_alerted_at") or "",
+        }
+
+    @staticmethod
+    def build_event_key(
+        ticker: str,
+        event_date: str,
+        event_category: str,
+        source_url: str = "",
+        title: str = "",
+    ) -> str:
+        import hashlib
+
+        raw = "|".join(
+            [
+                (ticker or "").strip().upper(),
+                (event_date or "").strip(),
+                (event_category or "").strip().lower(),
+                (source_url or "").strip().lower(),
+                (title or "").strip().lower(),
+            ]
+        )
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+
+    def upsert_triage_event(self, triage_event: Dict) -> Dict:
+        """Insert/update triage row keyed by event_key and return normalized record."""
+        record = self._normalize_triage_row(triage_event)
+        fieldnames, rows = self._read_csv(self.triage_file)
+        found = False
+        for row in rows:
+            if row.get("event_key") != record["event_key"]:
+                continue
+            found = True
+            # Preserve state transitions unless caller explicitly requests a new state.
+            incoming_state = (record.get("alert_state") or "").upper()
+            existing_state = (row.get("alert_state") or "NEW").upper()
+            keep_state = existing_state if incoming_state == "NEW" else incoming_state
+            row.update(record)
+            row["first_seen_at"] = row.get("first_seen_at") or record["first_seen_at"]
+            row["last_seen_at"] = datetime.now().isoformat()
+            row["alert_state"] = keep_state
+            record = dict(row)
+            break
+
+        if not found:
+            rows.append(record)
+
+        self._write_csv(self.triage_file, fieldnames or self.TRIAGE_FIELDS, rows)
+        return record
+
+    def get_triage_events(
+        self,
+        alert_state: Optional[str] = None,
+        min_impact_score: Optional[int] = None,
+        min_distress_score: Optional[int] = None,
+    ) -> List[Dict]:
+        """Read triage rows with optional state/threshold filters."""
+        _, rows = self._read_csv(self.triage_file)
+        if not rows:
+            return []
+        out: List[Dict] = []
+        target_state = (alert_state or "").upper().strip()
+        for row in rows:
+            if target_state and (row.get("alert_state", "").upper() != target_state):
+                continue
+            try:
+                impact_score = int(str(row.get("impact_score", "0")).strip() or "0")
+            except ValueError:
+                impact_score = 0
+            try:
+                distress_score = int(str(row.get("distress_score", "0")).strip() or "0")
+            except ValueError:
+                distress_score = 0
+            if min_impact_score is not None and impact_score < min_impact_score:
+                continue
+            if min_distress_score is not None and distress_score < min_distress_score:
+                continue
+            out.append(row)
+        return out
+
+    def mark_triage_sent(self, event_keys: List[str]) -> int:
+        """Mark triage rows as SENT and stamp last_alerted_at."""
+        if not event_keys:
+            return 0
+        key_set = {k.strip() for k in event_keys if k and k.strip()}
+        if not key_set:
+            return 0
+        fieldnames, rows = self._read_csv(self.triage_file)
+        if not rows:
+            return 0
+        now_iso = datetime.now().isoformat()
+        updated = 0
+        for row in rows:
+            if row.get("event_key") not in key_set:
+                continue
+            row["alert_state"] = "SENT"
+            row["last_alerted_at"] = now_iso
+            row["last_seen_at"] = now_iso
+            updated += 1
+        if updated:
+            self._write_csv(self.triage_file, fieldnames or self.TRIAGE_FIELDS, rows)
+        return updated
+
+    def mark_triage_state(self, event_key: str, state: str) -> bool:
+        """Set triage state to one of NEW/SENT/ACKED/SUPPRESSED."""
+        desired = (state or "").upper().strip()
+        if desired not in ("NEW", "SENT", "ACKED", "SUPPRESSED"):
+            return False
+        fieldnames, rows = self._read_csv(self.triage_file)
+        if not rows:
+            return False
+        updated = False
+        for row in rows:
+            if row.get("event_key") != event_key:
+                continue
+            row["alert_state"] = desired
+            row["last_seen_at"] = datetime.now().isoformat()
+            if desired == "SENT":
+                row["last_alerted_at"] = datetime.now().isoformat()
+            updated = True
+            break
+        if not updated:
+            return False
+        self._write_csv(self.triage_file, fieldnames or self.TRIAGE_FIELDS, rows)
+        return True
 
     def add_event(self, event: Dict) -> bool:
         """Add a new event record using canonical event schema."""

@@ -1,49 +1,48 @@
-# Agent / contributor handoff
-
-Use this file at the **start of a new session** so work stays aligned with the product direction without re-deriving context.
+# Contributor Handoff
 
 ## What this repo is
 
-**Catastrophe Analyzer** — monitors **firm-specific shock headlines**, links them to **tickers**, measures **post-event** price/technical behavior, and emits **rule-based signals** with optional alerts. **Cybersecurity** is the first category wired in code; the **target design** is **multiple `event_category` values** sharing one pipeline.
+Catastrophe Analyzer is a category-driven event signal tool for public equities.
 
-## Read these first (in order)
+Goal: detect material company events, map them to tickers, evaluate likely financial pressure and technical context, then emit ranked signal candidates.
 
-1. [README.md](README.md) — goals, current vs roadmap, **scripts vs research agents** stance.
-2. [docs/EVENT_CATEGORIES_AND_IMPACT.md](docs/EVENT_CATEGORIES_AND_IMPACT.md) — canonical **`event_category`** strings and impact table.
-3. [docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md](docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md) — **concrete Phase 1 checklist** (config, scraper, CSV migration, renames).
-4. [ARCHITECTURE.md](ARCHITECTURE.md) — module responsibilities and data flow.
+## Read order for any new session
 
-## Multi-agent workflow (Cursor)
+1. `README.md`
+2. `docs/EVENT_CATEGORIES_AND_IMPACT.md`
+3. `ARCHITECTURE.md`
 
-- [docs/ONE_REPO_MULTI_CHAT.md](docs/ONE_REPO_MULTI_CHAT.md) — **one clone**: serial coding, pause/stash, how to avoid mixed streams.
-- [docs/MULTI_AGENT_WORKSTREAMS.md](docs/MULTI_AGENT_WORKSTREAMS.md) — **streams A/B/C**, git branch names, merge order, file ownership.
-- [docs/SESSION_PREAMBLE.md](docs/SESSION_PREAMBLE.md) — **copy-paste** text for the first message in each new Chat/Composer session.
+## Current product direction
 
-## Naming and design rules
+- Production runtime is Docker + `src/monitor.py`.
+- Interactive CLI (`src/main.py`) is for testing and debugging.
+- Category depth is currently strongest in:
+  - `cybersecurity`
+  - `clinical_regulatory_binary`
 
-- Prefer **`event_category`** / **`event_categories`** in new code and config; avoid “buckets.”
-- Neutral persistence: **`events.csv`**, **`event_date`**, **`event_subtype`** (see implementation plan); migrate from legacy `breach*.csv` rather than stranding users.
-- Watchlist dedupe: prefer **`(ticker, event_date, event_category)`** when implementing multi-category.
-- **Do not** replace the deterministic pipeline with agents-only ingestion; agents are optional **enrichers** (README).
+## Core constraints
 
-## How to run
+- Keep deterministic scripted ingestion as source of truth.
+- Use `event_category` / `event_subtype` naming consistently.
+- Preserve category expansion ideas from `docs/EVENT_CATEGORIES_AND_IMPACT.md`.
+- Avoid broad refactors unless directly requested.
+
+## Run commands
 
 ```bash
-cd catastrophe-analyzer
-pip install -r requirements.txt
-cd src && python3 main.py
+# CLI (manual test)
+cd src
+python3 main.py
+
+# Service path smoke test
+python3 monitor.py --once --quiet
 ```
-
-Monitor loop (alerts): `python3 monitor.py --once` or interval loop (see [src/monitor.py](src/monitor.py)). Mock prices: env `CATASTROPHE_ANALYZER_USE_MOCK_DATA=1` (legacy `BREACH_ANALYZER_USE_MOCK_DATA` may still exist).
-
-## What is likely still outdated in code
-
-Until Phase 1 is implemented, expect **`breach_*` names**, **`breaches.csv`**, and CLI/menu text saying “breach.” The **docs** describe the target state; **trust the implementation plan** for the next coding steps.
 
 ## Git hygiene
 
-Do **not** commit: `.venv/`, `data/*` (runtime; keep `data/.gitkeep`), `**/__pycache__/**`. `.gitignore` is in repo root.
+Do not commit runtime artifacts:
 
-## Cursor rules (repo)
-
-Project rules live under [`.cursor/rules/`](.cursor/rules/) (e.g. `catastrophe-analyzer.mdc`) and apply **always-on** reminders to read this file and the implementation plan before editing `src/` or `config/`.
+- `.venv/`
+- `data/*` (except `data/.gitkeep`)
+- `**/__pycache__/**`
+- `.env`

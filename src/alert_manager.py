@@ -3,7 +3,10 @@ Alert Manager Module
 
 Sends alerts when new buy signals are generated.
 Default behavior: always prints alerts to stdout.
-If `config/alerts_config.json` exists and enables email/SMS, it sends those too.
+If `config/alerts_config.json` exists and enables email, ntfy, or SMS (Twilio), it sends those too.
+
+ntfy.sh (or a self-hosted ntfy server) provides push notifications to the ntfy app — a practical
+replacement for SMS without Twilio.
 """
 
 import os
@@ -11,6 +14,7 @@ import json
 import smtplib
 from email.mime.text import MIMEText
 from typing import Dict, List, Optional
+from urllib.parse import quote
 
 import requests
 
@@ -84,10 +88,58 @@ class AlertManager:
             # Never crash the monitor on alert failures
             return
 
+    def _priority_header_value(self, raw) -> str:
+        """Map config priority to ntfy X-Priority (1–5)."""
+        if isinstance(raw, int) and 1 <= raw <= 5:
+            return str(raw)
+        if isinstance(raw, str) and raw.isdigit() and 1 <= int(raw) <= 5:
+            return raw
+        if not isinstance(raw, str):
+            return "3"
+        key = raw.lower().strip()
+        mapped = {"min": 1, "low": 2, "default": 3, "normal": 3, "high": 4, "urgent": 5, "max": 5}
+        return str(mapped.get(key, 3))
+
+    def _post_ntfy(self, title: str, message: str, cfg: Dict) -> None:
+        """
+        POST to ntfy (https://ntfy.sh or self-hosted). cfg: topic, server, optional token, priority.
+        """
+        topic = (cfg.get("topic") or "").strip()
+        if not topic:
+            return
+        server = (cfg.get("server") or "https://ntfy.sh").rstrip("/")
+        # Allow slash-separated topics (e.g. self-hosted / user namespaces)
+        url = f"{server}/{quote(topic, safe='/')}"
+        headers = {
+            "Content-Type": "text/plain; charset=utf-8",
+        }
+        if title:
+            headers["Title"] = title[:3900]
+        headers["Priority"] = self._priority_header_value(cfg.get("priority", "default"))
+        token = (cfg.get("token") or "").strip()
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        try:
+            requests.post(
+                url,
+                data=message.encode("utf-8"),
+                headers=headers,
+                timeout=15,
+            ).raise_for_status()
+        except Exception:
+            return
+
+    def _send_ntfy(self, title: str, message: str) -> None:
+        ntfy_cfg = self.config.get("alert_channels", {}).get("ntfy", {}) if self.config else {}
+        if not ntfy_cfg or not ntfy_cfg.get("enabled", False):
+            return
+        self._post_ntfy(title, message, ntfy_cfg)
+
     def send_buy_signal_alerts(self, signals: List[Dict]) -> None:
         """
         Send alerts for a list of newly created signals.
-        Always prints to stdout; additionally sends email/SMS if configured.
+        Always prints to stdout; additionally sends email / ntfy / SMS if configured.
         """
         if not signals:
             return
@@ -106,7 +158,7 @@ class AlertManager:
             category_text = f" | category={event_category}" if event_category else ""
             print(f"- {ticker} | {conf_level} | entry={entry} target={target} | event_date={event_date}{category_text}")
 
-        # Email/SMS (best-effort)
+        # Email / ntfy / SMS (best-effort)
         subject = "Catastrophe Analyzer: New Buy Signal(s)"
         body_lines = ["New buy signal(s) have been generated:\n"]
         for s in signals:
@@ -128,8 +180,77 @@ class AlertManager:
         except Exception:
             pass
 
+    def send_high_value_event_alerts(self, events: List[Dict]) -> None:
+        """
+        Send per-item alerts for newly triaged high-value events.
+        Always logs to stdout; sends ntfy/email/SMS when configured.
+        """
+        if not events:
+            return
+
+        print("\n" + "=" * 80)
+        print("NEW HIGH-VALUE EVENT(S)")
+        print("=" * 80)
+        for e in events:
+            print(
+                f"- {e.get('ticker', '')} | {e.get('event_category', '')} | "
+                f"impact={e.get('impact_likelihood', '')} {e.get('impact_score', '')}/100 | "
+                f"distress={e.get('distress_likelihood', '')} {e.get('distress_score', '')}/100"
+            )
+
+        for e in events:
+            ticker = e.get("ticker", "")
+            company = e.get("company", "")
+            event_date = e.get("event_date", "")
+            category = e.get("event_category", "")
+            impact_score = e.get("impact_score", "")
+            impact_like = e.get("impact_likelihood", "")
+            distress_score = e.get("distress_score", "")
+            distress_like = e.get("distress_likelihood", "")
+            summary = (e.get("impact_summary", "") or "").strip()
+            subject = f"Catastrophe Analyzer: High-Value Event {ticker}"
+            body = (
+                f"Ticker: {ticker}\n"
+                f"Company: {company}\n"
+                f"Date: {event_date}\n"
+                f"Category: {category}\n"
+                f"Impact: {impact_like} ({impact_score}/100)\n"
+                f"Distress: {distress_like} ({distress_score}/100)\n"
+                f"Summary: {summary}\n"
+            )
+
+            try:
+                self._send_email(subject=subject, body=body)
+            except Exception:
+                pass
+
+            try:
+                self._send_ntfy(title=subject, message=body)
+            except Exception:
+                pass
+
+            try:
+                sms_cfg = self.config.get("alert_channels", {}).get("sms", {}) if self.config else {}
+                if sms_cfg and sms_cfg.get("enabled", False):
+                    provider = (sms_cfg.get("provider") or "twilio").lower()
+                    sms_message = (
+                        f"HIGH-VALUE EVENT: {ticker} {category} "
+                        f"impact {impact_like}({impact_score}) distress {distress_like}({distress_score})"
+                    )
+                    if provider == "ntfy":
+                        self._post_ntfy(title=subject[:200], message=sms_message, cfg=sms_cfg)
+                    else:
+                        self._send_sms_twilio(sms_message)
+            except Exception:
+                pass
+
         try:
-            # SMS: one message summarizing the first signal
+            self._send_ntfy(title=subject, message=body)
+        except Exception:
+            pass
+
+        try:
+            # SMS (Twilio) or ntfy via sms.provider — short summary
             first = signals[0]
             first_date = first.get("event_date", first.get("breach_date"))
             first_category = first.get("event_category", "")
@@ -138,7 +259,15 @@ class AlertManager:
                 f"BUY SIGNAL: {first.get('ticker')} ({first.get('confidence_level')}) "
                 f"event {first_date}{category_text}"
             )
-            self._send_sms_twilio(sms_message)
+            sms_cfg = self.config.get("alert_channels", {}).get("sms", {}) if self.config else {}
+            if sms_cfg and sms_cfg.get("enabled", False):
+                provider = (sms_cfg.get("provider") or "twilio").lower()
+                if provider == "ntfy":
+                    if len(signals) > 1:
+                        sms_message = f"{sms_message} (+{len(signals) - 1} more)"
+                    self._post_ntfy(title=subject[:200], message=sms_message, cfg=sms_cfg)
+                else:
+                    self._send_sms_twilio(sms_message)
         except Exception:
             pass
 

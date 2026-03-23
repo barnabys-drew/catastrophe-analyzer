@@ -1,26 +1,34 @@
 ---
-description: Handoff and naming for Catastrophe Analyzer (read AGENTS + plan before editing src/config)
+description: Catastrophe Analyzer guardrails (Docker parity + category-first design)
 alwaysApply: true
 ---
 
-# Catastrophe Analyzer — agent constraints
+# Catastrophe Analyzer rules
 
-Before **substantive** edits under `src/` or `config/`:
+Before substantive edits in `src/` or `config/`:
 
-1. Read [AGENTS.md](AGENTS.md) (repo root).
-2. Read [docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md](docs/IMPLEMENTATION_PLAN_MULTI_CATEGORY.md) for the Phase 1 checklist and CSV migration spec.
-3. For **multiple chats / one repo**, follow [docs/ONE_REPO_MULTI_CHAT.md](docs/ONE_REPO_MULTI_CHAT.md) and [docs/MULTI_AGENT_WORKSTREAMS.md](docs/MULTI_AGENT_WORKSTREAMS.md).
-4. Start new chats with the template in [docs/SESSION_PREAMBLE.md](docs/SESSION_PREAMBLE.md).
+1. Read `AGENTS.md`.
+2. Read `README.md` and `docs/EVENT_CATEGORIES_AND_IMPACT.md`.
 
-## Naming
+## Product direction
 
-- Use **`event_category`** / **`event_categories`** in new code and config. Do **not** use “buckets” for this concept.
-- Target neutral persistence: `events.csv`, `event_date`, `event_subtype` (see implementation plan).
+- Keep this as a category-driven event signal tool for public equities.
+- Preserve future category expansion ideas in `docs/EVENT_CATEGORIES_AND_IMPACT.md`.
 
-## Architecture
+## Naming + data consistency
 
-- Keep the **deterministic pipeline** (RSS → entities → prices → rules) as the **system of record**. Optional LLM/agents are **enrichers only** (see README).
+- Prefer `event_category`, `event_date`, `event_subtype` in new code.
+- Keep backward compatibility where practical, but do not introduce new breach-only naming.
 
-## Git
+## Docker live service parity
 
-- Do **not** commit: `.venv/`, `data/*` (except `data/.gitkeep`), `**/__pycache__/**`, `.env`.
+When a change affects runtime behavior:
+
+1. Ensure behavior is available through `src/monitor.py` (service path), not only `src/main.py` CLI.
+2. If config changes, keep `config/*.json` defaults Docker-safe.
+3. If dependencies change, update `requirements.txt`.
+4. Verify with at least one service-path smoke run (`monitor.py --once` or Docker equivalent).
+
+## Git hygiene
+
+Do not commit: `.venv/`, `data/*` (except `data/.gitkeep`), `**/__pycache__/**`, `.env`.

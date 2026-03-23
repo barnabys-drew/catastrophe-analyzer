@@ -10,9 +10,20 @@
       "username": "your-email@gmail.com",
       "password": "YOUR_APP_PASSWORD"
     },
+    "ntfy": {
+      "enabled": true,
+      "server": "https://ntfy.sh",
+      "topic": "my-catastrophe-alerts-7f3k9q",
+      "token": "",
+      "priority": "high"
+    },
     "sms": {
       "enabled": false,
       "provider": "twilio",
+      "server": "https://ntfy.sh",
+      "topic": "",
+      "token": "",
+      "priority": "high",
       "account_sid": "ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
       "auth_token": "YOUR_TWILIO_AUTH_TOKEN",
       "from_number": "+1234567890",

@@ -6,6 +6,7 @@ Analyzes stock price movements around breach events
 from typing import List, Dict, Tuple, Optional
 from datetime import datetime, timedelta
 import json
+import re
 
 
 class StockAnalyzer:
@@ -22,6 +23,8 @@ class StockAnalyzer:
             use_mock: If True, use mock data instead of yfinance (useful for testing)
         """
         self.use_mock = use_mock
+        # Cache tradable checks so repeated watch cycles do not re-query bad symbols.
+        self._tradable_cache: Dict[str, bool] = {}
 
         if not use_mock:
             try:
@@ -30,6 +33,57 @@ class StockAnalyzer:
             except ImportError:
                 print("Warning: yfinance not installed. Falling back to mock data.")
                 self.use_mock = True
+
+    @staticmethod
+    def _is_supported_symbol_format(ticker: str) -> bool:
+        """
+        Fast symbol gate for likely US-tradable equities.
+
+        Accepts:
+        - 1-5 uppercase letters (AAPL, BRK)
+        - optional share class suffix .A (BRK.A)
+        Rejects symbols with numeric-heavy/foreign suffix formats.
+        """
+        if not ticker:
+            return False
+        symbol = ticker.upper().strip()
+        if "." in symbol:
+            return bool(re.match(r"^[A-Z]{1,5}\.[A-Z]$", symbol))
+        return bool(re.match(r"^[A-Z]{1,5}$", symbol))
+
+    def validate_tradable_ticker(self, ticker: str) -> bool:
+        """
+        Determine whether ticker appears tradable for live analysis.
+
+        In live mode, this performs a lightweight market-data check with a short
+        lookback and caches the result.
+        """
+        symbol = (ticker or "").upper().strip()
+        if not symbol:
+            return False
+
+        cached = self._tradable_cache.get(symbol)
+        if cached is not None:
+            return cached
+
+        if not self._is_supported_symbol_format(symbol):
+            self._tradable_cache[symbol] = False
+            return False
+
+        if self.use_mock:
+            self._tradable_cache[symbol] = True
+            return True
+
+        try:
+            stock = self.yf.Ticker(symbol)
+            # Small probe before full analysis history request.
+            probe = stock.history(period="5d")
+            is_tradable = not probe.empty
+            self._tradable_cache[symbol] = is_tradable
+            return is_tradable
+        except Exception:
+            self._tradable_cache[symbol] = False
+            return False
 
     def _get_mock_price_history(self, ticker: str, days: int = 60) -> Dict:
         """
@@ -87,18 +141,23 @@ class StockAnalyzer:
         Returns:
             dict: Historical price data or None
         """
+        symbol = (ticker or "").upper().strip()
+        if not self.validate_tradable_ticker(symbol):
+            return None
+
         if self.use_mock:
-            return self._get_mock_price_history(ticker, days)
+            return self._get_mock_price_history(symbol, days)
 
         try:
-            stock = self.yf.Ticker(ticker)
+            stock = self.yf.Ticker(symbol)
             hist = stock.history(period=f"{days}d")
 
             if hist.empty:
+                self._tradable_cache[symbol] = False
                 return None
 
             return {
-                'ticker': ticker,
+                'ticker': symbol,
                 'prices': hist['Close'].tolist(),
                 'volumes': hist['Volume'].tolist(),
                 'dates': [d.strftime('%Y-%m-%d') for d in hist.index],
@@ -108,7 +167,8 @@ class StockAnalyzer:
                 'volume': float(hist['Volume'].iloc[-1])
             }
         except Exception as e:
-            print(f"Error fetching data for {ticker}: {e}")
+            self._tradable_cache[symbol] = False
+            print(f"Error fetching data for {symbol}: {e}")
             return None
 
     def calculate_rsi(self, prices: List[float], period: int = 14) -> List[float]:
@@ -416,6 +476,7 @@ class StockAnalyzer:
         for company in companies:
             ticker = company.get('ticker') or company.get('company')
             if ticker:
+                symbol = (ticker or "").upper().strip()
                 # Allow per-company event_date override (useful for automated pipelines)
                 per_company_event_date = None
                 event_category = None
@@ -424,8 +485,19 @@ class StockAnalyzer:
                     event_category = company.get('event_category')
 
                 effective_event_date = per_company_event_date or event_date or breach_date or '2024-01-01'
+                if not self.validate_tradable_ticker(symbol):
+                    results.append(
+                        {
+                            "ticker": symbol or ticker,
+                            "event_date": effective_event_date,
+                            "breach_date": effective_event_date,
+                            "event_category": event_category or "",
+                            "error": "Ticker failed tradable validation gate",
+                        }
+                    )
+                    continue
                 analysis = self.analyze_event_impact(
-                    ticker=ticker,
+                    ticker=symbol,
                     event_date=effective_event_date,
                     event_category=event_category,
                 )

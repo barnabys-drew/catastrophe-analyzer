@@ -4,7 +4,7 @@ import csv
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
 
@@ -826,6 +826,230 @@ class DatabaseManager:
             "breaches_by_source": self._count_by_field(events, "source"),  # Legacy key
             "signals_by_confidence": self._count_by_field(signals, "confidence_level"),
         }
+
+    @staticmethod
+    def _parse_ymd(value: str) -> Optional[datetime]:
+        try:
+            return datetime.strptime((value or "").strip(), "%Y-%m-%d")
+        except ValueError:
+            return None
+
+    @staticmethod
+    def _pct(numerator: int, denominator: int) -> float:
+        if denominator <= 0:
+            return 0.0
+        return round((numerator / denominator) * 100.0, 1)
+
+    def get_category_yield_dashboard(
+        self,
+        days: int = 30,
+        categories: Optional[List[str]] = None,
+    ) -> Dict:
+        """
+        Return per-category yield funnel metrics for a lookback window.
+
+        Funnel tracked:
+          events -> watches -> analyses -> signals
+        """
+        lookback_days = max(1, int(days))
+        cutoff = datetime.now() - timedelta(days=lookback_days)
+
+        events = self.get_events()
+        analyses = self.get_analysis_history()
+        signals = self.get_signals()
+
+        _, watch_rows = self._read_csv(self.watchlist_file)
+        if categories:
+            category_list = [c for c in categories if c]
+        else:
+            discovered = set()
+            for row in events:
+                discovered.add((row.get("event_category") or "cybersecurity").strip())
+            for row in watch_rows:
+                discovered.add((row.get("event_category") or "cybersecurity").strip())
+            for row in analyses:
+                discovered.add((row.get("event_category") or "cybersecurity").strip())
+            for row in signals:
+                discovered.add((row.get("event_category") or "cybersecurity").strip())
+            category_list = sorted(c for c in discovered if c)
+
+        # Windowed slices by event_date so steps stay comparable.
+        events_w = []
+        for row in events:
+            dt = self._parse_ymd(row.get("event_date", ""))
+            if dt and dt >= cutoff:
+                events_w.append(row)
+
+        watches_w = []
+        for row in watch_rows:
+            dt = self._parse_ymd(row.get("event_date", ""))
+            if dt and dt >= cutoff:
+                watches_w.append(row)
+
+        analyses_w = []
+        for row in analyses:
+            dt = self._parse_ymd(row.get("event_date", ""))
+            if dt and dt >= cutoff:
+                analyses_w.append(row)
+
+        signals_w = []
+        for row in signals:
+            dt = self._parse_ymd(row.get("event_date", ""))
+            if dt and dt >= cutoff:
+                signals_w.append(row)
+
+        def _funnel_key(row: Dict) -> Tuple[str, str, str]:
+            return (
+                (row.get("ticker") or "").strip(),
+                (row.get("event_date") or "").strip(),
+                ((row.get("event_category") or "cybersecurity").strip()),
+            )
+
+        rows: List[Dict] = []
+        totals = {
+            "events": 0,
+            "watches": 0,
+            "analyses": 0,
+            "signals": 0,
+            "unique_event_tickers": 0,
+            "unique_signal_tickers": 0,
+            "_event_to_watch_numerator": 0,
+            "_watch_to_analysis_numerator": 0,
+            "_analysis_to_signal_numerator": 0,
+            "_event_to_signal_numerator": 0,
+        }
+        total_event_tickers: set = set()
+        total_signal_tickers: set = set()
+
+        for category in category_list:
+            c_events = [r for r in events_w if (r.get("event_category") or "cybersecurity") == category]
+            c_watches = [r for r in watches_w if (r.get("event_category") or "cybersecurity") == category]
+            c_analyses = [r for r in analyses_w if (r.get("event_category") or "cybersecurity") == category]
+            c_signals = [r for r in signals_w if (r.get("event_category") or "cybersecurity") == category]
+            event_keys = {_funnel_key(r) for r in c_events if _funnel_key(r)[0] and _funnel_key(r)[1]}
+            watch_keys = {_funnel_key(r) for r in c_watches if _funnel_key(r)[0] and _funnel_key(r)[1]}
+            analysis_keys = {_funnel_key(r) for r in c_analyses if _funnel_key(r)[0] and _funnel_key(r)[1]}
+            signal_keys = {_funnel_key(r) for r in c_signals if _funnel_key(r)[0] and _funnel_key(r)[1]}
+            watch_from_events = watch_keys.intersection(event_keys)
+            analysis_from_watch = analysis_keys.intersection(watch_keys)
+            signal_from_analysis = signal_keys.intersection(analysis_keys)
+            signal_from_events = signal_keys.intersection(event_keys)
+
+            active_watches = 0
+            signal_created_watches = 0
+            expired_watches = 0
+            for r in c_watches:
+                status = (r.get("status") or "").upper()
+                if status == "ACTIVE":
+                    active_watches += 1
+                elif status == "SIGNAL_CREATED":
+                    signal_created_watches += 1
+                elif status == "EXPIRED":
+                    expired_watches += 1
+
+            event_tickers = {r.get("ticker", "") for r in c_events if r.get("ticker", "")}
+            signal_tickers = {r.get("ticker", "") for r in c_signals if r.get("ticker", "")}
+            total_event_tickers.update(event_tickers)
+            total_signal_tickers.update(signal_tickers)
+
+            metrics = {
+                "event_category": category,
+                "events": len(event_keys),
+                "unique_event_tickers": len(event_tickers),
+                "watches": len(watch_keys),
+                "active_watches": active_watches,
+                "signal_created_watches": signal_created_watches,
+                "expired_watches": expired_watches,
+                "analyses": len(analysis_keys),
+                "signals": len(signal_keys),
+                "unique_signal_tickers": len(signal_tickers),
+                "event_to_watch_rate_pct": self._pct(len(watch_from_events), len(event_keys)),
+                "watch_to_analysis_rate_pct": self._pct(len(analysis_from_watch), len(watch_keys)),
+                "analysis_to_signal_rate_pct": self._pct(len(signal_from_analysis), len(analysis_keys)),
+                "event_to_signal_rate_pct": self._pct(len(signal_from_events), len(event_keys)),
+                "raw_events": len(c_events),
+                "raw_watches": len(c_watches),
+                "raw_analyses": len(c_analyses),
+                "raw_signals": len(c_signals),
+            }
+            rows.append(metrics)
+
+            totals["events"] += metrics["events"]
+            totals["watches"] += metrics["watches"]
+            totals["analyses"] += metrics["analyses"]
+            totals["signals"] += metrics["signals"]
+            totals["_event_to_watch_numerator"] += len(watch_from_events)
+            totals["_watch_to_analysis_numerator"] += len(analysis_from_watch)
+            totals["_analysis_to_signal_numerator"] += len(signal_from_analysis)
+            totals["_event_to_signal_numerator"] += len(signal_from_events)
+
+        totals["unique_event_tickers"] = len(total_event_tickers)
+        totals["unique_signal_tickers"] = len(total_signal_tickers)
+        totals["event_to_watch_rate_pct"] = self._pct(totals["_event_to_watch_numerator"], totals["events"])
+        totals["watch_to_analysis_rate_pct"] = self._pct(totals["_watch_to_analysis_numerator"], totals["watches"])
+        totals["analysis_to_signal_rate_pct"] = self._pct(totals["_analysis_to_signal_numerator"], totals["analyses"])
+        totals["event_to_signal_rate_pct"] = self._pct(totals["_event_to_signal_numerator"], totals["events"])
+        totals.pop("_event_to_watch_numerator", None)
+        totals.pop("_watch_to_analysis_numerator", None)
+        totals.pop("_analysis_to_signal_numerator", None)
+        totals.pop("_event_to_signal_numerator", None)
+
+        return {
+            "window_days": lookback_days,
+            "as_of": datetime.now().isoformat(),
+            "rows": rows,
+            "totals": totals,
+        }
+
+    def display_category_yield_dashboard(
+        self,
+        days: int = 30,
+        categories: Optional[List[str]] = None,
+    ) -> None:
+        dashboard = self.get_category_yield_dashboard(days=days, categories=categories)
+        rows = dashboard.get("rows", [])
+        totals = dashboard.get("totals", {})
+
+        print("\nCATEGORY YIELD DASHBOARD")
+        print("=" * 100)
+        print(f"Window: last {dashboard.get('window_days', days)} days")
+        print("Counts are unique by (ticker, event_date, event_category).")
+        print("Conversion rates use stage-overlap keys for stable funnel math.")
+
+        if not rows:
+            print("No category data available in the selected window.")
+            return
+
+        print(
+            f"{'Category':<30} {'Events':>7} {'Watches':>8} {'Analyses':>9} {'Signals':>8} "
+            f"{'E->W%':>7} {'W->A%':>7} {'A->S%':>7} {'E->S%':>7}"
+        )
+        print("-" * 100)
+        for row in rows:
+            print(
+                f"{row.get('event_category', ''):<30} "
+                f"{row.get('events', 0):>7} "
+                f"{row.get('watches', 0):>8} "
+                f"{row.get('analyses', 0):>9} "
+                f"{row.get('signals', 0):>8} "
+                f"{row.get('event_to_watch_rate_pct', 0.0):>7.1f} "
+                f"{row.get('watch_to_analysis_rate_pct', 0.0):>7.1f} "
+                f"{row.get('analysis_to_signal_rate_pct', 0.0):>7.1f} "
+                f"{row.get('event_to_signal_rate_pct', 0.0):>7.1f}"
+            )
+
+        print("-" * 100)
+        print(
+            f"{'TOTAL':<30} "
+            f"{totals.get('events', 0):>7} "
+            f"{totals.get('watches', 0):>8} "
+            f"{totals.get('analyses', 0):>9} "
+            f"{totals.get('signals', 0):>8} "
+            f"{totals.get('event_to_watch_rate_pct', 0.0):>7.1f} "
+            f"{totals.get('watch_to_analysis_rate_pct', 0.0):>7.1f} "
+            f"{totals.get('analysis_to_signal_rate_pct', 0.0):>7.1f} "
+            f"{totals.get('event_to_signal_rate_pct', 0.0):>7.1f}"
+        )
 
     def _count_by_field(self, records: List[Dict], field: str) -> Dict[str, int]:
         counts: Dict[str, int] = {}

@@ -91,11 +91,17 @@ class CatastropheAnalyzerApp:
             weighted_markers = [
                 ("ransomware", 22, "Ransomware often causes direct operational/financial disruption"),
                 ("wiper", 24, "Wiper-style activity implies destructive impact"),
+                ("destructive malware", 24, "Destructive malware often implies prolonged operational recovery"),
                 ("material cybersecurity incident", 28, "Material incident language implies meaningful financial risk"),
                 ("operations disrupted", 20, "Operational disruption can pressure revenue and margin"),
                 ("service outage", 14, "Customer-facing outage may create churn/penalties"),
                 ("class action", 12, "Legal follow-on risk increases expected costs"),
                 ("regulator investigation", 14, "Regulatory investigations can lead to fines/compliance spend"),
+                ("8-k", 10, "8-K disclosure language usually indicates materiality"),
+                ("sec filing", 10, "SEC filing language usually indicates materiality"),
+                ("unauthorized access", 12, "Unauthorized access can imply incident containment/remediation spend"),
+                ("exfiltration", 14, "Data exfiltration raises legal and remediation costs"),
+                ("supply chain attack", 18, "Supply-chain compromise can broaden blast radius and downtime"),
                 ("credentials leaked", 10, "Credential leaks can drive remediation and fraud costs"),
                 ("millions", 8, "Large-scale impact tends to elevate downstream cost"),
             ]
@@ -104,16 +110,26 @@ class CatastropheAnalyzerApp:
                     score += weight
                     reasons.append(reason)
 
-            if "fda approval" in content or "met primary endpoint" in content:
-                score -= 10
+            positive_offsets = [
+                ("services restored", 12, "Service restoration language lowers near-term disruption risk"),
+                ("no evidence of exfiltration", 12, "No-exfiltration statements can reduce expected downstream liability"),
+                ("no customer data accessed", 10, "Limited customer-data impact lowers expected follow-on costs"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if marker in content:
+                    score -= weight
+                    reasons.append(reason)
         elif event_category == "clinical_regulatory_binary":
             weighted_markers = [
                 ("complete response letter", 32, "CRL usually delays/blocks commercialization"),
                 ("clinical hold", 28, "Clinical hold can pause trial progression and timelines"),
+                ("partial clinical hold", 22, "Partial hold still constrains trial operations and timelines"),
                 ("trial hold", 28, "Trial hold can pause trial progression and timelines"),
                 ("rejected", 18, "Regulatory rejection raises uncertainty and delay risk"),
                 ("refuse to file", 24, "Refuse-to-file meaningfully delays path to market"),
                 ("missed primary endpoint", 26, "Missed endpoint weakens program value"),
+                ("did not meet endpoint", 24, "Endpoint miss materially weakens value narrative"),
+                ("terminated trial", 24, "Trial termination can reset expected commercialization value"),
                 ("failed", 16, "Negative trial language indicates development risk"),
                 ("adverse event", 14, "Safety issues can impair approval/commercial outlook"),
                 ("safety signal", 16, "Safety signals can trigger restrictions or delay"),
@@ -129,6 +145,8 @@ class CatastropheAnalyzerApp:
                 ("met primary endpoint", 16, "Positive efficacy readout lowers distress risk"),
                 ("positive topline", 12, "Positive topline readout lowers distress risk"),
                 ("top-line results met", 12, "Positive topline readout lowers distress risk"),
+                ("priority review", 8, "Priority review can reduce time-to-decision uncertainty"),
+                ("breakthrough therapy", 10, "Breakthrough designation can improve regulatory pathway confidence"),
             ]
             for marker, weight, reason in positive_offsets:
                 if marker in content:
@@ -137,13 +155,19 @@ class CatastropheAnalyzerApp:
         elif event_category == "product_safety_recall":
             weighted_markers = [
                 ("recall", 22, "Recall language signals direct product and liability risk"),
+                ("class i recall", 30, "Class I recall implies highest-severity safety exposure"),
+                ("class 1 recall", 30, "Class I recall implies highest-severity safety exposure"),
                 ("grounding", 24, "Grounding can halt core revenue operations"),
+                ("do not use", 24, "Do-not-use language implies immediate customer/product disruption"),
+                ("stop sale", 22, "Stop-sale actions can rapidly pressure near-term sales"),
+                ("market withdrawal", 18, "Market withdrawals indicate direct product revenue disruption"),
                 ("safety alert", 16, "Safety alerts increase remediation and legal exposure"),
                 ("warning letter", 16, "Regulatory warning letters can constrain operations"),
                 ("defect", 14, "Defect disclosures can drive replacement and litigation costs"),
                 ("contamination", 18, "Contamination events can trigger broad product withdrawals"),
                 ("production halt", 20, "Production halts directly pressure near-term revenue"),
                 ("injury", 16, "Injury reports increase legal and reputational risk"),
+                ("fatality", 20, "Fatality language increases legal, regulatory, and reputational risk"),
             ]
             for marker, weight, reason in weighted_markers:
                 if marker in content:
@@ -167,6 +191,18 @@ class CatastropheAnalyzerApp:
     @staticmethod
     def _depth_categories() -> List[str]:
         return ["cybersecurity", "clinical_regulatory_binary", "product_safety_recall"]
+
+    def _active_event_categories(self) -> List[str]:
+        """Return enabled event categories from settings (fallback to depth set)."""
+        event_cfg = self.settings.get("event_categories", {})
+        if not isinstance(event_cfg, dict):
+            return self._depth_categories()
+        enabled = [
+            name
+            for name, cfg in event_cfg.items()
+            if isinstance(cfg, dict) and cfg.get("enabled", False)
+        ]
+        return enabled or self._depth_categories()
 
     def _event_distress_fields(self, event: Dict) -> tuple:
         """Return (likelihood, score_int) from explicit fields or legacy tags."""
@@ -387,10 +423,14 @@ class CatastropheAnalyzerApp:
             event_subtype = "Clinical/Regulatory Update"
             if "complete response letter" in content or "crl" in content:
                 event_subtype = "FDA Complete Response Letter"
+            elif "partial clinical hold" in content:
+                event_subtype = "Partial Clinical Hold"
             elif "trial hold" in content or "clinical hold" in content:
                 event_subtype = "Clinical Hold"
             elif "fda approval" in content or "approved by the fda" in content:
                 event_subtype = "FDA Approval"
+            elif "adcom" in content and any(marker in content for marker in ("negative vote", "against", "concern")):
+                event_subtype = "AdCom Negative Vote"
             elif "phase 3" in content and any(
                 marker in content for marker in ("failed", "fails", "missed", "did not meet")
             ):
@@ -399,6 +439,8 @@ class CatastropheAnalyzerApp:
                 marker in content for marker in ("met primary endpoint", "met endpoint", "positive data")
             ):
                 event_subtype = "Phase 3 Trial Success"
+            elif any(marker in content for marker in ("missed primary endpoint", "did not meet endpoint")):
+                event_subtype = "Endpoint Miss"
             elif "fda" in content and any(marker in content for marker in ("reject", "rejected", "refuse to file")):
                 event_subtype = "Regulatory Rejection"
 
@@ -417,23 +459,51 @@ class CatastropheAnalyzerApp:
             return event_subtype, severity
         if event_category == "product_safety_recall":
             event_subtype = "Product Safety Event"
-            if "grounding" in content:
+            if "class i recall" in content or "class 1 recall" in content:
+                event_subtype = "Class I Recall"
+            elif "grounding" in content:
                 event_subtype = "Product Grounding"
             elif "recall" in content:
                 event_subtype = "Product Recall"
+            elif "do not use" in content or "stop sale" in content or "safety alert" in content:
+                event_subtype = "Regulatory Safety Alert"
             elif "warning letter" in content:
                 event_subtype = "Regulatory Warning Letter"
             elif "contamination" in content:
                 event_subtype = "Contamination Incident"
 
             severity = "Medium"
-            if any(marker in content for marker in ("grounding", "recall", "injury", "contamination", "production halt")):
+            if any(
+                marker in content
+                for marker in (
+                    "class i recall",
+                    "class 1 recall",
+                    "grounding",
+                    "recall",
+                    "do not use",
+                    "stop sale",
+                    "injury",
+                    "fatality",
+                    "contamination",
+                    "production halt",
+                )
+            ):
                 severity = "High"
             return event_subtype, severity
 
         event_subtype = "Security Incident"
         if "ransomware" in content:
             event_subtype = "Ransomware"
+        elif "material cybersecurity incident" in content or "sec filing" in content or "8-k" in content:
+            event_subtype = "Material Cyber Disclosure"
+        elif "supply chain attack" in content:
+            event_subtype = "Supply Chain Attack"
+        elif "destructive malware" in content or "wiper" in content:
+            event_subtype = "Destructive Malware"
+        elif "service outage" in content or "operations disrupted" in content:
+            event_subtype = "Major Service Outage"
+        elif "unauthorized access" in content:
+            event_subtype = "Unauthorized Access"
         elif "credential" in content or "credentials leaked" in content:
             event_subtype = "Credential Leak"
         elif "zero-day" in content or "zero day" in content:
@@ -455,6 +525,13 @@ class CatastropheAnalyzerApp:
             "credential",
             "data breach",
             "data exposure",
+            "material cybersecurity incident",
+            "sec filing",
+            "8-k",
+            "supply chain attack",
+            "destructive malware",
+            "wiper",
+            "operations disrupted",
         ]
         if any(marker in content for marker in critical_markers):
             severity = "High"
@@ -1111,6 +1188,10 @@ class CatastropheAnalyzerApp:
         print("-"*80)
 
         self.db.display_statistics()
+        self.db.display_category_yield_dashboard(
+            days=30,
+            categories=self._active_event_categories(),
+        )
 
     def settings_menu(self) -> None:
         """Settings menu"""

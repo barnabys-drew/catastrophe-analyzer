@@ -71,6 +71,7 @@ Current deep categories:
 
 - `cybersecurity`
 - `clinical_regulatory_binary`
+- `product_safety_recall`
 
 Future category ideas remain in `docs/EVENT_CATEGORIES_AND_IMPACT.md`.
 

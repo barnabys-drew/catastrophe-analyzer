@@ -85,9 +85,15 @@ class ImpactTriage:
             cyber = [
                 ("material cybersecurity incident", 18, "Material incident wording is high-impact"),
                 ("ransomware", 14, "Ransomware often has operational and financial fallout"),
+                ("destructive malware", 16, "Destructive malware can imply prolonged recovery impact"),
+                ("wiper", 16, "Wiper activity often indicates severe operational damage risk"),
                 ("service outage", 10, "Outages create immediate service and reputation risk"),
                 ("operations disrupted", 12, "Disruption language points to near-term financial pressure"),
                 ("regulator", 8, "Regulatory scrutiny can add compliance and penalty risk"),
+                ("8-k", 8, "8-K style disclosure usually indicates materiality"),
+                ("sec filing", 8, "SEC filing references often signal broader impact"),
+                ("unauthorized access", 8, "Unauthorized access can elevate remediation and legal cost risk"),
+                ("supply chain attack", 12, "Supply-chain compromise can broaden downstream impact"),
             ]
             for marker, weight, reason in cyber:
                 if marker in content:
@@ -97,10 +103,15 @@ class ImpactTriage:
             clinical = [
                 ("complete response letter", 20, "CRL usually delays commercialization"),
                 ("clinical hold", 18, "Clinical hold can freeze trial progression"),
+                ("partial clinical hold", 14, "Partial hold still constrains trial progression"),
                 ("trial hold", 18, "Trial hold can freeze trial progression"),
                 ("missed primary endpoint", 20, "Missed endpoint can reset program value"),
+                ("did not meet endpoint", 18, "Endpoint miss can materially weaken program value"),
+                ("terminated trial", 18, "Trial termination can materially impair commercialization path"),
                 ("fda approval", -12, "Approval is de-risking vs distress scenarios"),
                 ("met primary endpoint", -10, "Positive efficacy reduces downside pressure"),
+                ("priority review", -6, "Priority review can reduce timeline uncertainty"),
+                ("breakthrough therapy", -8, "Breakthrough designation can improve regulatory confidence"),
             ]
             for marker, weight, reason in clinical:
                 if marker in content:
@@ -109,10 +120,15 @@ class ImpactTriage:
         elif category == "product_safety_recall":
             safety = [
                 ("recall", 16, "Recall language often implies direct cost and brand pressure"),
+                ("class i recall", 22, "Class I recall often signals acute safety and liability pressure"),
+                ("class 1 recall", 22, "Class I recall often signals acute safety and liability pressure"),
                 ("grounding", 20, "Grounding can materially reduce operating throughput"),
+                ("do not use", 16, "Do-not-use directives indicate immediate commercial disruption"),
+                ("stop sale", 16, "Stop-sale actions can create near-term revenue pressure"),
                 ("warning letter", 12, "Warning letters can lead to costly remediation"),
                 ("contamination", 16, "Contamination events can widen scope and legal exposure"),
                 ("injury", 10, "Injury-related language increases litigation risk"),
+                ("fatality", 14, "Fatality references elevate legal and reputational downside"),
             ]
             for marker, weight, reason in safety:
                 if marker in content:

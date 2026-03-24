@@ -41,9 +41,13 @@
         "material cybersecurity incident",
         "service outage",
         "operations disrupted",
+        "unauthorized access",
+        "exfiltration",
+        "8-k",
         "class action",
         "regulator investigation",
-        "sec filing"
+        "sec filing",
+        "destructive malware"
       ]
     },
     "leadership_scandal": {
@@ -62,9 +66,12 @@
         "complete response letter",
         "crl",
         "clinical hold",
+        "partial clinical hold",
         "trial hold",
+        "terminated trial",
         "phase 3",
         "phase iii",
+        "did not meet endpoint",
         "met primary endpoint",
         "missed primary endpoint",
         "topline data",
@@ -74,6 +81,8 @@
         "bla",
         "refuse to file",
         "adcom",
+        "priority review",
+        "breakthrough therapy",
         "regulatory decision",
         "adverse event",
         "safety signal",
@@ -87,14 +96,30 @@
       "keywords": [
         "recall",
         "product recall",
+        "class i recall",
+        "class 1 recall",
         "safety recall",
         "grounding",
+        "grounding order",
+        "airworthiness directive",
         "safety alert",
+        "hazard alert",
+        "do not use",
+        "stop sale",
+        "market withdrawal",
+        "field safety notice",
         "defect",
+        "defective",
         "contamination",
+        "tainted",
+        "salmonella",
+        "listeria",
+        "e. coli",
         "warning letter",
         "hazard",
         "injury reports",
+        "fatality",
+        "serious injury",
         "production halt"
       ]
     },
@@ -231,12 +256,75 @@
       "update_interval_hours": 4,
       "max_results": 60
     },
+    "stat_biotech": {
+      "enabled": true,
+      "url": "https://www.statnews.com/category/biotech/feed/",
+      "event_category": "clinical_regulatory_binary",
+      "update_interval_hours": 8,
+      "max_results": 60
+    },
+    "stat_pharma": {
+      "enabled": true,
+      "url": "https://www.statnews.com/category/pharma/feed/",
+      "event_category": "clinical_regulatory_binary",
+      "update_interval_hours": 8,
+      "max_results": 60
+    },
     "google_news_product_recall_recent": {
       "enabled": true,
       "url": "https://news.google.com/rss/search?q=(%22product+recall%22+OR+grounding+OR+%22safety+alert%22+OR+%22defective%22+OR+%22warning+letter%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "product_safety_recall",
       "update_interval_hours": 4,
       "max_results": 50
+    },
+    "google_news_product_recall_regulatory_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22class+i+recall%22+OR+%22do+not+use%22+OR+%22stop+sale%22+OR+%22market+withdrawal%22+OR+%22field+safety+notice%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "product_safety_recall",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+    "google_news_transport_grounding_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22airworthiness+directive%22+OR+grounded+OR+grounding+OR+%22safety+defect%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "product_safety_recall",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+    "google_news_contamination_recall_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(contamination+OR+tainted+OR+salmonella+OR+listeria+OR+%22food+recall%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "product_safety_recall",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+    "cpsc_recalls_rss": {
+      "enabled": true,
+      "url": "https://www.cpsc.gov/Newsroom/CPSC-RSS-Feed/Recalls-RSS",
+      "event_category": "product_safety_recall",
+      "update_interval_hours": 8,
+      "max_results": 80
+    },
+    "cpsc_recalls_children_rss": {
+      "enabled": true,
+      "url": "https://www.cpsc.gov/Newsroom/CPSC-RSS-Feed/Recalls-RSS/children",
+      "event_category": "product_safety_recall",
+      "update_interval_hours": 12,
+      "max_results": 60
+    },
+    "fda_recalls_rss": {
+      "enabled": true,
+      "url": "https://www.recalls.gov/rrfda.aspx",
+      "event_category": "product_safety_recall",
+      "update_interval_hours": 8,
+      "max_results": 80
+    },
+    "medtechdive_news": {
+      "enabled": true,
+      "url": "https://www.medtechdive.com/feeds/news/",
+      "event_category": "product_safety_recall",
+      "update_interval_hours": 8,
+      "max_results": 60
     }
   },
 

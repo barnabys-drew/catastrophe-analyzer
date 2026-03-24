@@ -35,7 +35,7 @@ These ratings describe how often firm-specific headlines create meaningful short
 
 - `cybersecurity`
 - `clinical_regulatory_binary`
-- `product_safety_recall` (next priority to wire from this High-impact row)
+- `product_safety_recall` (baseline wired; continue expanding source and subtype depth)
 
 ### Next expansion candidates (keep these)
 

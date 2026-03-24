@@ -20,6 +20,7 @@ Actively wired categories:
 
 - `cybersecurity`
 - `clinical_regulatory_binary`
+- `product_safety_recall`
 
 Event categories and future expansion targets are defined in [`docs/EVENT_CATEGORIES_AND_IMPACT.md`](docs/EVENT_CATEGORIES_AND_IMPACT.md).
 

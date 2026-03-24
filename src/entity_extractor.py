@@ -310,7 +310,20 @@ class EntityExtractor:
             # After breach context: "breach at Stryker", "attack on Microsoft"
             r"(?:breach|attack|incident|ransomware|hack)\s+(?:at|on|hits?)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,1})",
         ]
-        if event_category == "clinical_regulatory_binary":
+        if event_category == "cybersecurity":
+            patterns.extend(
+                [
+                    # "Company discloses SEC/8-K cybersecurity incident ..."
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:discloses?|disclosed|files?|filed|reports?|reported)\s+"
+                    r"(?:a\s+)?(?:material\s+)?(?:cybersecurity incident|security incident|8-k|sec filing)",
+                    # "Ransomware attack hits Company"
+                    r"(?:ransomware|cyberattack|hack(?:ed|ers?)?|security incident)\s+"
+                    r"(?:hits?|targets?|at|on)\s+"
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})",
+                ]
+            )
+        elif event_category == "clinical_regulatory_binary":
             patterns.extend(
                 [
                     # "Company announced phase 3/topline/FDA decision ..."
@@ -325,6 +338,24 @@ class EntityExtractor:
                     r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
                     r"(?:receives?|received|wins?|won|gets?|got)\s+"
                     r"(?:fda approval|approval|complete response letter|crl|clinical hold)",
+                ]
+            )
+        elif event_category == "product_safety_recall":
+            patterns.extend(
+                [
+                    # "Company recalls ...", "Company issues safety alert ..."
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:recalls?|recalled|issues?|issued|announces?|announced)\s+"
+                    r"(?:a\s+)?(?:product recall|safety recall|recall|safety alert|warning letter)",
+                    # "CPSC/FDA warning letter to Company"
+                    r"(?:cpsc|consumer product safety commission|fda|food and drug administration)\s+"
+                    r"(?:issues?|issued|sent)\s+"
+                    r"(?:a\s+)?(?:warning letter|recall notice|safety alert)\s+to\s+"
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})",
+                    # "Company grounds/halts production ..."
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:grounds?|grounded|halts?|halted|suspends?|suspended)\s+"
+                    r"(?:production|shipments?|operations|product line)",
                 ]
             )
 
@@ -345,9 +376,21 @@ class EntityExtractor:
             "fda approval complete response letter crl clinical hold trial hold phase 2 phase 3 "
             "phase ii phase iii topline top-line endpoint adverse event safety signal pdufa nda bla"
         )
+        cyber_words = (
+            "material cybersecurity incident unauthorized access exfiltration sec filing 8-k zero-day "
+            "destructive malware wiper service outage operations disrupted supply chain attack data leak"
+        )
+        product_safety_words = (
+            "recall product recall safety recall grounding safety alert warning letter defect defective "
+            "contamination injury injuries production halt stop sale do not use cpsc nhtsa faa"
+        )
         context_words = breach_words
-        if event_category == "clinical_regulatory_binary":
+        if event_category == "cybersecurity":
+            context_words = f"{breach_words} {cyber_words}"
+        elif event_category == "clinical_regulatory_binary":
             context_words = f"{breach_words} {clinical_words}"
+        elif event_category == "product_safety_recall":
+            context_words = f"{breach_words} {product_safety_words}"
         stop_words = (
             "the and said have this that with from when company medical device maker firm "
             "medical medtech device maker monday tuesday wednesday thursday friday saturday "

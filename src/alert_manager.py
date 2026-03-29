@@ -136,6 +136,62 @@ class AlertManager:
             return
         self._post_ntfy(title, message, ntfy_cfg)
 
+    @staticmethod
+    def _article_title(title: str, url: str) -> str:
+        """Return human-readable article title fallback."""
+        clean_title = (title or "").strip()
+        clean_url = (url or "").strip()
+        if clean_title:
+            return clean_title
+        if clean_url:
+            return clean_url
+        return "N/A"
+
+    @staticmethod
+    def _article_url_block(article_label: str, article_url: str, line_prefix: str = "  ") -> str:
+        """
+        Format article title + URL with extra vertical space so mobile tap/selection
+        does not grab neighboring lines (Issue, Reasons, etc.).
+        """
+        url = (article_url or "").strip()
+        label = (article_label or "").strip() or "N/A"
+        p = line_prefix
+        if not url:
+            return f"{p}Article: {label}\n"
+        sep = p + "────────────────────────────────"
+        return (
+            "\n"
+            f"{sep}\n"
+            f"{p}Article:\n"
+            f"{p}{label}\n"
+            "\n\n\n"
+            f"{p}{url}\n"
+            "\n\n\n"
+            f"{sep}\n"
+            "\n"
+        )
+
+    @staticmethod
+    def _dedupe_one_company_per_ticker(items: List[Dict]) -> List[Dict]:
+        """
+        Keep a single record per ticker to avoid duplicate company rows in alerts.
+        Prefer the richest row by number of populated fields.
+        """
+        chosen: Dict[str, Dict] = {}
+        for item in items:
+            ticker = str(item.get("ticker", "")).strip().upper()
+            if not ticker:
+                continue
+            current = chosen.get(ticker)
+            if not current:
+                chosen[ticker] = item
+                continue
+            current_score = sum(1 for _, v in current.items() if str(v).strip())
+            item_score = sum(1 for _, v in item.items() if str(v).strip())
+            if item_score >= current_score:
+                chosen[ticker] = item
+        return list(chosen.values())
+
     def send_buy_signal_alerts(self, signals: List[Dict]) -> None:
         """
         Send alerts for a list of newly created signals.
@@ -143,6 +199,7 @@ class AlertManager:
         """
         if not signals:
             return
+        signals = self._dedupe_one_company_per_ticker(signals)
 
         # Console alert (works immediately in Docker logs)
         print("\n" + "=" * 80)
@@ -164,19 +221,59 @@ class AlertManager:
         for s in signals:
             event_date = s.get("event_date", s.get("breach_date"))
             event_category = s.get("event_category", "")
+            event_subtype = s.get("event_subtype", "")
+            issue_summary = (s.get("issue_summary", "") or s.get("impact_summary", "")).strip()
+            article_title = (s.get("title", "") or "").strip()
+            article_url = (s.get("url", "") or "").strip()
+            article_label = self._article_title(article_title, article_url)
+            article_block = self._article_url_block(article_label, article_url)
             category_line = f"  Category: {event_category}\n" if event_category else ""
+            subtype_line = f"  Subtype: {event_subtype}\n" if event_subtype else ""
+            issue_line = f"  Issue: {issue_summary}\n" if issue_summary else ""
             body_lines.append(
                 f"- {s.get('ticker')} | {s.get('confidence_level')} | event_date={event_date}\n"
                 f"{category_line}"
+                f"{subtype_line}"
+                f"{issue_line}"
+                f"\n"
                 f"  Entry: {s.get('suggested_entry')}\n"
                 f"  Stop:  {s.get('suggested_stop_loss')}\n"
                 f"  Target:{s.get('risk_reward', {}).get('target_price')}\n"
+                f"{article_block}"
                 f"  Reasons: {', '.join(s.get('reasons', [])[:3])}\n"
             )
         body = "\n".join(body_lines)
 
         try:
             self._send_email(subject=subject, body=body)
+        except Exception:
+            pass
+        try:
+            self._send_ntfy(title=subject, message=body)
+        except Exception:
+            pass
+
+        try:
+            # SMS (Twilio) or ntfy via sms.provider — short summary
+            first = signals[0]
+            first_date = first.get("event_date", first.get("breach_date"))
+            first_category = first.get("event_category", "")
+            first_subtype = first.get("event_subtype", "")
+            category_text = f", {first_category}" if first_category else ""
+            subtype_text = f" [{first_subtype}]" if first_subtype else ""
+            sms_message = (
+                f"BUY SIGNAL: {first.get('ticker')} ({first.get('confidence_level')}) "
+                f"event {first_date}{category_text}{subtype_text}"
+            )
+            sms_cfg = self.config.get("alert_channels", {}).get("sms", {}) if self.config else {}
+            if sms_cfg and sms_cfg.get("enabled", False):
+                provider = (sms_cfg.get("provider") or "twilio").lower()
+                if provider == "ntfy":
+                    if len(signals) > 1:
+                        sms_message = f"{sms_message} (+{len(signals) - 1} more)"
+                    self._post_ntfy(title=subject[:200], message=sms_message, cfg=sms_cfg)
+                else:
+                    self._send_sms_twilio(sms_message)
         except Exception:
             pass
 
@@ -187,6 +284,7 @@ class AlertManager:
         """
         if not events:
             return
+        events = self._dedupe_one_company_per_ticker(events)
 
         print("\n" + "=" * 80)
         print("NEW HIGH-VALUE EVENT(S)")
@@ -203,20 +301,28 @@ class AlertManager:
             company = e.get("company", "")
             event_date = e.get("event_date", "")
             category = e.get("event_category", "")
+            event_subtype = e.get("event_subtype", "")
             impact_score = e.get("impact_score", "")
             impact_like = e.get("impact_likelihood", "")
             distress_score = e.get("distress_score", "")
             distress_like = e.get("distress_likelihood", "")
             summary = (e.get("impact_summary", "") or "").strip()
+            article_title = (e.get("title", "") or "").strip()
+            article_url = (e.get("url", "") or "").strip()
+            article_label = self._article_title(article_title, article_url)
+            article_block_hv = self._article_url_block(article_label, article_url, line_prefix="")
             subject = f"Catastrophe Analyzer: High-Value Event {ticker}"
             body = (
                 f"Ticker: {ticker}\n"
                 f"Company: {company}\n"
                 f"Date: {event_date}\n"
                 f"Category: {category}\n"
+                f"Subtype: {event_subtype}\n"
                 f"Impact: {impact_like} ({impact_score}/100)\n"
                 f"Distress: {distress_like} ({distress_score}/100)\n"
                 f"Summary: {summary}\n"
+                f"\n"
+                f"{article_block_hv}"
             )
 
             try:
@@ -244,30 +350,4 @@ class AlertManager:
             except Exception:
                 pass
 
-        try:
-            self._send_ntfy(title=subject, message=body)
-        except Exception:
-            pass
-
-        try:
-            # SMS (Twilio) or ntfy via sms.provider — short summary
-            first = signals[0]
-            first_date = first.get("event_date", first.get("breach_date"))
-            first_category = first.get("event_category", "")
-            category_text = f", {first_category}" if first_category else ""
-            sms_message = (
-                f"BUY SIGNAL: {first.get('ticker')} ({first.get('confidence_level')}) "
-                f"event {first_date}{category_text}"
-            )
-            sms_cfg = self.config.get("alert_channels", {}).get("sms", {}) if self.config else {}
-            if sms_cfg and sms_cfg.get("enabled", False):
-                provider = (sms_cfg.get("provider") or "twilio").lower()
-                if provider == "ntfy":
-                    if len(signals) > 1:
-                        sms_message = f"{sms_message} (+{len(signals) - 1} more)"
-                    self._post_ntfy(title=subject[:200], message=sms_message, cfg=sms_cfg)
-                else:
-                    self._send_sms_twilio(sms_message)
-        except Exception:
-            pass
 

@@ -5,6 +5,7 @@ Orchestrates news scraping, entity extraction, stock analysis, and signal genera
 
 import sys
 import os
+import argparse
 from datetime import datetime
 import json
 import io
@@ -21,6 +22,8 @@ from stock_analyzer import StockAnalyzer
 from signal_generator import SignalGenerator
 from database_manager import DatabaseManager
 from impact_triage import ImpactTriage
+from alert_manager import AlertManager
+from service_runtime import run_service_loop
 
 
 class CatastropheAnalyzerApp:
@@ -266,20 +269,39 @@ class CatastropheAnalyzerApp:
             min_distress = 35
         return max(0, min(100, min_impact)), max(0, min(100, min_distress))
 
+    def _signal_triage_thresholds(self) -> tuple:
+        """
+        Return (min_impact_score, min_distress_score) required before saving buy signals.
+
+        Falls back to alert thresholds when explicit signal thresholds are not configured.
+        """
+        triage_cfg = self.settings.get("triage", {})
+        alert_impact, alert_distress = self._triage_thresholds()
+        try:
+            min_impact = int(triage_cfg.get("min_impact_score_for_signal", alert_impact))
+        except (TypeError, ValueError):
+            min_impact = alert_impact
+        try:
+            min_distress = int(triage_cfg.get("min_distress_score_for_signal", alert_distress))
+        except (TypeError, ValueError):
+            min_distress = alert_distress
+        return max(0, min(100, min_impact)), max(0, min(100, min_distress))
+
     def display_menu(self) -> None:
         """Display main menu"""
         print("\n" + "="*80)
         print("CATASTROPHE ANALYZER - Event & Stock Opportunity Detection")
         print("="*80)
-        print("\n1. Scan for events (update news sources)")
-        print("2. Analyze recent events (extract entities & stock data)")
-        print("3. Generate buy signals (from analysis)")
-        print("4. View signal history")
-        print("5. View event history")
-        print("6. Database statistics")
-        print("7. Settings & configuration")
-        print("8. Manage triage alert state (ACK/SUPPRESS)")
-        print("9. Exit\n")
+        print("\n1. Run production-equivalent cycle once (detect + analyze + alerts)")
+        print("2. Scan for events (interactive/manual)")
+        print("3. Analyze recent events (interactive/manual)")
+        print("4. Generate buy signals (interactive/manual)")
+        print("5. View signal history")
+        print("6. View event history")
+        print("7. Database statistics")
+        print("8. Settings & configuration")
+        print("9. Manage triage alert state (ACK/SUPPRESS)")
+        print("10. Exit\n")
 
     def run(self) -> None:
         """Run the application"""
@@ -289,29 +311,49 @@ class CatastropheAnalyzerApp:
 
         while True:
             self.display_menu()
-            choice = input("Enter choice (1-9): ").strip()
+            choice = input("Enter choice (1-10): ").strip()
 
             if choice == '1':
-                self.scan_events()
+                self.run_production_cycle_once()
             elif choice == '2':
-                self.analyze_events()
+                self.scan_events()
             elif choice == '3':
-                self.generate_signals()
+                self.analyze_events()
             elif choice == '4':
-                self.view_signals()
+                self.generate_signals()
             elif choice == '5':
-                self.view_events()
+                self.view_signals()
             elif choice == '6':
-                self.show_statistics()
+                self.view_events()
             elif choice == '7':
-                self.settings_menu()
+                self.show_statistics()
             elif choice == '8':
-                self.manage_triage_alert_state()
+                self.settings_menu()
             elif choice == '9':
+                self.manage_triage_alert_state()
+            elif choice == '10':
                 print("\nExiting Catastrophe Analyzer. Goodbye!")
                 break
             else:
                 print("Invalid choice. Please try again.")
+
+    def run_production_cycle_once(self) -> None:
+        """
+        Run the exact production service-path cycle once, including alert side effects.
+        """
+        print("\n" + "-"*80)
+        print("PRODUCTION-EQUIVALENT CYCLE (ONCE)")
+        print("-"*80)
+
+        alerts = AlertManager()
+        run_service_loop(
+            self,
+            alerts,
+            quiet=False,
+            once=True,
+            interval_minutes=None,
+        )
+        print("✓ Production-equivalent cycle completed.")
 
     def manage_triage_alert_state(self) -> None:
         """Manage triage sent-state rows (ACK/SUPPRESS/RESET)."""
@@ -816,6 +858,7 @@ class CatastropheAnalyzerApp:
 
         analyses_requests = []
         watches_to_check = []
+        watch_context_by_key = {}
         for w in active_watches:
             status = (w.get("status") or "").upper()
             if status == "SIGNAL_CREATED":
@@ -830,6 +873,12 @@ class CatastropheAnalyzerApp:
                 continue
 
             watches_to_check.append(w)
+            watch_context_by_key[(ticker, event_date, event_category)] = {
+                "company": w.get("company", ""),
+                "event_subtype": w.get("event_subtype", ""),
+                "url": w.get("url", ""),
+                "source": w.get("source", ""),
+            }
             analyses_requests.append(
                 {
                     "ticker": ticker,
@@ -851,6 +900,24 @@ class CatastropheAnalyzerApp:
         analyses = self.stock_analyzer.batch_analyze(analyses_requests)
         signals = self.signal_generator.generate_signals_batch(analyses)
         ranked_signals = self.signal_generator.rank_signals(signals)
+        triage_context_by_key = {}
+        watch_keys = set(watch_context_by_key.keys())
+        for triage in self.db.get_triage_events():
+            key = (
+                triage.get("ticker", ""),
+                triage.get("event_date", ""),
+                triage.get("event_category", ""),
+            )
+            if key not in watch_keys:
+                continue
+            triage_context_by_key[key] = {
+                "title": triage.get("title", ""),
+                "impact_summary": triage.get("impact_summary", ""),
+                "event_subtype": triage.get("event_subtype", ""),
+                "url": triage.get("url", ""),
+                "impact_score": triage.get("impact_score", ""),
+                "distress_score": triage.get("distress_score", ""),
+            }
 
         min_conf = self.signal_generator.signal_config.get('min_confidence_for_signal', 0.4)
         if isinstance(min_conf, (int, float)):
@@ -872,6 +939,7 @@ class CatastropheAnalyzerApp:
                 existing_analysis_keys.add(a_key)
 
         # Save signals + mark watch
+        signal_min_impact, signal_min_distress = self._signal_triage_thresholds()
         for signal in ranked_signals:
             s_key = (
                 signal.get("ticker", ""),
@@ -879,6 +947,34 @@ class CatastropheAnalyzerApp:
                 signal.get("event_category", ""),
                 signal.get("signal_type", ""),
             )
+            event_key = (
+                signal.get("ticker", ""),
+                signal.get("event_date", signal.get("breach_date", "")),
+                signal.get("event_category", ""),
+            )
+            watch_ctx = watch_context_by_key.get(event_key, {})
+            triage_ctx = triage_context_by_key.get(event_key, {})
+            if watch_ctx:
+                signal.setdefault("company", watch_ctx.get("company", ""))
+                signal.setdefault("event_subtype", watch_ctx.get("event_subtype", ""))
+                signal.setdefault("url", watch_ctx.get("url", ""))
+            if triage_ctx:
+                signal.setdefault("event_subtype", triage_ctx.get("event_subtype", ""))
+                signal.setdefault("issue_summary", triage_ctx.get("impact_summary", ""))
+                signal.setdefault("title", triage_ctx.get("title", ""))
+                if not signal.get("url"):
+                    signal["url"] = triage_ctx.get("url", "")
+
+            try:
+                impact_score = int(str(triage_ctx.get("impact_score", "0")).strip() or "0")
+            except ValueError:
+                impact_score = 0
+            try:
+                distress_score = int(str(triage_ctx.get("distress_score", "0")).strip() or "0")
+            except ValueError:
+                distress_score = 0
+            if impact_score < signal_min_impact or distress_score < signal_min_distress:
+                continue
             if s_key in existing_signal_keys:
                 continue
             if self.db.add_signal(signal):
@@ -1045,6 +1141,12 @@ class CatastropheAnalyzerApp:
         if self.current_signals:
             # Rank by quality
             ranked_signals = self.signal_generator.rank_signals(self.current_signals)
+            min_conf = self.signal_generator.signal_config.get("min_confidence_for_signal", 0.5)
+            if isinstance(min_conf, (int, float)):
+                ranked_signals = self.signal_generator.filter_signals(
+                    ranked_signals,
+                    min_confidence=float(min_conf),
+                )
 
             print(f"\n✓ Generated {len(ranked_signals)} buy signals")
             self.signal_generator.display_signals(ranked_signals, detailed=True)
@@ -1256,7 +1358,32 @@ class CatastropheAnalyzerApp:
 
 def main():
     """Main entry point"""
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--service",
+        action="store_true",
+        help="Run service loop parity mode (same runtime path as monitor.py).",
+    )
+    parser.add_argument("--interval-minutes", type=int, default=None, help="Override scan interval")
+    parser.add_argument("--quiet", action="store_true", help="Reduce console output")
+    parser.add_argument("--once", action="store_true", help="Run one cycle and exit")
+    args = parser.parse_args()
+
+    # Keep relative-path behavior consistent with monitor.py runtime.
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
     app = CatastropheAnalyzerApp()
+    if args.service or args.once or args.quiet or args.interval_minutes is not None:
+        alerts = AlertManager()
+        run_service_loop(
+            app,
+            alerts,
+            quiet=args.quiet,
+            once=args.once,
+            interval_minutes=args.interval_minutes,
+        )
+        return
+
     app.run()
 
 

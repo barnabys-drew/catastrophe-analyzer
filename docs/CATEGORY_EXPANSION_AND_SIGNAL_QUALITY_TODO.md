@@ -33,6 +33,17 @@ For each category above:
 - [ ] Add confidence calibration pass against historical outcomes (win rate by confidence bucket).
 - [ ] Add false-positive audit: weekly review of top alerted events that did not move price.
 
+## Precision-first acceptance criteria (strict mode)
+
+Use this gate before relaxing thresholds for higher volume:
+
+- [ ] Weekly signal volume stays intentionally low (target: `<= 5` new BUY signals/week across active categories).
+- [ ] Minimum evaluation sample reached before tuning looser (target: `>= 30` reviewed signals or `>= 4` weeks, whichever is later).
+- [ ] HIGH-confidence bucket outperforms MEDIUM/LOW on realized outcomes (win rate and forward return).
+- [ ] False-positive rate remains bounded (target: `<= 35%` of alerted signals fail to show meaningful follow-through).
+- [ ] Only one threshold family is loosened at a time (confidence floor, drop %, volume spike, or distress/impact gate), with a dated changelog note.
+- [ ] Rollback rule defined and enforced: if two consecutive weekly reviews fail quality targets, restore prior stricter thresholds.
+
 ## Testing plan (must pass before enabling a new category)
 
 - [ ] Unit-style checks for parser/classification/distress scoring on curated headline fixtures.

@@ -28,6 +28,30 @@ class SignalGenerator:
 
         self.signal_config = self.config.get('signals', {})
 
+    def _confidence_thresholds(self) -> Tuple[float, float]:
+        """
+        Return (high, medium) confidence cutoffs on a 0-100 scale.
+        Supports config values in either 0-1 or 0-100 form.
+        """
+        levels = self.signal_config.get("confidence_levels", {}) or {}
+
+        def _to_pct(value, default_pct: float) -> float:
+            try:
+                v = float(value)
+            except (TypeError, ValueError):
+                return default_pct
+            if 0 <= v <= 1:
+                return v * 100.0
+            if 1 < v <= 100:
+                return v
+            return default_pct
+
+        high = _to_pct(levels.get("high"), 70.0)
+        medium = _to_pct(levels.get("medium"), 40.0)
+        if medium > high:
+            medium = high
+        return high, medium
+
     def _get_default_config(self) -> Dict:
         """Get default configuration"""
         return {
@@ -67,16 +91,28 @@ class SignalGenerator:
         drop_threshold = self.signal_config.get('price_drop_threshold', 10)
         volume_threshold = self.signal_config.get('volume_spike_threshold', 1.5)
 
-        # Condition 1: RSI oversold OR recent significant drop
-        rsi_oversold = analysis.get('rsi_oversold', False)
-        significant_drop = analysis.get('max_drop_pct', 0) > drop_threshold
+        # Condition 1: significant event-aligned dislocation and weak technical posture
+        rsi_value = analysis.get("event_rsi", analysis.get("current_rsi", 50))
+        rsi_oversold = analysis.get('rsi_oversold', rsi_value < rsi_threshold)
+        significant_drop = analysis.get('max_drop_pct', 0) >= drop_threshold
+        below_ma = bool(analysis.get('price_below_ma20'))
 
         # Condition 2: Volume spike at event
         volume_spike_at_event = analysis.get('volume_spike_at_event', analysis.get('volume_spike_at_breach', 0))
         volume_spike = volume_spike_at_event > volume_threshold
 
-        # Determine if signal is generated
-        generates_signal = (rsi_oversold or significant_drop) and volume_spike
+        # Condition 3: Event has not fully recovered too quickly (avoid chasing stale rebounds)
+        recovery_days_threshold = int(self.signal_config.get('recovery_days_threshold', 5))
+        recovery_days = analysis.get('recovery_days')
+        not_recovered_too_quickly = recovery_days is None or recovery_days >= recovery_days_threshold
+
+        # Determine if signal is generated (strict mode: require drop + volume + technical weakness)
+        generates_signal = (
+            significant_drop
+            and volume_spike
+            and (rsi_oversold or below_ma)
+            and not_recovered_too_quickly
+        )
 
         if not generates_signal:
             return None
@@ -94,7 +130,7 @@ class SignalGenerator:
             'price': analysis.get('current_price'),
             'pre_event_price': analysis.get('pre_event_price', analysis.get('pre_breach_price')),
             'pre_breach_price': analysis.get('pre_event_price', analysis.get('pre_breach_price')),  # Legacy compatibility
-            'rsi': analysis.get('current_rsi'),
+            'rsi': analysis.get('event_rsi', analysis.get('current_rsi')),
             'max_drop_pct': analysis.get('max_drop_pct'),
             'recovery_days': analysis.get('recovery_days'),
             'volume_spike_at_event': volume_spike_at_event,
@@ -160,9 +196,10 @@ class SignalGenerator:
         Returns:
             str: Confidence level (HIGH, MEDIUM, LOW)
         """
-        if score >= 70:
+        high_cutoff, medium_cutoff = self._confidence_thresholds()
+        if score >= high_cutoff:
             return 'HIGH'
-        elif score >= 40:
+        elif score >= medium_cutoff:
             return 'MEDIUM'
         else:
             return 'LOW'
@@ -179,8 +216,9 @@ class SignalGenerator:
         """
         reasons = []
 
-        if analysis.get('rsi_oversold'):
-            reasons.append(f"RSI is {analysis.get('current_rsi'):.1f} (oversold)")
+        rsi_for_signal = analysis.get("event_rsi", analysis.get("current_rsi"))
+        if analysis.get('rsi_oversold') and isinstance(rsi_for_signal, (int, float)):
+            reasons.append(f"Event-window RSI is {rsi_for_signal:.1f} (oversold)")
 
         drop_pct = analysis.get('max_drop_pct', 0)
         if drop_pct > 10:
@@ -322,7 +360,9 @@ class SignalGenerator:
         Returns:
             list: Filtered signals
         """
-        threshold = min_confidence * 100
+        threshold = float(min_confidence)
+        if 0 <= threshold <= 1:
+            threshold *= 100.0
 
         return [s for s in signals if s.get('confidence', 0) >= threshold]
 

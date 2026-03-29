@@ -339,8 +339,9 @@ class StockAnalyzer:
         ma20 = self.calculate_moving_average(prices, 20)
         volume_spikes = self.calculate_volume_spike(volumes)
 
-        # Get current RSI
+        # Use event-window RSI for event-driven signal gating; keep current RSI for display/diagnostics.
         current_rsi = rsi[-1] if rsi else 50
+        event_rsi = rsi[event_idx] if event_idx < len(rsi) else current_rsi
 
         # Volume spike at event
         event_volume_spike = volume_spikes[event_idx] if event_idx < len(volume_spikes) else 1.0
@@ -358,7 +359,8 @@ class StockAnalyzer:
             'max_drop_pct': float(max_drop_pct),
             'recovery_days': recovery_days,
             'current_rsi': float(current_rsi),
-            'rsi_oversold': current_rsi < 30,
+            'event_rsi': float(event_rsi),
+            'rsi_oversold': event_rsi < 30,
             'price_below_ma20': (prices[-1] < ma20[-1]) if ma20[-1] else None,
             'volume_spike_at_event': float(event_volume_spike),
             'volume_spike_at_breach': float(event_volume_spike),  # Legacy compatibility

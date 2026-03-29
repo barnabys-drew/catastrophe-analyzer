@@ -349,29 +349,31 @@
   },
 
   "signals": {
-    "rsi_oversold_threshold": 30,
-    "price_drop_threshold": 10,
+    "rsi_oversold_threshold": 28,
+    "price_drop_threshold": 15,
     "recovery_days_threshold": 5,
-    "volume_spike_threshold": 1.5,
-    "min_confidence_for_signal": 0.4,
+    "volume_spike_threshold": 2.0,
+    "min_confidence_for_signal": 0.7,
     "confidence_levels": {
-      "high": 0.75,
-      "medium": 0.5,
-      "low": 0.25
+      "high": 0.85,
+      "medium": 0.65,
+      "low": 0.4
     }
   },
   "distress_model": {
-    "min_score_for_watch_default": 35,
+    "min_score_for_watch_default": 50,
     "min_score_for_watch_by_category": {
-      "cybersecurity": 35,
-      "clinical_regulatory_binary": 40,
-      "product_safety_recall": 40
+      "cybersecurity": 50,
+      "clinical_regulatory_binary": 60,
+      "product_safety_recall": 55
     }
   },
   "triage": {
     "enabled": true,
     "min_impact_score_for_alert": 60,
     "min_distress_score_for_alert": 35,
+    "min_impact_score_for_signal": 75,
+    "min_distress_score_for_signal": 60,
     "agent_enabled": true,
     "agent_timeout_seconds": 8,
     "fallback_to_deterministic": true,

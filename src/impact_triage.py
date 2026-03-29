@@ -137,9 +137,14 @@ class ImpactTriage:
 
         score = self._clip_score(score)
         likelihood = self._likelihood_from_score(score)
+        event_subtype = str(article.get("event_subtype", "") or "").strip()
+        topic = event_subtype or category.replace("_", " ").strip()
+        headline = " ".join(title.split())
+        lead = f"{topic}: {headline}" if headline else topic
+        drivers = " / ".join(reasons[:2]) if reasons else "headline/detail severity cues"
         summary_line = (
-            f"{category}: {likelihood} impact ({score}/100) based on distress + "
-            f"{' / '.join(reasons[:2]) if reasons else 'headline severity cues'}."
+            f"{lead}. Estimated {likelihood} impact ({score}/100); "
+            f"primary drivers: {drivers}."
         )
         return ImpactTriageResult(
             impact_score=score,

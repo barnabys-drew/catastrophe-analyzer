@@ -1,4 +1,10 @@
 {
+  "local_alert_preview": {
+    "enabled": false,
+    "directory": "data/alert_previews",
+    "disable_ntfy_http": false,
+    "include_extracted_urls_section": true
+  },
   "alert_channels": {
     "email": {
       "enabled": false,

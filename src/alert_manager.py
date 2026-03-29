@@ -11,9 +11,12 @@ replacement for SMS without Twilio.
 
 import os
 import json
+import re
 import smtplib
+import uuid
+from datetime import datetime
 from email.mime.text import MIMEText
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from urllib.parse import quote
 
 import requests
@@ -22,6 +25,7 @@ import requests
 class AlertManager:
     def __init__(self, config_path: Optional[str] = None):
         repo_root = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+        self.repo_root = repo_root
         self.config_path = config_path or os.path.join(repo_root, "config", "alerts_config.json")
 
         self.config = {}
@@ -31,6 +35,101 @@ class AlertManager:
                     self.config = json.load(f)
             except json.JSONDecodeError:
                 self.config = {}
+
+        # Env overrides for local dev (no phone / no ntfy round-trip).
+        env_preview = os.environ.get("CATASTROPHE_LOCAL_ALERT_PREVIEW", "").strip().lower()
+        if env_preview in ("1", "true", "yes"):
+            self.config.setdefault("local_alert_preview", {})
+            self.config["local_alert_preview"]["enabled"] = True
+        env_local_only = os.environ.get("CATASTROPHE_ALERTS_LOCAL_ONLY", "").strip().lower()
+        if env_local_only in ("1", "true", "yes"):
+            self.config.setdefault("local_alert_preview", {})
+            self.config["local_alert_preview"]["enabled"] = True
+            self.config["local_alert_preview"]["disable_ntfy_http"] = True
+
+    def _local_preview_settings(self) -> Tuple[bool, str, bool, bool]:
+        """enabled, directory (abs path), disable_ntfy_http, include_url_section."""
+        raw = (self.config or {}).get("local_alert_preview") or {}
+        enabled = bool(raw.get("enabled", False))
+        rel = (raw.get("directory") or "data/alert_previews").strip()
+        if not os.path.isabs(rel):
+            rel = os.path.join(self.repo_root, rel)
+        disable_http = bool(raw.get("disable_ntfy_http", False))
+        urls_section = bool(raw.get("include_extracted_urls_section", True))
+        return enabled, rel, disable_http, urls_section
+
+    @staticmethod
+    def _extract_http_urls(text: str) -> List[str]:
+        if not (text or "").strip():
+            return []
+        # Greedy but trim common trailing punctuation from prose.
+        found = re.findall(r"https?://[^\s<>\[\]()\"']+", text)
+        out: List[str] = []
+        for u in found:
+            u = u.rstrip(").,;]")
+            if u not in out:
+                out.append(u)
+        return out
+
+    def _write_local_alert_preview(
+        self,
+        title: str,
+        message: str,
+        *,
+        server: str = "",
+        topic: str = "",
+        priority: str = "",
+    ) -> None:
+        enabled, directory, _, include_urls = self._local_preview_settings()
+        if not enabled:
+            return
+        try:
+            os.makedirs(directory, exist_ok=True)
+        except OSError:
+            return
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        short = uuid.uuid4().hex[:8]
+        path = os.path.join(directory, f"{stamp}-{short}.txt")
+        urls = self._extract_http_urls(message) if include_urls else []
+        lines = [
+            "Catastrophe Analyzer — local alert preview (same payload as ntfy)",
+            f"Written: {datetime.now().isoformat()}",
+            "",
+            f"ntfy server: {server or '(n/a)'}",
+            f"ntfy topic: {topic or '(n/a)'}",
+            f"priority: {priority or '(n/a)'}",
+            "",
+            "===== Title (ntfy header) =====",
+            title or "(no title)",
+            "",
+        ]
+        if urls:
+            lines.extend(
+                [
+                    "===== COPY-PASTE URLS (one per line) =====",
+                    *urls,
+                    "",
+                ]
+            )
+        lines.extend(
+            [
+                "===== Message body (ntfy body) =====",
+                message,
+                "",
+            ]
+        )
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+        except OSError:
+            return
+        try:
+            latest = os.path.join(directory, "LATEST.txt")
+            with open(latest, "w", encoding="utf-8") as f:
+                f.write("\n".join(lines))
+        except OSError:
+            pass
+        print(f"[local_alert_preview] wrote {path}")
 
     def _send_email(self, subject: str, body: str) -> None:
         email_cfg = self.config.get("alert_channels", {}).get("email", {}) if self.config else {}
@@ -105,9 +204,22 @@ class AlertManager:
         POST to ntfy (https://ntfy.sh or self-hosted). cfg: topic, server, optional token, priority.
         """
         topic = (cfg.get("topic") or "").strip()
-        if not topic:
+        preview_on, _, disable_http, _ = self._local_preview_settings()
+        if not topic and not preview_on:
             return
         server = (cfg.get("server") or "https://ntfy.sh").rstrip("/")
+        pri = self._priority_header_value(cfg.get("priority", "default"))
+        self._write_local_alert_preview(
+            title,
+            message,
+            server=server,
+            topic=topic or "(no topic — check alerts_config.json)",
+            priority=pri,
+        )
+        if not topic:
+            return
+        if disable_http:
+            return
         # Allow slash-separated topics (e.g. self-hosted / user namespaces)
         url = f"{server}/{quote(topic, safe='/')}"
         headers = {
@@ -115,7 +227,7 @@ class AlertManager:
         }
         if title:
             headers["Title"] = title[:3900]
-        headers["Priority"] = self._priority_header_value(cfg.get("priority", "default"))
+        headers["Priority"] = pri
         token = (cfg.get("token") or "").strip()
         if token:
             headers["Authorization"] = f"Bearer {token}"
@@ -132,7 +244,10 @@ class AlertManager:
 
     def _send_ntfy(self, title: str, message: str) -> None:
         ntfy_cfg = self.config.get("alert_channels", {}).get("ntfy", {}) if self.config else {}
-        if not ntfy_cfg or not ntfy_cfg.get("enabled", False):
+        preview_on, _, _, _ = self._local_preview_settings()
+        if not ntfy_cfg:
+            return
+        if not ntfy_cfg.get("enabled", False) and not preview_on:
             return
         self._post_ntfy(title, message, ntfy_cfg)
 

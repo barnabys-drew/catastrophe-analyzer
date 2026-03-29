@@ -5,6 +5,12 @@ Send a 7-day retrospective sample to ntfy using local CSV data + current config 
 Run from repo root (or any cwd): uses paths relative to this file's parent (repo root).
 
   python3 scripts/send_retrospective_phone_sample.py
+
+Local preview (no phone, copy-paste URLs from disk):
+
+  CATASTROPHE_ALERTS_LOCAL_ONLY=1 python3 scripts/send_retrospective_phone_sample.py
+
+Writes under data/alert_previews/ (see config/alerts_config.json local_alert_preview).
 """
 
 from __future__ import annotations

@@ -28,6 +28,27 @@ class SignalGenerator:
 
         self.signal_config = self.config.get('signals', {})
 
+    def _signal_thresholds_for_category(self, event_category: str) -> Dict:
+        """
+        Resolve signal thresholds for an event category with global fallback.
+        """
+        base = {
+            'rsi_oversold_threshold': self.signal_config.get('rsi_oversold_threshold', 30),
+            'price_drop_threshold': self.signal_config.get('price_drop_threshold', 10),
+            'require_drop_within_48h': self.signal_config.get('require_drop_within_48h', True),
+            'drop_within_48h_threshold': self.signal_config.get('drop_within_48h_threshold', 1.0),
+            'recovery_days_threshold': self.signal_config.get('recovery_days_threshold', 5),
+            'volume_spike_threshold': self.signal_config.get('volume_spike_threshold', 1.5),
+        }
+        by_category = self.signal_config.get("by_category", {})
+        if isinstance(by_category, dict):
+            per_cat = by_category.get(event_category, {})
+            if isinstance(per_cat, dict):
+                for k in list(base.keys()):
+                    if k in per_cat:
+                        base[k] = per_cat[k]
+        return base
+
     def _confidence_thresholds(self) -> Tuple[float, float]:
         """
         Return (high, medium) confidence cutoffs on a 0-100 scale.
@@ -89,11 +110,13 @@ class SignalGenerator:
             return None
 
         ticker = analysis.get('ticker')
-        rsi_threshold = self.signal_config.get('rsi_oversold_threshold', 30)
-        drop_threshold = self.signal_config.get('price_drop_threshold', 10)
-        volume_threshold = self.signal_config.get('volume_spike_threshold', 1.5)
-        require_drop_48h = bool(self.signal_config.get('require_drop_within_48h', True))
-        drop_48h_threshold = float(self.signal_config.get('drop_within_48h_threshold', 1.0))
+        event_category = analysis.get('event_category', '') or ''
+        thresholds = self._signal_thresholds_for_category(event_category)
+        rsi_threshold = float(thresholds.get('rsi_oversold_threshold', 30))
+        drop_threshold = float(thresholds.get('price_drop_threshold', 10))
+        volume_threshold = float(thresholds.get('volume_spike_threshold', 1.5))
+        require_drop_48h = bool(thresholds.get('require_drop_within_48h', True))
+        drop_48h_threshold = float(thresholds.get('drop_within_48h_threshold', 1.0))
 
         # Condition 1: significant event-aligned dislocation and weak technical posture
         rsi_value = analysis.get("event_rsi", analysis.get("current_rsi", 50))
@@ -108,7 +131,7 @@ class SignalGenerator:
         volume_spike = volume_spike_at_event > volume_threshold
 
         # Condition 3: Event has not fully recovered too quickly (avoid chasing stale rebounds)
-        recovery_days_threshold = int(self.signal_config.get('recovery_days_threshold', 5))
+        recovery_days_threshold = int(thresholds.get('recovery_days_threshold', 5))
         recovery_days = analysis.get('recovery_days')
         not_recovered_too_quickly = recovery_days is None or recovery_days >= recovery_days_threshold
 

@@ -356,6 +356,32 @@
     "recovery_days_threshold": 5,
     "volume_spike_threshold": 2.0,
     "min_confidence_for_signal": 0.7,
+    "by_category": {
+      "cybersecurity": {
+        "rsi_oversold_threshold": 28,
+        "price_drop_threshold": 15,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.5,
+        "recovery_days_threshold": 5,
+        "volume_spike_threshold": 2.0
+      },
+      "clinical_regulatory_binary": {
+        "rsi_oversold_threshold": 30,
+        "price_drop_threshold": 12,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.0,
+        "recovery_days_threshold": 4,
+        "volume_spike_threshold": 1.8
+      },
+      "product_safety_recall": {
+        "rsi_oversold_threshold": 27,
+        "price_drop_threshold": 18,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 2.0,
+        "recovery_days_threshold": 6,
+        "volume_spike_threshold": 2.2
+      }
+    },
     "confidence_levels": {
       "high": 0.85,
       "medium": 0.65,

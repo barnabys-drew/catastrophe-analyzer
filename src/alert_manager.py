@@ -307,6 +307,53 @@ class AlertManager:
                 chosen[ticker] = item
         return list(chosen.values())
 
+    @staticmethod
+    def _to_float(value, default: float) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    @classmethod
+    def _signal_strength_score(cls, signal: Dict) -> float:
+        """
+        Numeric strength score for sorting buy-signal alerts.
+        Prefers explicit confidence score; falls back to confidence_level.
+        """
+        score = cls._to_float(signal.get("confidence"), default=-1.0)
+        if score >= 0:
+            return score
+        score = cls._to_float(signal.get("confidence_score"), default=-1.0)
+        if score >= 0:
+            return score
+        level = str(signal.get("confidence_level", "")).upper().strip()
+        return {"HIGH": 90.0, "MEDIUM": 60.0, "LOW": 30.0}.get(level, 0.0)
+
+    @classmethod
+    def _signal_price_for_sort(cls, signal: Dict) -> float:
+        """
+        Best-effort comparable price for ranking lower-risk entries first.
+        """
+        for key in ("price", "suggested_entry", "entry_price"):
+            value = cls._to_float(signal.get(key), default=float("inf"))
+            if value != float("inf"):
+                return value
+        return float("inf")
+
+    @classmethod
+    def _order_signals_for_alerts(cls, signals: List[Dict]) -> List[Dict]:
+        """
+        Order by strongest signal first, then lowest stock price.
+        """
+        return sorted(
+            signals,
+            key=lambda s: (
+                -cls._signal_strength_score(s),
+                cls._signal_price_for_sort(s),
+                str(s.get("ticker", "")),
+            ),
+        )
+
     def send_buy_signal_alerts(self, signals: List[Dict]) -> None:
         """
         Send alerts for a list of newly created signals.
@@ -315,6 +362,7 @@ class AlertManager:
         if not signals:
             return
         signals = self._dedupe_one_company_per_ticker(signals)
+        signals = self._order_signals_for_alerts(signals)
 
         # Console alert (works immediately in Docker logs)
         print("\n" + "=" * 80)

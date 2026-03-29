@@ -134,6 +134,52 @@ class SignalGeneratorStrictTests(unittest.TestCase):
             )
             self.assertIsNone(signal, "Insufficient 48h drop should block signal")
 
+    def test_category_specific_thresholds_override_global(self):
+        SignalGenerator = _load_real_class("signal_generator.py", "SignalGenerator")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg_path = Path(tmpdir) / "settings.json"
+            cfg_path.write_text(
+                json.dumps(
+                    {
+                        "signals": {
+                            "rsi_oversold_threshold": 28,
+                            "price_drop_threshold": 20,
+                            "require_drop_within_48h": True,
+                            "drop_within_48h_threshold": 2.0,
+                            "volume_spike_threshold": 2.0,
+                            "recovery_days_threshold": 5,
+                            "by_category": {
+                                "clinical_regulatory_binary": {
+                                    "price_drop_threshold": 10,
+                                    "drop_within_48h_threshold": 0.5,
+                                    "volume_spike_threshold": 1.5,
+                                }
+                            },
+                            "confidence_levels": {"high": 0.85, "medium": 0.65, "low": 0.4},
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            generator = SignalGenerator(config_path=str(cfg_path))
+            analysis = {
+                "ticker": "CLIN",
+                "event_date": "2026-03-25",
+                "event_category": "clinical_regulatory_binary",
+                "current_price": 90.0,
+                "pre_event_price": 100.0,
+                "min_price_post_event": 89.0,
+                "max_drop_pct": 12.0,
+                "drop_48h_pct": 0.8,
+                "recovery_days": None,
+                "event_rsi": 24.0,
+                "rsi_oversold": True,
+                "price_below_ma20": True,
+                "volume_spike_at_event": 1.7,
+            }
+            signal = generator.generate_buy_signal(analysis)
+            self.assertIsNotNone(signal, "Category-specific thresholds should allow signal")
+
 
 class StockAnalyzerEventTimingTests(unittest.TestCase):
     def test_event_rsi_is_used_for_oversold_flag(self):

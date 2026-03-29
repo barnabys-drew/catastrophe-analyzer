@@ -1089,29 +1089,36 @@ class CatastropheAnalyzerApp:
         if publicly_traded:
             print(f"\n✓ Found {len(publicly_traded)} articles with US-listed tickers")
 
-            # Get unique companies
-            unique_companies = set()
+            # Build event-aligned analysis requests (parity with service path).
+            unique_requests = {}
             for entity in publicly_traded:
-                for mapped in entity.get('mapped_entities', []):
-                    unique_companies.add((mapped['company'], mapped['ticker']))
+                canonical = self._select_canonical_entity(entity)
+                if not canonical:
+                    continue
+                published = entity.get("published", "Unknown")
+                event_date = self._parse_published_date(
+                    published,
+                    fallback_date=datetime.now().strftime('%Y-%m-%d'),
+                )
+                event_category = entity.get("event_category", "cybersecurity")
+                key = (canonical["ticker"], event_date, event_category)
+                unique_requests[key] = {
+                    "company": canonical["company"],
+                    "ticker": canonical["ticker"],
+                    "event_date": event_date,
+                    "event_category": event_category,
+                }
 
-            print(f"✓ Unique companies to analyze: {len(unique_companies)}")
+            print(f"✓ Unique ticker-event rows to analyze: {len(unique_requests)}")
 
             # Ask to proceed with analysis
             response = input("\nAnalyze stock impact for these companies? (y/n): ").strip().lower()
             if response == 'y':
                 # Analyze stock impact
                 print("\nAnalyzing stock prices...")
-                companies_to_analyze = [
-                    {'company': name, 'ticker': ticker}
-                    for name, ticker in unique_companies
-                ]
-
-                # Get breach date (use today for demo)
-                event_date = datetime.now().strftime('%Y-%m-%d')
+                companies_to_analyze = list(unique_requests.values())
                 self.current_analyses = self.stock_analyzer.batch_analyze(
                     companies_to_analyze,
-                    event_date=event_date
                 )
 
                 self.stock_analyzer.display_analysis(self.current_analyses)

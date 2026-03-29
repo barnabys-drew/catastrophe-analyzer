@@ -4,12 +4,19 @@ This guide gets Catastrophe Analyzer running as a 24/7 local Docker service.
 
 It is OS-specific where needed, but the runtime behavior is the same across all platforms.
 
-## 1) Prerequisites
+## 1) Choose install mode
+
+- `Mode A (repo-based)`: full repository on host.
+- `Mode B (runtime-only)`: no full repository, only runtime folder + image.
+
+Use Mode B for lightweight production hosts.
+
+## 2) Prerequisites
 
 Install the following:
 
-- Git
 - Docker (Docker Desktop on Windows/macOS, Docker Engine + Compose plugin on Linux)
+- Git (Mode A only)
 
 Verify:
 
@@ -19,19 +26,20 @@ docker compose version
 git --version
 ```
 
-## 2) Clone repository
+## 3A) Mode A - Clone repository
 
 ```bash
 git clone https://github.com/barnabys-drew/catastrophe-analyzer.git
 cd catastrophe-analyzer
 ```
 
-## 3) Configure alerts and strategy
+## 4A) Mode A - Configure alerts and strategy
 
 Edit:
 
 - `config/settings.json`
 - `config/alerts_config.json`
+- optionally `docs/ENTITY_VALIDATION_RUBRIC.md` (shared markdown rubric for agent validation)
 
 At minimum for phone push via ntfy:
 
@@ -45,7 +53,21 @@ At minimum for phone push via ntfy:
 }
 ```
 
-## 4) Start production container
+For agent validation portability (different providers/models), either set in
+`config/settings.json` under `entity_extraction.agent_validation` or as container env vars:
+
+- `CATASTROPHE_ENTITY_VALIDATION_MODE` (`agent` or `strict_rules`)
+- `CATASTROPHE_ENTITY_AGENT_ENDPOINT`
+- `CATASTROPHE_ENTITY_AGENT_API_KEY`
+- `CATASTROPHE_ENTITY_AGENT_PROVIDER`
+- `CATASTROPHE_ENTITY_AGENT_MODEL`
+- `CATASTROPHE_ENTITY_VALIDATION_RUBRIC_FILE` (default: `docs/ENTITY_VALIDATION_RUBRIC.md`)
+
+Sample env profiles for major model families (plus local Ollama) are documented in:
+
+- `docs/AGENT_VALIDATION_MODEL_PROFILES.md`
+
+## 5A) Mode A - Start production container
 
 From repo root:
 
@@ -60,7 +82,7 @@ This uses:
 - persistent mounts for `config/` and `data/`
 - heartbeat-based container healthcheck
 
-## 5) Verify health
+## 6A) Mode A - Verify health
 
 ```bash
 docker compose ps
@@ -70,7 +92,34 @@ docker logs --tail 200 catastrophe-analyzer
 
 Expected health state: `healthy` after startup cycles complete.
 
-## 6) OS-specific notes
+## 3B) Mode B - Runtime-only folder (no repo clone)
+
+Create a runtime folder and place:
+
+- `docker-compose.yml` (from `runtime-only/docker-compose.yml`)
+- `.env.runtime.example` (rename to `.env.runtime`)
+- `config/settings.json`
+- `config/alerts_config.json`
+- `docs/ENTITY_VALIDATION_RUBRIC.md`
+
+Image options:
+
+- Pull from a registry (`CATASTROPHE_IMAGE=ghcr.io/<org>/catastrophe-analyzer:latest`)
+- Load local tar (`docker load -i catastrophe-analyzer-image.tar`)
+
+Start runtime-only mode:
+
+```bash
+docker compose --env-file .env.runtime up -d
+```
+
+You can create this runtime package from a dev machine via:
+
+```bash
+scripts/export_runtime_bundle.sh
+```
+
+## 7) OS-specific notes
 
 ### Windows
 
@@ -96,7 +145,7 @@ sudo systemctl enable docker
 sudo systemctl start docker
 ```
 
-## 7) Operations
+## 8) Operations
 
 Restart service:
 
@@ -117,7 +166,14 @@ git pull
 docker compose up -d --build
 ```
 
-## 8) Backups (recommended)
+Runtime-only update (new image only):
+
+```bash
+docker load -i catastrophe-analyzer-image.tar
+docker compose --env-file .env.runtime up -d
+```
+
+## 9) Backups (recommended)
 
 Back up `config/` and `data/` daily:
 

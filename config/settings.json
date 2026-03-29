@@ -341,11 +341,28 @@
     "min_company_name_length": 2,
     "fuzzy_matching_enabled": true,
     "fuzzy_match_threshold": 0.8,
+    "validation_mode": "agent",
     "use_dynamic_lookup": true,
     "us_listed_equities_only": true,
+    "require_exchange_company_verification": true,
+    "exchange_verification_fail_closed": true,
     "lookup_provider": "yfinance",
     "cache_lookups": true,
-    "cache_file": "../data/entity_lookup_cache.json"
+    "cache_file": "../data/entity_lookup_cache.json",
+    "agent_validation": {
+      "enabled": true,
+      "fail_closed": true,
+      "timeout_seconds": 8,
+      "endpoint": "",
+      "api_key": "",
+      "provider": "generic_http",
+      "model": "",
+      "max_candidates_per_article": 5,
+      "max_new_validations_per_article": 1,
+      "cache_file": "../data/entity_validation_cache.json",
+      "cache_ttl_days": 60,
+      "rubric_file": "docs/ENTITY_VALIDATION_RUBRIC.md"
+    }
   },
 
   "signals": {

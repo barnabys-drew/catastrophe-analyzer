@@ -1,8 +1,6 @@
 services:
   catastrophe-analyzer:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${CATASTROPHE_IMAGE:-catastrophe-analyzer:latest}
     container_name: catastrophe-analyzer
     restart: unless-stopped
     command: ["--quiet"]
@@ -14,12 +12,10 @@ services:
       CATASTROPHE_ENTITY_AGENT_PROVIDER: ${CATASTROPHE_ENTITY_AGENT_PROVIDER:-generic_http}
       CATASTROPHE_ENTITY_AGENT_MODEL: ${CATASTROPHE_ENTITY_AGENT_MODEL:-}
       CATASTROPHE_ENTITY_VALIDATION_RUBRIC_FILE: ${CATASTROPHE_ENTITY_VALIDATION_RUBRIC_FILE:-docs/ENTITY_VALIDATION_RUBRIC.md}
-      # Alert preview toggles for local testing:
-      # - CATASTROPHE_LOCAL_ALERT_PREVIEW=1
-      # - CATASTROPHE_ALERTS_LOCAL_ONLY=1
     volumes:
       - ./config:/app/config
       - ./data:/app/data
+      - ./docs:/app/docs
     healthcheck:
       test: ["CMD", "python", "-u", "healthcheck.py"]
       interval: 60s

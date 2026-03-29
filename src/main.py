@@ -625,7 +625,10 @@ class CatastropheAnalyzerApp:
         for c in candidates:
             company = c.get("company", "") or ""
             ticker = (c.get("ticker", "") or "").strip()
+            validation_status = str(c.get("validation_status", "approved")).lower().strip()
             if not ticker or ticker == "UNKNOWN":
+                continue
+            if validation_status and validation_status != "approved":
                 continue
 
             company_lower = company.lower()
@@ -641,7 +644,14 @@ class CatastropheAnalyzerApp:
             cand_tuple = (distance, -us_preference, len(company))
             if best_tuple is None or cand_tuple < best_tuple:
                 best_tuple = cand_tuple
-                best = {"company": company, "ticker": ticker}
+                best = {
+                    "company": company,
+                    "ticker": ticker,
+                    "validation_status": c.get("validation_status", "approved"),
+                    "validation_reason": c.get("validation_reason", ""),
+                    "validation_confidence": c.get("validation_confidence", ""),
+                    "validation_engine": c.get("validation_engine", "deterministic"),
+                }
 
         return best
 
@@ -676,9 +686,12 @@ class CatastropheAnalyzerApp:
 
         created = 0
         skipped_low_distress = 0
+        skipped_unapproved_validation = 0
 
         for article in entities:
             if not article.get("has_publicly_traded"):
+                if article.get("mapped_candidates"):
+                    skipped_unapproved_validation += 1
                 continue
 
             canonical = self._select_canonical_entity(article)
@@ -740,6 +753,10 @@ class CatastropheAnalyzerApp:
                 "impact_likelihood": triage.get("impact_likelihood", "LOW"),
                 "impact_summary": triage.get("impact_summary", ""),
                 "triage_engine": triage.get("triage_engine", "deterministic"),
+                "validation_status": canonical.get("validation_status", "approved"),
+                "validation_reason": canonical.get("validation_reason", ""),
+                "validation_confidence": canonical.get("validation_confidence", ""),
+                "validation_engine": canonical.get("validation_engine", "deterministic"),
                 "alert_state": "NEW",
                 "url": article.get("link", ""),
                 "title": title,
@@ -807,6 +824,7 @@ class CatastropheAnalyzerApp:
             "articles": len(recent_articles),
             "watches_created": created,
             "skipped_low_distress": skipped_low_distress,
+            "skipped_unapproved_validation": skipped_unapproved_validation,
             "new_high_value_events": self.db.get_triage_events(
                 alert_state="NEW",
                 min_impact_score=self._triage_thresholds()[0],

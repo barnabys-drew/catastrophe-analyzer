@@ -1,6 +1,15 @@
 # Quickstart
 
-## 1) Setup
+Choose one path:
+
+- **Path A: Repo + CLI/Dev mode** (full repo)
+- **Path B: Runtime-only Docker mode** (no full repo on target host)
+
+---
+
+## Path A - Repo + CLI/Dev mode
+
+### 1) Setup
 
 ```bash
 cd catastrophe-analyzer
@@ -9,74 +18,87 @@ source .venv/bin/activate
 python3 -m pip install -r requirements.txt
 ```
 
-## 2) Configure
+### 2) Configure
 
-- Edit `config/settings.json` for categories, sources, and thresholds.
+- Edit `config/settings.json` for categories, thresholds, and validation mode.
 - Edit `config/alerts_config.json` for ntfy/email/Twilio alerts.
 
-For ntfy, set:
-
-```json
-"ntfy": {
-  "enabled": true,
-  "server": "https://ntfy.sh",
-  "topic": "your-secret-topic",
-  "token": "",
-  "priority": "high"
-}
-```
-
-## 3) Test with CLI (manual)
+### 3) Test CLI (interactive)
 
 ```bash
 cd src
 python3 main.py
 ```
 
-Use this path to inspect scan/analyze/signal steps interactively.
-
-## 4) Test service path once
+### 4) Test service path once
 
 ```bash
 cd src
 python3 monitor.py --once --quiet
 ```
 
-## 5) Run as live Docker service
-
-From repo root:
+### 5) Run Docker from repo
 
 ```bash
 docker compose up -d --build
-```
-
-## 6) Observe logs
-
-```bash
 docker logs -f catastrophe-analyzer
-docker inspect --format='{{.State.Health.Status}}' catastrophe-analyzer
 ```
 
-## 7) Stop service
+Stop:
 
 ```bash
 docker compose stop
 ```
 
-## 8) Local production runbook
+---
 
-See `docs/LOCAL_PRODUCTION_RUNBOOK.md` for:
+## Path B - Runtime-only Docker mode (no repo clone)
 
-- heartbeat-based health monitoring
-- backup/restore guidance
-- operational checks for always-on local machines
+Use this on production hosts that should only run the service.
 
-From-scratch cross-platform setup (Windows/macOS/Linux):
+### 1) Prepare runtime folder
 
+Copy the contents from `runtime-only/` to your host folder, then add:
+
+- `config/settings.json`
+- `config/alerts_config.json`
+- `docs/ENTITY_VALIDATION_RUBRIC.md`
+
+Or generate a ready bundle from a dev machine:
+
+```bash
+scripts/export_runtime_bundle.sh
+```
+
+### 2) Configure env file
+
+```bash
+cp .env.runtime.example .env.runtime
+```
+
+Set image:
+
+- local loaded image: `CATASTROPHE_IMAGE=catastrophe-analyzer:latest`
+- registry image: `CATASTROPHE_IMAGE=ghcr.io/<org>/catastrophe-analyzer:latest`
+
+### 3) Start service
+
+```bash
+docker compose --env-file .env.runtime up -d
+```
+
+### 4) Verify
+
+```bash
+docker compose ps
+docker inspect --format='{{.State.Health.Status}}' catastrophe-analyzer
+docker logs --tail 200 catastrophe-analyzer
+```
+
+---
+
+## Additional docs
+
+- `docs/LOCAL_PRODUCTION_RUNBOOK.md`
 - `docs/PRODUCTION_SETUP_WINDOWS_MAC_LINUX.md`
-
-## Notes
-
-- Production path is `monitor.py` (Docker), not the interactive menu.
-- Current category depth is strongest for `cybersecurity` and `clinical_regulatory_binary`.
-- Future category expansion targets are in `docs/EVENT_CATEGORIES_AND_IMPACT.md`.
+- `runtime-only/README.md`

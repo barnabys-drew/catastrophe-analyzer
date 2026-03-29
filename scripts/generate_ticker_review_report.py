@@ -177,12 +177,17 @@ def main() -> None:
 
     triage_cfg = thresholds.get("triage", {})
     sig_cfg = thresholds.get("signals", {})
+    entity_cfg = thresholds.get("entity_extraction", {})
+    validation_mode = str(entity_cfg.get("validation_mode", "strict_rules") or "strict_rules").strip().lower()
+    agent_cfg = entity_cfg.get("agent_validation", {}) or {}
     thr_lines = [
         f"- High-value alert bar: impact ≥ {triage_cfg.get('min_impact_score_for_alert', 60)}, "
         f"distress ≥ {triage_cfg.get('min_distress_score_for_alert', 35)}",
         f"- Persisted signal triage bar: impact ≥ {triage_cfg.get('min_impact_score_for_signal', 75)}, "
         f"distress ≥ {triage_cfg.get('min_distress_score_for_signal', 60)}",
         f"- Signal confidence floor: min_confidence_for_signal = {sig_cfg.get('min_confidence_for_signal', 'n/a')}",
+        f"- Entity validation mode: `{validation_mode}`",
+        f"- Agent fail-closed: `{agent_cfg.get('fail_closed', True)}`",
     ]
 
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -209,8 +214,8 @@ def main() -> None:
         f"",
         f"## Summary table",
         f"",
-        f"| Ticker | Event date | Category | Impact | Distress | Analysis | Signal | Meets HV bar | Meets signal triage bar |",
-        f"|--------|------------|----------|--------|----------|----------|--------|--------------|-------------------------|",
+        f"| Ticker | Event date | Category | Impact | Distress | Validation | Analysis | Signal | Meets HV bar | Meets signal triage bar |",
+        f"|--------|------------|----------|--------|----------|------------|----------|--------|--------------|-------------------------|",
     ]
 
     mi_a = _parse_int(str(triage_cfg.get("min_impact_score_for_alert", 60)))
@@ -237,6 +242,8 @@ def main() -> None:
         dis = _parse_int(tr.get("distress_score", ""))
         hv_ok = "Yes" if imp >= mi_a and dis >= md_a else "No"
         sig_tri_ok = "Yes" if imp >= mi_s and dis >= md_s else "No"
+        validation_status = (tr.get("validation_status") or "").strip().lower()
+        validation_cell = validation_status.upper() if validation_status else "N/A"
 
         url_triage = (tr.get("url") or "").strip()
         title_triage = (tr.get("title") or "").strip()
@@ -250,7 +257,7 @@ def main() -> None:
 
         lines.append(
             f"| {ticker} | {event_date} | {cat} | {imp} | {dis} | "
-            f"{'Yes' if an else 'No'} | {'Yes' if sg else 'No'} | {hv_ok} | {sig_tri_ok} |"
+            f"{validation_cell} | {'Yes' if an else 'No'} | {'Yes' if sg else 'No'} | {hv_ok} | {sig_tri_ok} |"
         )
 
     lines.extend(["", "---", ""] + toc)
@@ -290,8 +297,14 @@ def main() -> None:
                 f"| Subtype | {tr.get('event_subtype', '')} |",
                 f"| Distress | {tr.get('distress_likelihood', '')} ({tr.get('distress_score', '')}/100) |",
                 f"| Impact | {tr.get('impact_likelihood', '')} ({tr.get('impact_score', '')}/100) |",
+                f"| Validation | {tr.get('validation_status', '')} via {tr.get('validation_engine', '')} |",
+                f"| Validation confidence | {tr.get('validation_confidence', '')} |",
                 f"| Alert state | {tr.get('alert_state', '')} |",
                 f"| Triage engine | {tr.get('triage_engine', '')} |",
+                f"",
+                f"**Validation reason**",
+                f"",
+                _md_block(tr.get("validation_reason", "")),
                 f"",
                 f"**Impact summary**",
                 f"",

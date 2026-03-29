@@ -2,12 +2,25 @@
 
 Use this when running Catastrophe Analyzer on an always-on local machine.
 
+## Deployment choice
+
+- `Repo-based deploy`: run from the full repository checkout.
+- `Runtime-only deploy`: run from a lightweight folder with only compose/config/data/docs and an image.
+
+Runtime-only instructions: `runtime-only/README.md`.
+
 ## Start / update service
 
-From repo root:
+From repo root (repo-based deploy):
 
 ```bash
 docker compose up -d --build
+```
+
+From runtime-only folder:
+
+```bash
+docker compose --env-file .env.runtime up -d
 ```
 
 ## Verify runtime health
@@ -46,8 +59,10 @@ Recommended retention:
 ## Recovery
 
 1. Stop service: `docker compose stop`
-2. Restore desired backup tarball into repo root
-3. Start service: `docker compose up -d --build`
+2. Restore desired backup tarball into the active runtime folder
+3. Start service:
+   - repo-based: `docker compose up -d --build`
+   - runtime-only: `docker compose --env-file .env.runtime up -d`
 4. Verify health and logs
 
 ## Local testing mode (no phone dependency)
@@ -58,3 +73,21 @@ Set environment in `docker-compose.yml` if desired:
 - `CATASTROPHE_ALERTS_LOCAL_ONLY=1`
 
 This writes alert previews to `data/alert_previews/` and avoids ntfy HTTP sends.
+
+## Agent validation in Docker (portable across machines/models)
+
+Use environment overrides in `docker-compose.yml` for model/provider portability:
+
+- `CATASTROPHE_ENTITY_VALIDATION_MODE=agent` or `strict_rules`
+- `CATASTROPHE_ENTITY_AGENT_ENDPOINT=...`
+- `CATASTROPHE_ENTITY_AGENT_API_KEY=...`
+- `CATASTROPHE_ENTITY_AGENT_PROVIDER=...` (for example `openai_compatible`)
+- `CATASTROPHE_ENTITY_AGENT_MODEL=...` (model id for your endpoint)
+- `CATASTROPHE_ENTITY_VALIDATION_RUBRIC_FILE=docs/ENTITY_VALIDATION_RUBRIC.md`
+
+The same rubric markdown file is shipped in the image at `docs/ENTITY_VALIDATION_RUBRIC.md`,
+so validation behavior stays consistent on new machines.
+
+Use ready-made model profiles (cloud + Ollama local):
+
+- `docs/AGENT_VALIDATION_MODEL_PROFILES.md`

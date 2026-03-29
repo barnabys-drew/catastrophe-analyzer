@@ -344,5 +344,75 @@ class MainSignalTriageGateTests(unittest.TestCase):
             self.assertEqual(persisted[0]["ticker"], "PASS")
 
 
+class MainEntityValidationGateTests(unittest.TestCase):
+    class _FakeNewsScraper:
+        def scrape_all_sources(self):
+            return [
+                {
+                    "title": "Urgent recall issued for beans over contamination risk",
+                    "summary": "",
+                    "link": "https://example.com/urgent-beans",
+                    "source": "test",
+                    "published": "Sun, 29 Mar 2026 10:00:00 GMT",
+                    "event_category": "product_safety_recall",
+                }
+            ]
+
+        def filter_recent_articles(self, rows, hours_back):
+            return rows
+
+    class _FakeEntityExtractor:
+        def batch_extract(self, rows):
+            return [
+                {
+                    **rows[0],
+                    "mapped_candidates": [{"company": "Urgent", "ticker": "ULY"}],
+                    "mapped_entities": [],
+                    "rejected_entities": [
+                        {
+                            "company": "Urgent",
+                            "ticker": "ULY",
+                            "validation_status": "rejected",
+                            "validation_reason": "agent endpoint not configured",
+                            "validation_engine": "agent_unavailable",
+                        }
+                    ],
+                    "has_publicly_traded": False,
+                }
+            ]
+
+    class _FakeImpactTriage:
+        def evaluate(self, payload):
+            return {"impact_score": 80, "impact_likelihood": "HIGH", "impact_summary": "test"}
+
+    class _FakeStockAnalyzer:
+        def get_event_price_series(self, ticker, event_date, pre_days=30, post_days=30):
+            return []
+
+    def test_fail_closed_rejection_skips_watch_creation(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = DatabaseManager(data_dir=tmpdir)
+            app = CatastropheAnalyzerApp.__new__(CatastropheAnalyzerApp)
+            app.db = db
+            app.news_scraper = self._FakeNewsScraper()
+            app.entity_extractor = self._FakeEntityExtractor()
+            app.impact_triage = self._FakeImpactTriage()
+            app.stock_analyzer = self._FakeStockAnalyzer()
+            app.settings = {
+                "scraping": {"hours_back": 24},
+                "price_series": {"pre_days": 30, "post_days": 30},
+                "distress_model": {"min_score_for_watch_default": 0},
+            }
+            app._classify_event_subtype_and_severity = lambda **kwargs: ("Recall", "High")
+            app._financial_distress_assessment = lambda **kwargs: {"likelihood": "HIGH", "score": 80}
+            app._distress_gate_min_score = lambda event_category: 0
+            app._triage_thresholds = lambda: (60, 35)
+
+            summary = app.detect_new_events(quiet=True)
+            self.assertEqual(summary["watches_created"], 0)
+            self.assertEqual(summary["skipped_unapproved_validation"], 1)
+            self.assertEqual(db.get_active_watches(max_days=7), [])
+
+
 if __name__ == "__main__":
     unittest.main()

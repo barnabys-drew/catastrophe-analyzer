@@ -29,3 +29,6 @@ data/*
 # Generated ticker review markdown (keep review_sessions/README.md)
 review_sessions/*
 !review_sessions/README.md
+
+# Local backup archives
+backups/

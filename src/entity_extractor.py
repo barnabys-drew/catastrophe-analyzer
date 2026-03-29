@@ -6,8 +6,11 @@ Supports the full public company set via dynamic lookup (Yahoo Finance search).
 
 import re
 import os
+import hashlib
+import math
 from typing import List, Dict, Optional, Tuple
 import json
+from datetime import datetime, timedelta
 
 try:
     import requests
@@ -23,6 +26,35 @@ class EntityExtractor:
 
     YAHOO_SEARCH_URL = "https://query2.finance.yahoo.com/v1/finance/search"
     USER_AGENT = "Mozilla/5.0 (compatible; CatastropheAnalyzer/1.0)"
+    _VALIDATION_MODES = frozenset({"agent", "strict_rules"})
+    _OPENAI_COMPATIBLE_PROVIDERS = frozenset(
+        {
+            "openai_compatible",
+            "openai",
+            "openrouter",
+            "groq",
+            "xai",
+            "together",
+            "deepseek",
+            "mistral",
+            "fireworks",
+            "ollama",
+        }
+    )
+    _CATEGORY_SEMANTIC_RULES = {
+        "cybersecurity": (
+            "- Approve only if the company is the victim/operator impacted by the incident.\n"
+            "- Reject security vendors, unrelated quoted experts, or generic institutions."
+        ),
+        "clinical_regulatory_binary": (
+            "- Approve only if the company owns the drug/program tied to the trial/FDA action.\n"
+            "- Reject mentions of competitors, partner comparables, or broad market commentary."
+        ),
+        "product_safety_recall": (
+            "- Approve only if the company manufactured/distributed/retailed the recalled product.\n"
+            "- Reject food nouns, adjective homonyms, and generic words (e.g. urgent, black beans)."
+        ),
+    }
 
     # Yahoo / search "exchange" values that indicate US listing (major venues).
     _US_EXCHANGES = frozenset({
@@ -51,15 +83,27 @@ class EntityExtractor:
     # Generic single-word nouns frequently found in recall/cyber headlines.
     # These should not be treated as standalone public company entities.
     _GENERIC_SINGLE_WORD_ENTITIES = frozenset({
-        "affairs", "alert", "back", "bread", "children", "contamination", "cyber",
+        "affairs", "alert", "back", "black", "bean", "beans", "berry", "berries",
+        "bread", "children", "contamination", "cyber",
         "event", "food", "foods", "health", "help", "here", "homeland", "impact",
         "injury", "item", "items", "life", "market", "material", "medical", "metal",
+        "glass", "shard", "shards", "fragments", "foreign", "substance",
         "news", "organic", "other", "pharma", "poisoning", "product", "prompts",
-        "recall", "recalled", "bulletin", "eruric", "urgent", "yahoo", "msn",
+        "recall", "recalled", "bulletin", "eruric", "urgent", "urgently", "yahoo", "msn",
         "retailer", "retailers", "rice", "risk", "safety", "sold", "technical",
         "trader", "trio", "warning",
     })
     _LOWERCASE_GLUE_WORDS = frozenset({"and", "of", "the", "for", "at", "&"})
+    _RECALL_SINGLE_WORD_ALLOWLIST = frozenset(
+        {
+            "walgreens",
+            "costco",
+            "target",
+            "walmart",
+            "amazon",
+            "cvs",
+        }
+    )
 
     # Minimum length for fuzzy substring match against seed map (avoids "ge" in "geopolitical" -> GE).
     _MIN_PARTIAL_NAME_LEN = 5
@@ -92,6 +136,54 @@ class EntityExtractor:
         self._use_dynamic_lookup = self._config.get("use_dynamic_lookup", True)
         self._cache_lookups = self._config.get("cache_lookups", True)
         self._cache_file = self._config.get("cache_file")  # optional path
+        self._require_exchange_company_verification = bool(
+            self._config.get("require_exchange_company_verification", True)
+        )
+        self._exchange_verification_fail_closed = bool(
+            self._config.get("exchange_verification_fail_closed", True)
+        )
+        self._agent_validation = self._config.get("agent_validation", {}) or {}
+        self._validation_mode = self._resolve_validation_mode(self._config, self._agent_validation)
+        self._agent_validation_enabled = self._validation_mode == "agent"
+        self._agent_validation_fail_closed = bool(self._agent_validation.get("fail_closed", True))
+        self._agent_validation_timeout_seconds = int(self._agent_validation.get("timeout_seconds", 8))
+        self._agent_validation_endpoint = str(
+            os.getenv("CATASTROPHE_ENTITY_AGENT_ENDPOINT")
+            or self._agent_validation.get("endpoint", "")
+            or ""
+        ).strip()
+        self._agent_validation_api_key = str(
+            os.getenv("CATASTROPHE_ENTITY_AGENT_API_KEY")
+            or self._agent_validation.get("api_key", "")
+            or ""
+        ).strip()
+        self._agent_validation_provider = str(
+            os.getenv("CATASTROPHE_ENTITY_AGENT_PROVIDER")
+            or self._agent_validation.get("provider", "")
+            or "generic_http"
+        ).strip()
+        self._agent_validation_model = str(
+            os.getenv("CATASTROPHE_ENTITY_AGENT_MODEL")
+            or self._agent_validation.get("model", "")
+            or ""
+        ).strip()
+        self._agent_validation_max_candidates = max(
+            1, int(self._agent_validation.get("max_candidates_per_article", 5))
+        )
+        self._agent_validation_max_new_per_article = max(
+            0, int(self._agent_validation.get("max_new_validations_per_article", 1))
+        )
+        self._agent_validation_cache_file = self._agent_validation.get("cache_file")
+        self._agent_validation_cache_ttl_days = max(
+            1, int(self._agent_validation.get("cache_ttl_days", 60))
+        )
+        self._agent_validation_cache: Dict[str, Dict] = {}
+        self._validation_rubric_path = str(
+            os.getenv("CATASTROPHE_ENTITY_VALIDATION_RUBRIC_FILE")
+            or self._agent_validation.get("rubric_file", "")
+            or "docs/ENTITY_VALIDATION_RUBRIC.md"
+        ).strip()
+        self._validation_rubric_markdown = self._load_validation_rubric(self._validation_rubric_path)
 
         # Pre-seeded cache (fast path); also stores results from dynamic lookups
         self.company_to_ticker = {
@@ -191,8 +283,12 @@ class EntityExtractor:
 
         # In-memory lookup cache (dynamic lookups added here when cache_lookups is True)
         self._lookup_cache: Dict[str, Optional[str]] = {}
+        self._symbol_quote_cache: Dict[str, Optional[Dict]] = {}
+        self._company_ticker_verify_cache: Dict[str, Dict] = {}
         if self._cache_file and os.path.isfile(self._cache_file):
             self._load_lookup_cache()
+        if self._agent_validation_cache_file and os.path.isfile(self._agent_validation_cache_file):
+            self._load_agent_validation_cache()
 
         self.ticker_to_company = {v: k for k, v in self.company_to_ticker.items()}
 
@@ -203,6 +299,23 @@ class EntityExtractor:
             "cache_lookups": True,
             "cache_file": None,
             "us_listed_equities_only": True,
+            "require_exchange_company_verification": True,
+            "exchange_verification_fail_closed": True,
+            "validation_mode": "strict_rules",
+            "agent_validation": {
+                "enabled": False,
+                "fail_closed": True,
+                "timeout_seconds": 8,
+                "endpoint": "",
+                "api_key": "",
+                "provider": "generic_http",
+                "model": "",
+                "max_candidates_per_article": 5,
+                "max_new_validations_per_article": 1,
+                "cache_file": "../data/entity_validation_cache.json",
+                "cache_ttl_days": 60,
+                "rubric_file": "docs/ENTITY_VALIDATION_RUBRIC.md",
+            },
         }
         if not config_path:
             return defaults
@@ -213,6 +326,42 @@ class EntityExtractor:
             return {**defaults, **section}
         except (FileNotFoundError, json.JSONDecodeError):
             return defaults
+
+    def _resolve_validation_mode(self, config: Dict, agent_cfg: Dict) -> str:
+        """
+        Determine validation mode from config and optional env override.
+
+        Modes:
+        - strict_rules: deterministic filtering only
+        - agent: agent-first semantic approval
+        """
+        mode = str(config.get("validation_mode", "") or "").strip().lower()
+        if mode not in self._VALIDATION_MODES:
+            mode = "agent" if bool(agent_cfg.get("enabled", False)) else "strict_rules"
+        env_mode = str(os.getenv("CATASTROPHE_ENTITY_VALIDATION_MODE", "") or "").strip().lower()
+        if env_mode in self._VALIDATION_MODES:
+            mode = env_mode
+        return mode
+
+    def _load_validation_rubric(self, rubric_path: str) -> str:
+        """Load markdown rubric used by agent validation prompt."""
+        rp = (rubric_path or "").strip()
+        try:
+            if not rp:
+                raise OSError("missing rubric path")
+            if os.path.isabs(rp):
+                candidate = rp
+            else:
+                here = os.path.dirname(os.path.abspath(__file__))
+                candidate = os.path.normpath(os.path.join(here, "..", rp))
+            with open(candidate, "r", encoding="utf-8") as f:
+                return f.read().strip()
+        except OSError:
+            return (
+                "## Entity Validation Rubric\n"
+                "- Approve only if the article clearly identifies the public company as affected.\n"
+                "- Reject homonyms, generic nouns, and unrelated company mentions.\n"
+            )
 
     def _load_lookup_cache(self) -> None:
         """Load persisted lookup cache from cache_file into cache and company_to_ticker."""
@@ -241,6 +390,58 @@ class EntityExtractor:
                 json.dump(self._lookup_cache, f, indent=2)
         except OSError:
             pass
+
+    def _load_agent_validation_cache(self) -> None:
+        """Load persisted agent validation cache keyed by article+candidate fingerprint."""
+        if not self._agent_validation_cache_file:
+            return
+        try:
+            with open(self._agent_validation_cache_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict):
+                self._agent_validation_cache = data
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            self._agent_validation_cache = {}
+
+    def _save_agent_validation_cache(self) -> None:
+        if not self._agent_validation_cache_file:
+            return
+        try:
+            with open(self._agent_validation_cache_file, "w", encoding="utf-8") as f:
+                json.dump(self._agent_validation_cache, f, indent=2)
+        except OSError:
+            pass
+
+    @staticmethod
+    def _norm_text(value: str) -> str:
+        return " ".join(str(value or "").strip().lower().split())
+
+    def _validation_cache_key(self, article: Dict, candidate: Dict, event_category: str) -> str:
+        raw = "|".join(
+            [
+                self._norm_text(event_category),
+                self._norm_text(article.get("link", article.get("url", ""))),
+                self._norm_text(article.get("title", "")),
+                self._norm_text(candidate.get("company", "")),
+                self._norm_text(candidate.get("ticker", "")),
+            ]
+        )
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    def _get_cached_agent_validation(self, cache_key: str) -> Optional[Dict]:
+        row = self._agent_validation_cache.get(cache_key)
+        if not isinstance(row, dict):
+            return None
+        cached_at = str(row.get("cached_at", "") or "").strip()
+        if not cached_at:
+            return row.get("verdict")
+        try:
+            dt = datetime.fromisoformat(cached_at)
+        except ValueError:
+            return row.get("verdict")
+        if dt + timedelta(days=self._agent_validation_cache_ttl_days) < datetime.now():
+            return None
+        return row.get("verdict")
 
     @staticmethod
     def _is_us_primary_symbol(symbol: str) -> bool:
@@ -305,6 +506,90 @@ class EntityExtractor:
             if sym:
                 return sym.upper()
         return None
+
+    def _fetch_symbol_quote(self, ticker: str) -> Optional[Dict]:
+        sym = (ticker or "").strip().upper()
+        if not sym:
+            return None
+        if sym in self._symbol_quote_cache:
+            return self._symbol_quote_cache[sym]
+        if not requests:
+            self._symbol_quote_cache[sym] = None
+            return None
+        try:
+            resp = requests.get(
+                self.YAHOO_SEARCH_URL,
+                params={"q": sym, "quotes_count": 10},
+                headers={"User-Agent": self.USER_AGENT},
+                timeout=8,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception:
+            self._symbol_quote_cache[sym] = None
+            return None
+        quote = None
+        for q in data.get("quotes", []) or []:
+            if (q.get("symbol") or "").strip().upper() != sym:
+                continue
+            if not self._yahoo_quote_is_us_equity(q):
+                continue
+            quote = q
+            break
+        self._symbol_quote_cache[sym] = quote
+        return quote
+
+    def _prefilter_exchange_company_match(self, company: str, ticker: str) -> Dict:
+        """
+        Verify the extracted company+ticker pair resolves to a valid US-listed equity issuer.
+        Returns accepted flag, optional normalized company name, and reject reason.
+        """
+        if not self._require_exchange_company_verification:
+            return {"accepted": True, "normalized_company": company}
+
+        company_norm = (company or "").strip()
+        ticker_norm = (ticker or "").strip().upper()
+        cache_key = f"{company_norm.lower()}|{ticker_norm}"
+        cached = self._company_ticker_verify_cache.get(cache_key)
+        if cached:
+            return cached
+
+        quote = self._fetch_symbol_quote(ticker_norm)
+        if quote:
+            if self._quote_matches_company_name(quote, company_norm):
+                canonical = (
+                    (quote.get("longname") or quote.get("shortname") or company_norm).strip()
+                )
+                out = {"accepted": True, "normalized_company": canonical}
+                self._company_ticker_verify_cache[cache_key] = out
+                return out
+            out = {
+                "accepted": False,
+                "reason": "company name does not match exchange-listed issuer metadata",
+            }
+            self._company_ticker_verify_cache[cache_key] = out
+            return out
+
+        # Seed map fallback when quote metadata is temporarily unavailable.
+        seeded_name = (self.ticker_to_company.get(ticker_norm) or "").strip()
+        if seeded_name and self._quote_matches_company_name(
+            {"shortname": seeded_name, "longname": seeded_name}, company_norm
+        ):
+            out = {"accepted": True, "normalized_company": seeded_name.title()}
+            self._company_ticker_verify_cache[cache_key] = out
+            return out
+
+        # If quote verification is unavailable, fail according to policy.
+        if self._exchange_verification_fail_closed:
+            out = {
+                "accepted": False,
+                "reason": "unable to verify exchange-listed issuer metadata",
+            }
+            self._company_ticker_verify_cache[cache_key] = out
+            return out
+        out = {"accepted": True, "normalized_company": company_norm}
+        self._company_ticker_verify_cache[cache_key] = out
+        return out
 
     @staticmethod
     def _tokenize_name(value: str) -> List[str]:
@@ -372,7 +657,7 @@ class EntityExtractor:
             return token in quote_tokens
 
         overlap = sum(1 for t in query_tokens if t in quote_tokens)
-        needed = max(1, int(len(query_tokens) * 0.6))
+        needed = max(1, int(math.ceil(len(query_tokens) * 0.6)))
         return overlap >= needed
 
     def extract_company_mentions(self, text: str, event_category: Optional[str] = None) -> List[str]:
@@ -495,12 +780,16 @@ class EntityExtractor:
                 # Food/safety headlines often capitalize nouns that are not issuers.
                 noun_after = (
                     r"(?:recall|recalled|warning|contamination|bean|beans|bread|rice|pickles?|"
-                    r"chicken|vegetable|nasal|bottles?|toys?|products?|issued|sold|due)"
+                    r"chicken|vegetable|nasal|bottles?|toys?|products?|ibuprofen|acetaminophen|"
+                    r"syrup|capsules?|tablets?|issued|sold|due)"
                 )
                 # Keep known seeded issuers (e.g. Walgreens) even when followed by product nouns.
                 if (
-                    name.lower() not in self.company_to_ticker
-                    and re.search(rf"\b{re.escape(name.lower())}\s+{noun_after}\b", text_lower)
+                    name.lower() not in self._RECALL_SINGLE_WORD_ALLOWLIST
+                    and (
+                        re.search(rf"\b{re.escape(name.lower())}\s+{noun_after}\b", text_lower)
+                        or re.search(rf"\b{re.escape(name.lower())}'s\s+{noun_after}\b", text_lower)
+                    )
                 ):
                     continue
             # Must appear near a breach-related word (same sentence or within ~40 chars)
@@ -635,23 +924,517 @@ class EntityExtractor:
         companies = self.extract_company_mentions(full_text, event_category=resolved_event_category)
 
         # Map to tickers
-        mapped_entities = []
+        candidate_entities = []
+        prefiltered_rejections: List[Dict] = []
         for company in companies:
             ticker = self.get_ticker_for_company(company)
             if ticker and ticker != 'UNKNOWN':
-                mapped_entities.append({
-                    'company': company,
+                precheck = self._prefilter_exchange_company_match(company, ticker)
+                if not precheck.get("accepted", False):
+                    prefiltered_rejections.append(
+                        {
+                            "company": company,
+                            "ticker": ticker,
+                            "confidence": 'high' if company in full_text else 'medium',
+                            "validation_status": "rejected",
+                            "validation_reason": precheck.get("reason", "exchange verification rejected candidate"),
+                            "validation_confidence": 1.0,
+                            "validation_engine": "exchange_verify",
+                            "validation_source": "prefilter",
+                        }
+                    )
+                    continue
+                candidate_entities.append({
+                    'company': precheck.get("normalized_company", company),
                     'ticker': ticker,
                     'confidence': 'high' if company in full_text else 'medium'
                 })
+
+        # Agent-first validation (fail-closed by policy when enabled)
+        mapped_entities: List[Dict] = []
+        rejected_entities: List[Dict] = list(prefiltered_rejections)
+        new_agent_validations_used = 0
+        for candidate in candidate_entities[: self._agent_validation_max_candidates]:
+            resolved_category = resolved_event_category or ""
+            verdict = self._validate_candidate_by_mode(
+                article=article,
+                candidate=candidate,
+                event_category=resolved_category,
+                new_agent_validations_used=new_agent_validations_used,
+            )
+            if verdict.get("validation_engine") == "agent" and verdict.get("validation_source") == "new":
+                new_agent_validations_used += 1
+            row = {**candidate, **verdict}
+            status = str(verdict.get("validation_status", "")).lower()
+            if status == "approved":
+                mapped_entities.append(row)
+            else:
+                rejected_entities.append(row)
 
         return {
             **article,
             'event_category': resolved_event_category,
             'extracted_companies': companies,
+            'mapped_candidates': candidate_entities,
             'mapped_entities': mapped_entities,
+            'rejected_entities': rejected_entities,
+            'agent_validation_enabled': self._agent_validation_enabled,
+            'validation_mode': self._validation_mode,
             'has_publicly_traded': len(mapped_entities) > 0
         }
+
+    def _validate_candidate_by_mode(
+        self,
+        article: Dict,
+        candidate: Dict,
+        event_category: str,
+        new_agent_validations_used: int,
+    ) -> Dict:
+        # Strict deterministic rule evaluation runs first in all modes.
+        strict_verdict = self._validate_candidate_with_strict_rules(article, candidate, event_category)
+        if strict_verdict:
+            return strict_verdict
+
+        if not self._agent_validation_enabled:
+            return {
+                "validation_status": "rejected",
+                "validation_reason": "strict-rules mode unresolved candidate rejected",
+                "validation_confidence": 0.0,
+                "validation_engine": "strict_rules",
+                "validation_source": "strict_fallback",
+            }
+
+        cache_key = self._validation_cache_key(article, candidate, event_category)
+        cached = self._get_cached_agent_validation(cache_key)
+        if isinstance(cached, dict):
+            return {**cached, "validation_source": "cache"}
+
+        if new_agent_validations_used >= self._agent_validation_max_new_per_article:
+            return {
+                "validation_status": "rejected",
+                "validation_reason": "agent validation deferred: per-article new validation limit reached",
+                "validation_confidence": 0.0,
+                "validation_engine": "strict_rules",
+                "validation_source": "rate_limited",
+            }
+
+        verdict = self._validate_candidate_with_agent(article, candidate, event_category)
+        self._agent_validation_cache[cache_key] = {
+            "cached_at": datetime.now().isoformat(),
+            "verdict": verdict,
+        }
+        self._save_agent_validation_cache()
+        return {**verdict, "validation_source": "new"}
+
+    def _validate_candidate_with_strict_rules(
+        self, article: Dict, candidate: Dict, event_category: str
+    ) -> Optional[Dict]:
+        """
+        Deterministic per-category validations to avoid unnecessary agent calls.
+        Returns a verdict only when strict rules can confidently decide.
+        """
+        title = str(article.get("title", "") or "")
+        summary = str(article.get("summary", "") or "")
+        content = f"{title} {summary}".lower()
+        company = str(candidate.get("company", "") or "").strip()
+        company_lower = company.lower()
+        ticker = str(candidate.get("ticker", "") or "").strip().upper()
+
+        if not company_lower or not ticker:
+            return {
+                "validation_status": "rejected",
+                "validation_reason": "empty company or ticker",
+                "validation_confidence": 1.0,
+                "validation_engine": "strict_rules",
+                "validation_source": "strict",
+            }
+
+        # Strong reject path for known generic tokens/homonyms.
+        if company_lower in self._GENERIC_SINGLE_WORD_ENTITIES:
+            return {
+                "validation_status": "rejected",
+                "validation_reason": f"generic single-word entity rejected: {company}",
+                "validation_confidence": 1.0,
+                "validation_engine": "strict_rules",
+                "validation_source": "strict",
+            }
+
+        company_pat = re.escape(company_lower)
+        company_mentioned = bool(re.search(rf"\b{company_pat}\b", content))
+        if not company_mentioned:
+            return {
+                "validation_status": "rejected",
+                "validation_reason": "company not explicitly mentioned in article content",
+                "validation_confidence": 0.95,
+                "validation_engine": "strict_rules",
+                "validation_source": "strict",
+            }
+
+        universal_negation_terms = (
+            "not involved",
+            "no impact on",
+            "not impacted",
+            "unrelated to",
+            "not tied to",
+            "not associated with",
+            "false rumor",
+        )
+        if any(term in content for term in universal_negation_terms):
+            return {
+                "validation_status": "rejected",
+                "validation_reason": "explicit negation context around candidate relevance",
+                "validation_confidence": 0.95,
+                "validation_engine": "strict_rules",
+                "validation_source": "strict",
+            }
+
+        if event_category == "product_safety_recall":
+            recall_terms = (
+                "recall",
+                "recalled",
+                "withdrawal",
+                "contamination",
+                "tainted",
+                "do not use",
+                "stop sale",
+                "market withdrawal",
+                "warning letter",
+            )
+            role_terms = (
+                "manufactured by",
+                "made by",
+                "distributed by",
+                "sold by",
+                "retailer",
+                "retailer of",
+                "brand",
+            )
+            product_nouns = (
+                "bean",
+                "beans",
+                "pickle",
+                "pickles",
+                "bread",
+                "rice",
+                "chicken",
+                "bottle",
+                "bottles",
+                "spray",
+                "vegetable",
+                "ibuprofen",
+                "acetaminophen",
+                "syrup",
+                "capsule",
+                "capsules",
+                "tablet",
+                "tablets",
+            )
+            if len(company_lower.split()) == 1 and any(
+                re.search(rf"\b{company_pat}(?:'s)?\s+{noun}\b", content) for noun in product_nouns
+            ):
+                return {
+                    "validation_status": "rejected",
+                    "validation_reason": "single-word candidate appears to be product descriptor, not issuer",
+                    "validation_confidence": 0.97,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+            ownership_phrase = re.search(
+                r"\b(manufactured by|distributed by|made by|for)\s+([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,3})",
+                f"{title} {summary}",
+            )
+            if ownership_phrase:
+                owner = (ownership_phrase.group(2) or "").strip().lower()
+                owner_tokens = set(self._tokenize_name(owner))
+                company_tokens = set(self._tokenize_name(company_lower))
+                if owner_tokens and company_tokens and not owner_tokens.intersection(company_tokens):
+                    return {
+                        "validation_status": "rejected",
+                        "validation_reason": "recall article names a different manufacturer/distributor owner",
+                        "validation_confidence": 0.95,
+                        "validation_engine": "strict_rules",
+                        "validation_source": "strict",
+                    }
+            if any(v in content for v in recall_terms):
+                if any(v in content for v in role_terms) or re.search(
+                    rf"\b{company_pat}\b.{{0,80}}\b(recall|recalled|contamination|withdrawal)\b",
+                    content,
+                ):
+                    return {
+                        "validation_status": "approved",
+                        "validation_reason": "strict product recall rule matched issuer mention with recall/role context",
+                        "validation_confidence": 0.92,
+                        "validation_engine": "strict_rules",
+                        "validation_source": "strict",
+                    }
+            quote_source_terms = ("analyst", "research firm", "commented", "according to")
+            if any(v in content for v in quote_source_terms):
+                return {
+                    "validation_status": "rejected",
+                    "validation_reason": "product recall context appears commentary-only, not impacted issuer role",
+                    "validation_confidence": 0.8,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+        elif event_category == "cybersecurity":
+            cyber_terms = (
+                "breach",
+                "ransomware",
+                "hack",
+                "hacked",
+                "incident",
+                "cyberattack",
+                "security incident",
+                "data exposure",
+                "compromised",
+            )
+            victim_patterns = (
+                rf"\b{company_pat}\b.{{0,90}}\b(disclosed|reported|confirmed|suffered|hit by|experienced)\b.{{0,90}}\b"
+                rf"(breach|incident|ransomware|cyberattack|hack|compromis)",
+                rf"\b(breach|incident|ransomware|cyberattack|hack|compromis)\w*\b.{{0,40}}\b"
+                rf"(at|on|hits?|targets?)\b\s+(?:the\s+)?{company_pat}\b",
+            )
+            quote_source_patterns = (
+                rf"\b(according to|researchers? at|analysts? at|security firm)\b.{{0,60}}\b{company_pat}\b",
+                rf"\b{company_pat}\b.{{0,60}}\b(said|commented|noted)\b.{{0,80}}\b(about|regarding)\b",
+            )
+            quote_hit = any(re.search(p, content) for p in quote_source_patterns)
+            victim_hit = any(re.search(p, content) for p in victim_patterns)
+            if any(v in content for v in cyber_terms) and quote_hit and not victim_hit:
+                return {
+                    "validation_status": "rejected",
+                    "validation_reason": "cybersecurity mention appears source/commentary role, not victim role",
+                    "validation_confidence": 0.85,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+            if any(v in content for v in cyber_terms) and victim_hit:
+                return {
+                    "validation_status": "approved",
+                    "validation_reason": "strict cybersecurity victim pattern matched affected issuer",
+                    "validation_confidence": 0.93,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+        elif event_category == "clinical_regulatory_binary":
+            clinical_terms = (
+                "fda",
+                "phase",
+                "trial",
+                "crl",
+                "topline",
+                "approval",
+                "complete response letter",
+                "clinical hold",
+                "pdufa",
+            )
+            issuer_patterns = (
+                rf"\b{company_pat}\b.{{0,90}}\b(announced|reported|received|posted|disclosed|said)\b.{{0,90}}\b"
+                rf"(phase|trial|fda|approval|crl|topline|clinical hold|pdufa)",
+                rf"\b(fda|food and drug administration)\b.{{0,80}}\b(issued|granted|denied|sent)\b.{{0,80}}\b(to|for)\b.{{0,40}}\b{company_pat}\b",
+            )
+            comparator_patterns = (
+                rf"\b(compared with|versus|vs\.?|peer|competitor|alongside|including)\b.{{0,80}}\b{company_pat}\b",
+            )
+            if any(v in content for v in clinical_terms) and any(
+                re.search(p, content) for p in issuer_patterns
+            ):
+                return {
+                    "validation_status": "approved",
+                    "validation_reason": "strict clinical sponsor/regulatory pattern matched affected issuer",
+                    "validation_confidence": 0.93,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+            if any(v in content for v in clinical_terms) and any(
+                re.search(p, content) for p in comparator_patterns
+            ):
+                return {
+                    "validation_status": "rejected",
+                    "validation_reason": "clinical mention appears comparator/peer context, not sponsor context",
+                    "validation_confidence": 0.82,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+
+        return None
+
+    def _validate_candidate_with_agent(self, article: Dict, candidate: Dict, event_category: str) -> Dict:
+        """
+        Validate company->ticker candidate against article semantics.
+
+        When agent validation is enabled and fail_closed is true, any timeout/error/unavailable
+        condition rejects the candidate.
+        """
+        if not self._agent_validation_enabled:
+            return {
+                "validation_status": "approved",
+                "validation_reason": "agent validation disabled",
+                "validation_confidence": 1.0,
+                "validation_engine": "deterministic",
+            }
+
+        if not requests:
+            status = "rejected" if self._agent_validation_fail_closed else "approved"
+            return {
+                "validation_status": status,
+                "validation_reason": "requests unavailable for agent validation",
+                "validation_confidence": 0.0,
+                "validation_engine": "agent_unavailable",
+            }
+        if not self._agent_validation_endpoint:
+            status = "rejected" if self._agent_validation_fail_closed else "approved"
+            return {
+                "validation_status": status,
+                "validation_reason": "agent endpoint not configured",
+                "validation_confidence": 0.0,
+                "validation_engine": "agent_unavailable",
+            }
+
+        payload = {
+            "validation_mode": self._validation_mode,
+            "provider": self._agent_validation_provider,
+            "model": self._agent_validation_model,
+            "event_category": event_category,
+            "title": article.get("title", ""),
+            "summary": article.get("summary", ""),
+            "url": article.get("link", article.get("url", "")),
+            "candidate_company": candidate.get("company", ""),
+            "candidate_ticker": candidate.get("ticker", ""),
+            "instructions": (
+                "Approve only when the article is clearly about this public company being affected. "
+                "Reject homonyms and generic nouns (e.g., urgent, black beans)."
+            ),
+            "category_semantic_rules_markdown": self._CATEGORY_SEMANTIC_RULES.get(event_category, ""),
+            "rubric_file": self._validation_rubric_path,
+            "validation_rubric_markdown": self._validation_rubric_markdown,
+        }
+        headers = {"Content-Type": "application/json"}
+        if self._agent_validation_api_key:
+            headers["Authorization"] = f"Bearer {self._agent_validation_api_key}"
+
+        try:
+            provider = (self._agent_validation_provider or "generic_http").strip().lower()
+            if provider in self._OPENAI_COMPATIBLE_PROVIDERS:
+                data = self._call_openai_compatible_validation(payload=payload, headers=headers)
+            else:
+                resp = requests.post(
+                    self._agent_validation_endpoint,
+                    json=payload,
+                    headers=headers,
+                    timeout=self._agent_validation_timeout_seconds,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception as exc:  # Fail-closed on any agent failure.
+            status = "rejected" if self._agent_validation_fail_closed else "approved"
+            return {
+                "validation_status": status,
+                "validation_reason": f"agent validation failure: {exc}",
+                "validation_confidence": 0.0,
+                "validation_engine": "agent",
+            }
+
+        approved = bool(data.get("approved", False))
+        reason = str(data.get("reason", "") or "").strip()
+        confidence_raw = data.get("confidence", 0.0)
+        try:
+            confidence = float(confidence_raw)
+        except (TypeError, ValueError):
+            confidence = 0.0
+        normalized_company = str(data.get("normalized_company_name", "") or "").strip()
+
+        out = {
+            "validation_status": "approved" if approved else "rejected",
+            "validation_reason": reason or ("approved by agent" if approved else "rejected by agent"),
+            "validation_confidence": confidence,
+            "validation_engine": "agent",
+        }
+        if approved and normalized_company:
+            out["company"] = normalized_company
+        return out
+
+    def _call_openai_compatible_validation(self, payload: Dict, headers: Dict) -> Dict:
+        """
+        Call an OpenAI-compatible chat endpoint and parse strict JSON verdict.
+        """
+        if not self._agent_validation_model:
+            raise ValueError("agent model is required for openai-compatible provider")
+
+        system_prompt = (
+            "You validate entity-to-ticker relevance for investment event triage. "
+            "Return ONLY JSON with keys: approved (bool), confidence (0..1), reason (string), "
+            "normalized_company_name (string, optional)."
+        )
+        user_prompt = (
+            "Apply the provided markdown rubric and category rules. "
+            "Reject homonyms/generic nouns and approve only direct, clearly affected issuers.\n\n"
+            f"Rubric file: {payload.get('rubric_file', '')}\n"
+            f"Rubric markdown:\n{payload.get('validation_rubric_markdown', '')}\n\n"
+            f"Category semantic rules:\n{payload.get('category_semantic_rules_markdown', '')}\n\n"
+            "Candidate payload JSON:\n"
+            f"{json.dumps(payload, ensure_ascii=True)}"
+        )
+        body = {
+            "model": self._agent_validation_model,
+            "temperature": 0,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+        }
+        resp = requests.post(
+            self._agent_validation_endpoint,
+            json=body,
+            headers=headers,
+            timeout=self._agent_validation_timeout_seconds,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        content = (
+            data.get("choices", [{}])[0]
+            .get("message", {})
+            .get("content", "")
+        )
+        if isinstance(content, list):
+            content = "".join(str(x.get("text", "")) for x in content if isinstance(x, dict))
+        raw = str(content or "").strip()
+        parsed = self._parse_json_object(raw)
+        if not isinstance(parsed, dict):
+            raise ValueError("openai-compatible response missing JSON verdict")
+        return parsed
+
+    @staticmethod
+    def _parse_json_object(value: str) -> Optional[Dict]:
+        text = str(value or "").strip()
+        if not text:
+            return None
+        try:
+            obj = json.loads(text)
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            pass
+
+        fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, flags=re.DOTALL | re.IGNORECASE)
+        if fence:
+            try:
+                obj = json.loads(fence.group(1))
+                if isinstance(obj, dict):
+                    return obj
+            except json.JSONDecodeError:
+                return None
+
+        brace = re.search(r"(\{.*\})", text, flags=re.DOTALL)
+        if brace:
+            try:
+                obj = json.loads(brace.group(1))
+                if isinstance(obj, dict):
+                    return obj
+            except json.JSONDecodeError:
+                return None
+        return None
 
     def batch_extract(self, articles: List[Dict], event_category: Optional[str] = None) -> List[Dict]:
         """

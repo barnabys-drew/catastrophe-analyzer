@@ -48,6 +48,19 @@ class EntityExtractor:
         "git hub", "e stores",
     })
 
+    # Generic single-word nouns frequently found in recall/cyber headlines.
+    # These should not be treated as standalone public company entities.
+    _GENERIC_SINGLE_WORD_ENTITIES = frozenset({
+        "affairs", "alert", "back", "bread", "children", "contamination", "cyber",
+        "event", "food", "foods", "health", "help", "here", "homeland", "impact",
+        "injury", "item", "items", "life", "market", "material", "medical", "metal",
+        "news", "organic", "other", "pharma", "poisoning", "product", "prompts",
+        "recall", "recalled", "bulletin", "eruric", "urgent", "yahoo", "msn",
+        "retailer", "retailers", "rice", "risk", "safety", "sold", "technical",
+        "trader", "trio", "warning",
+    })
+    _LOWERCASE_GLUE_WORDS = frozenset({"and", "of", "the", "for", "at", "&"})
+
     # Minimum length for fuzzy substring match against seed map (avoids "ge" in "geopolitical" -> GE).
     _MIN_PARTIAL_NAME_LEN = 5
     _TRAILING_TRIM_WORDS = frozenset({
@@ -286,10 +299,81 @@ class EntityExtractor:
         for q in quotes:
             if not self._yahoo_quote_is_us_equity(q):
                 continue
+            if not self._quote_matches_company_name(q, name):
+                continue
             sym = (q.get("symbol") or "").strip()
             if sym:
                 return sym.upper()
         return None
+
+    @staticmethod
+    def _tokenize_name(value: str) -> List[str]:
+        if not value:
+            return []
+        return [t for t in re.split(r"[^a-z0-9]+", value.lower()) if t]
+
+    def _is_generic_company_name(self, company_name: str) -> bool:
+        key = (company_name or "").strip().lower()
+        if not key:
+            return True
+        if key in self._ENTITY_BLOCKLIST or key in self._BLOCKLIST_PHRASES:
+            return True
+        parts = self._tokenize_name(key)
+        if len(parts) == 1 and parts[0] in self._GENERIC_SINGLE_WORD_ENTITIES:
+            return True
+        return False
+
+    def _looks_like_company_phrase(self, company_name: str) -> bool:
+        """
+        Guardrail against phrases like "can Stryker" extracted from sentence fragments.
+        """
+        raw_tokens = [t for t in re.split(r"\s+", (company_name or "").strip()) if t]
+        if not raw_tokens:
+            return False
+        for tok in raw_tokens:
+            clean = re.sub(r"[^A-Za-z0-9&.\-']", "", tok)
+            if not clean:
+                continue
+            lower = clean.lower()
+            if lower in self._LOWERCASE_GLUE_WORDS:
+                continue
+            if clean.isupper():
+                continue
+            if clean[0].isupper():
+                continue
+            return False
+        return True
+
+    def _quote_matches_company_name(self, quote: Dict, company_name: str) -> bool:
+        """
+        Require name-level relevance for dynamic lookup.
+
+        This avoids generic noun mappings such as "Metal" -> metals/mining equities.
+        """
+        query_tokens = self._tokenize_name(company_name)
+        if not query_tokens:
+            return False
+
+        quote_name = " ".join(
+            [
+                str(quote.get("shortname") or ""),
+                str(quote.get("longname") or ""),
+            ]
+        ).strip().lower()
+        quote_tokens = set(self._tokenize_name(quote_name))
+        if not quote_tokens:
+            return False
+
+        # For single-word queries, require exact token match (not stemming/plural-only).
+        if len(query_tokens) == 1:
+            token = query_tokens[0]
+            if token in self._GENERIC_SINGLE_WORD_ENTITIES:
+                return False
+            return token in quote_tokens
+
+        overlap = sum(1 for t in query_tokens if t in quote_tokens)
+        needed = max(1, int(len(query_tokens) * 0.6))
+        return overlap >= needed
 
     def extract_company_mentions(self, text: str, event_category: Optional[str] = None) -> List[str]:
         """
@@ -405,6 +489,20 @@ class EntityExtractor:
             name = m.group(1)
             if name.lower() in stop_words:
                 continue
+            if name.lower() in self._GENERIC_SINGLE_WORD_ENTITIES:
+                continue
+            if event_category == "product_safety_recall":
+                # Food/safety headlines often capitalize nouns that are not issuers.
+                noun_after = (
+                    r"(?:recall|recalled|warning|contamination|bean|beans|bread|rice|pickles?|"
+                    r"chicken|vegetable|nasal|bottles?|toys?|products?|issued|sold|due)"
+                )
+                # Keep known seeded issuers (e.g. Walgreens) even when followed by product nouns.
+                if (
+                    name.lower() not in self.company_to_ticker
+                    and re.search(rf"\b{re.escape(name.lower())}\s+{noun_after}\b", text_lower)
+                ):
+                    continue
             # Must appear near a breach-related word (same sentence or within ~40 chars)
             start = max(0, m.start() - 50)
             end = min(len(text), m.end() + 50)
@@ -429,7 +527,7 @@ class EntityExtractor:
             name = " ".join(parts)
             if len(name) < 3:
                 continue
-            if name.lower() in self._ENTITY_BLOCKLIST:
+            if self._is_generic_company_name(name):
                 continue
             cleaned.append(name)
 
@@ -451,9 +549,9 @@ class EntityExtractor:
         normalized_name = company_name.lower().strip()
         if not normalized_name:
             return None
-        if normalized_name in self._ENTITY_BLOCKLIST:
+        if self._is_generic_company_name(normalized_name):
             return None
-        if normalized_name in self._BLOCKLIST_PHRASES:
+        if not self._looks_like_company_phrase(company_name):
             return None
 
         # Fast path: direct match
@@ -489,6 +587,10 @@ class EntityExtractor:
 
         # Dynamic lookup: full public company set via Yahoo Finance
         if self._use_dynamic_lookup and requests:
+            # Precision-first guard: avoid short one-word dynamic guesses.
+            single = self._tokenize_name(normalized_name)
+            if len(single) == 1 and len(single[0]) < 6:
+                return None
             ticker = self._dynamic_lookup_company(company_name)
             if ticker and (not self._us_listed_only or self._is_us_primary_symbol(ticker)):
                 if self._cache_lookups:

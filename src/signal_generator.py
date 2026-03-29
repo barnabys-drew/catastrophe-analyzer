@@ -58,6 +58,8 @@ class SignalGenerator:
             'signals': {
                 'rsi_oversold_threshold': 30,
                 'price_drop_threshold': 10,
+                'require_drop_within_48h': True,
+                'drop_within_48h_threshold': 1.0,
                 'recovery_days_threshold': 5,
                 'volume_spike_threshold': 1.5,
                 'confidence_levels': {
@@ -90,11 +92,15 @@ class SignalGenerator:
         rsi_threshold = self.signal_config.get('rsi_oversold_threshold', 30)
         drop_threshold = self.signal_config.get('price_drop_threshold', 10)
         volume_threshold = self.signal_config.get('volume_spike_threshold', 1.5)
+        require_drop_48h = bool(self.signal_config.get('require_drop_within_48h', True))
+        drop_48h_threshold = float(self.signal_config.get('drop_within_48h_threshold', 1.0))
 
         # Condition 1: significant event-aligned dislocation and weak technical posture
         rsi_value = analysis.get("event_rsi", analysis.get("current_rsi", 50))
         rsi_oversold = analysis.get('rsi_oversold', rsi_value < rsi_threshold)
         significant_drop = analysis.get('max_drop_pct', 0) >= drop_threshold
+        drop_48h_pct = float(analysis.get('drop_48h_pct', analysis.get('max_drop_pct', 0.0)))
+        dropped_within_48h = drop_48h_pct >= drop_48h_threshold
         below_ma = bool(analysis.get('price_below_ma20'))
 
         # Condition 2: Volume spike at event
@@ -109,6 +115,7 @@ class SignalGenerator:
         # Determine if signal is generated (strict mode: require drop + volume + technical weakness)
         generates_signal = (
             significant_drop
+            and (dropped_within_48h or not require_drop_48h)
             and volume_spike
             and (rsi_oversold or below_ma)
             and not_recovered_too_quickly
@@ -132,6 +139,7 @@ class SignalGenerator:
             'pre_breach_price': analysis.get('pre_event_price', analysis.get('pre_breach_price')),  # Legacy compatibility
             'rsi': analysis.get('event_rsi', analysis.get('current_rsi')),
             'max_drop_pct': analysis.get('max_drop_pct'),
+            'drop_48h_pct': drop_48h_pct,
             'recovery_days': analysis.get('recovery_days'),
             'volume_spike_at_event': volume_spike_at_event,
             'volume_spike': volume_spike_at_event,
@@ -223,6 +231,9 @@ class SignalGenerator:
         drop_pct = analysis.get('max_drop_pct', 0)
         if drop_pct > 10:
             reasons.append(f"Stock dropped {drop_pct:.1f}% post-event")
+        drop_48h_pct = analysis.get("drop_48h_pct")
+        if isinstance(drop_48h_pct, (int, float)) and drop_48h_pct > 0:
+            reasons.append(f"Stock dropped {drop_48h_pct:.1f}% within first 48h after event")
 
         volume_spike = analysis.get('volume_spike_at_event', analysis.get('volume_spike_at_breach', 1.0))
         reasons.append(f"Volume spike of {volume_spike:.1f}x at event confirms selling pressure")

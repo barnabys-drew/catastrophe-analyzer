@@ -312,6 +312,7 @@ class StockAnalyzer:
 
         # Get price before event
         pre_event_price = prices[max(0, event_idx - 5)]
+        event_anchor_price = prices[event_idx] if event_idx < len(prices) else prices[-1]
         post_event_prices = prices[event_idx:min(event_idx + 30, len(prices))]
 
         if not post_event_prices:
@@ -326,6 +327,17 @@ class StockAnalyzer:
         # Calculate metrics
         min_price_after = min(post_event_prices)
         max_drop_pct = ((pre_event_price - min_price_after) / pre_event_price) * 100
+
+        # 48-hour post-event dislocation (approx. 2 trading days after event anchor).
+        post_event_window_days = 2
+        window_end = min(len(prices), event_idx + post_event_window_days + 1)
+        post_48h_prices = prices[event_idx:window_end]
+        min_price_48h = min(post_48h_prices) if post_48h_prices else event_anchor_price
+        drop_48h_pct = (
+            ((event_anchor_price - min_price_48h) / event_anchor_price) * 100
+            if event_anchor_price > 0
+            else 0.0
+        )
 
         # Time to recovery (days to get back above pre-event price)
         recovery_days = None
@@ -353,10 +365,14 @@ class StockAnalyzer:
             'event_category': event_category or '',
             'pre_event_price': float(pre_event_price),
             'pre_breach_price': float(pre_event_price),  # Legacy compatibility
+            'event_anchor_price': float(event_anchor_price),
             'current_price': float(prices[-1]),
             'min_price_post_event': float(min_price_after),
             'min_price_post_breach': float(min_price_after),  # Legacy compatibility
             'max_drop_pct': float(max_drop_pct),
+            'post_event_window_days': int(post_event_window_days),
+            'min_price_post_event_48h': float(min_price_48h),
+            'drop_48h_pct': float(drop_48h_pct),
             'recovery_days': recovery_days,
             'current_rsi': float(current_rsi),
             'event_rsi': float(event_rsi),

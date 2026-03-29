@@ -94,6 +94,46 @@ class SignalGeneratorStrictTests(unittest.TestCase):
         self.assertEqual(generator._get_confidence_level(75), "MEDIUM")
         self.assertEqual(generator._get_confidence_level(60), "LOW")
 
+    def test_requires_48h_drop_filter_for_signal(self):
+        SignalGenerator = _load_real_class("signal_generator.py", "SignalGenerator")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg_path = Path(tmpdir) / "settings.json"
+            cfg_path.write_text(
+                json.dumps(
+                    {
+                        "signals": {
+                            "rsi_oversold_threshold": 28,
+                            "price_drop_threshold": 15,
+                            "require_drop_within_48h": True,
+                            "drop_within_48h_threshold": 2.0,
+                            "volume_spike_threshold": 2.0,
+                            "recovery_days_threshold": 5,
+                            "confidence_levels": {"high": 0.85, "medium": 0.65, "low": 0.4},
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            generator = SignalGenerator(config_path=str(cfg_path))
+            signal = generator.generate_buy_signal(
+                {
+                    "ticker": "TEST",
+                    "event_date": "2026-03-25",
+                    "event_category": "cybersecurity",
+                    "current_price": 90.0,
+                    "pre_event_price": 100.0,
+                    "min_price_post_event": 80.0,
+                    "max_drop_pct": 20.0,
+                    "drop_48h_pct": 0.6,
+                    "recovery_days": None,
+                    "event_rsi": 24.0,
+                    "rsi_oversold": True,
+                    "price_below_ma20": True,
+                    "volume_spike_at_event": 2.6,
+                }
+            )
+            self.assertIsNone(signal, "Insufficient 48h drop should block signal")
+
 
 class StockAnalyzerEventTimingTests(unittest.TestCase):
     def test_event_rsi_is_used_for_oversold_flag(self):
@@ -121,6 +161,9 @@ class StockAnalyzerEventTimingTests(unittest.TestCase):
         self.assertIn("event_rsi", result)
         self.assertLessEqual(result["event_rsi"], result["current_rsi"])
         self.assertEqual(result["rsi_oversold"], result["event_rsi"] < 30)
+        self.assertIn("drop_48h_pct", result)
+        self.assertGreaterEqual(result["drop_48h_pct"], 0.0)
+        self.assertEqual(result.get("post_event_window_days"), 2)
 
 
 class MainSignalTriageGateTests(unittest.TestCase):

@@ -27,6 +27,110 @@ Detailed setup guides:
 - `QUICKSTART.md`
 - `docs/PRODUCTION_SETUP_WINDOWS_MAC_LINUX.md`
 - `runtime-only/README.md`
+- `docs/AGENT_AND_DEV_WORKFLOW_NOTES.md`
+
+## WSL: run from a normal terminal (outside Cursor)
+
+Commands in this repo assume a **Linux shell** in the **project root**. If Windows says a command is not recognized, you are usually in **PowerShell/CMD** instead of WSL, or **Docker is not available inside WSL**.
+
+### 1) Open a WSL shell
+
+- From Windows: Start menu → **Ubuntu** (or your distro), or run `wsl` in PowerShell.
+- You should see a prompt like `username@hostname:~$` (not `C:\>`).
+
+### 2) Go to the repo (or clone once)
+
+```bash
+cd ~/code/catastrophe-analyzer
+# If the folder does not exist yet:
+# git clone https://github.com/barnabys-drew/catastrophe-analyzer.git
+# cd catastrophe-analyzer
+```
+
+Every `docker compose` / `python` command below must be run **after** `cd` into this directory.
+
+### 3) Make `docker` and `docker compose` work in WSL
+
+- Install **Docker Desktop for Windows** and start it.
+- In Docker Desktop: **Settings → Resources → WSL integration** → enable your distro (e.g. Ubuntu).
+- In WSL, verify:
+
+```bash
+docker version
+docker compose version
+```
+
+If `docker: command not found`:
+
+- Docker Desktop is not running, or WSL integration is off for this distro.
+
+If `docker compose` fails but `docker` works, try the plugin form (this is what we use):
+
+```bash
+docker compose version
+```
+
+Older installs sometimes use the separate binary:
+
+```bash
+docker-compose version
+```
+
+If only `docker-compose` exists, replace `docker compose` with `docker-compose` in the commands below.
+
+### 4) Docker: leave the service up for days (Ollama on Windows example)
+
+```bash
+cd ~/code/catastrophe-analyzer
+cp profiles/agent-validation/ollama-local.env.example .env.agent
+docker compose --env-file .env.agent up -d --build
+docker compose --env-file .env.agent ps
+docker inspect --format='{{.State.Health.Status}}' catastrophe-analyzer
+docker compose --env-file .env.agent logs -f catastrophe-analyzer
+```
+
+Stop the stack later:
+
+```bash
+cd ~/code/catastrophe-analyzer
+docker compose --env-file .env.agent down
+```
+
+Pause without removing containers:
+
+```bash
+docker compose --env-file .env.agent stop
+```
+
+One-off test cycle (container exits when done):
+
+```bash
+cd ~/code/catastrophe-analyzer
+docker compose --env-file .env.agent run --rm catastrophe-analyzer --once --quiet
+```
+
+### 5) Python CLI in WSL (no Docker)
+
+Cursor’s integrated terminal often auto-activates a venv; a plain WSL terminal does not.
+
+```bash
+cd ~/code/catastrophe-analyzer
+python3 -m venv .venv
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
+cd src
+python3 monitor.py --once --quiet
+```
+
+### 6) Reports from WSL
+
+```bash
+cd ~/code/catastrophe-analyzer
+source .venv/bin/activate   # if using venv
+python3 scripts/generate_ticker_review_report.py --days 30
+```
+
+Output is under `review_sessions/` (gitignored except `review_sessions/README.md`).
 
 ## Current category depth
 

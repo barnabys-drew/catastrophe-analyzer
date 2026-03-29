@@ -1,0 +1,27 @@
+services:
+  catastrophe-analyzer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: catastrophe-analyzer
+    restart: unless-stopped
+    command: ["--quiet"]
+    environment:
+      - TZ=UTC
+      # Alert preview toggles for local testing:
+      # - CATASTROPHE_LOCAL_ALERT_PREVIEW=1
+      # - CATASTROPHE_ALERTS_LOCAL_ONLY=1
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-u", "healthcheck.py"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"

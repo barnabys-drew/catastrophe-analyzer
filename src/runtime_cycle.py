@@ -3,6 +3,7 @@ Shared production-cycle executor used by both CLI and monitor runtimes.
 """
 
 from typing import Dict
+from runtime_health import write_runtime_heartbeat
 
 
 def run_cycle_with_alerts(app, alerts, quiet: bool = False) -> Dict:
@@ -11,7 +12,16 @@ def run_cycle_with_alerts(app, alerts, quiet: bool = False) -> Dict:
 
     This is the canonical per-cycle behavior used by service/Docker runtime.
     """
-    summary: Dict = app.run_one_cycle(quiet=quiet)
+    try:
+        summary: Dict = app.run_one_cycle(quiet=quiet)
+    except Exception as exc:
+        write_runtime_heartbeat(
+            repo_root=app.repo_root,
+            status="error",
+            summary={},
+            error=str(exc),
+        )
+        raise
     new_high_value_events = summary.get("new_high_value_events", []) or []
     new_signals = summary.get("new_signals", []) or []
 
@@ -21,5 +31,12 @@ def run_cycle_with_alerts(app, alerts, quiet: bool = False) -> Dict:
 
     if new_signals:
         alerts.send_buy_signal_alerts(new_signals)
+
+    write_runtime_heartbeat(
+        repo_root=app.repo_root,
+        status="ok",
+        summary=summary,
+        error="",
+    )
 
     return summary

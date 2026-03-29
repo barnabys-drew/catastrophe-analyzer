@@ -47,25 +47,33 @@ python3 monitor.py --once --quiet
 From repo root:
 
 ```bash
-docker build -t catastrophe-analyzer .
-docker run -d --name catastrophe-analyzer \
-  --restart unless-stopped \
-  -v "$(pwd)/config:/app/config" \
-  -v "$(pwd)/data:/app/data" \
-  catastrophe-analyzer --quiet
+docker compose up -d --build
 ```
 
 ## 6) Observe logs
 
 ```bash
 docker logs -f catastrophe-analyzer
+docker inspect --format='{{.State.Health.Status}}' catastrophe-analyzer
 ```
 
 ## 7) Stop service
 
 ```bash
-docker stop catastrophe-analyzer
+docker compose stop
 ```
+
+## 8) Local production runbook
+
+See `docs/LOCAL_PRODUCTION_RUNBOOK.md` for:
+
+- heartbeat-based health monitoring
+- backup/restore guidance
+- operational checks for always-on local machines
+
+From-scratch cross-platform setup (Windows/macOS/Linux):
+
+- `docs/PRODUCTION_SETUP_WINDOWS_MAC_LINUX.md`
 
 ## Notes
 

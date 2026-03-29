@@ -59,6 +59,17 @@ docker run -d --name catastrophe-analyzer \
   catastrophe-analyzer --quiet
 ```
 
+Or with Compose (recommended for local 24/7 operation):
+
+```bash
+docker compose up -d --build
+```
+
+Production runbook for local always-on machines:
+
+- `docs/LOCAL_PRODUCTION_RUNBOOK.md`
+- `docs/PRODUCTION_SETUP_WINDOWS_MAC_LINUX.md` (from-scratch setup on Windows/macOS/Linux)
+
 ## Main files
 
 - `src/main.py` - orchestration, event classification, distress gating

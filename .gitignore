@@ -25,6 +25,7 @@ data/*
 # Secrets (keep example configs only in repo)
 .env
 .env.local
+.env.tiingo
 
 # Generated ticker review markdown (keep review_sessions/README.md)
 review_sessions/*

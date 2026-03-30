@@ -1,3 +1,10 @@
+"""
+Category / triage regression tests.
+
+Module name uses `test_z_` so unittest discover imports this file *after*
+`test_entity_extractor_precision.py`. Otherwise `_install_main_import_stubs()` below
+would replace `entity_extractor` in sys.modules before precision tests load.
+"""
 import json
 import sys
 import types

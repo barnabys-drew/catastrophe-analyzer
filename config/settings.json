@@ -432,7 +432,8 @@
     "volume_spike_period": 20,
     "analysis_window_days": 90,
     "use_mock_data": false,
-    "data_source": "yfinance"
+    "data_source": "tiingo",
+    "tiingo_token_env": "TIINGO_API_TOKEN"
   },
   "monitoring_schedule": {
     "scan_interval_minutes": 15,

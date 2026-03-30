@@ -201,6 +201,16 @@ Production runbook for local always-on machines:
 - `docs/PRODUCTION_SETUP_WINDOWS_MAC_LINUX.md` (from-scratch setup on Windows/macOS/Linux)
 - `runtime-only/README.md` (runtime-only deploy path)
 
+### Market data (Tiingo EOD)
+
+`config/settings.json` → `stock_analysis.data_source` defaults to **tiingo** for [Tiingo](https://www.tiingo.com/) end-of-day prices ([overview](https://www.tiingo.com/documentation/general/overview)).
+
+- Set **`TIINGO_API_TOKEN`** in the environment. Local file: **`.env.tiingo`** (copy from `.env.tiingo.example`; gitignored).
+- Docker Compose forwards the variable; you can merge env files, for example:
+  `docker compose --env-file .env.agent --env-file .env.tiingo up -d --build`
+- If the token is missing, the service logs a warning and **falls back to yfinance**.
+- To use Yahoo only, set `"data_source": "yfinance"` under `stock_analysis` in `config/settings.json`.
+
 ## Main files
 
 - `src/main.py` - orchestration, event classification, distress gating

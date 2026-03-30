@@ -50,7 +50,8 @@ class CatastropheAnalyzerApp:
                 mock_env.lower() in ["1", "true", "yes"]
                 if mock_env != ""
                 else self.settings.get('stock_analysis', {}).get('use_mock_data', True)
-            )
+            ),
+            stock_analysis_config=self.settings.get("stock_analysis") or {},
         )
         self.signal_generator = SignalGenerator(config_path=self.config_path)
         self.db = DatabaseManager(data_dir=self.data_dir)

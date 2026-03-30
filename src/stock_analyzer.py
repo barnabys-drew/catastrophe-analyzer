@@ -3,10 +3,12 @@ Stock Analyzer Module
 Analyzes stock price movements around breach events
 """
 
-from typing import List, Dict, Tuple, Optional
-from datetime import datetime, timedelta
-import json
+from typing import List, Dict, Optional, Any
+from datetime import datetime, timedelta, date
+import os
 import re
+
+import requests
 
 
 class StockAnalyzer:
@@ -15,24 +17,48 @@ class StockAnalyzer:
     Supports both live and mock analysis for testing
     """
 
-    def __init__(self, use_mock: bool = True):
+    def __init__(self, use_mock: bool = True, stock_analysis_config: Optional[Dict[str, Any]] = None):
         """
         Initialize stock analyzer
 
         Args:
-            use_mock: If True, use mock data instead of yfinance (useful for testing)
+            use_mock: If True, use mock data instead of live market data (useful for testing)
+            stock_analysis_config: Optional `stock_analysis` block from settings.json (data_source, etc.)
         """
         self.use_mock = use_mock
+        self._stock_cfg: Dict[str, Any] = dict(stock_analysis_config or {})
         # Cache tradable checks so repeated watch cycles do not re-query bad symbols.
         self._tradable_cache: Dict[str, bool] = {}
 
+        cfg_source = (self._stock_cfg.get("data_source") or "yfinance").strip().lower()
+        token_env = (self._stock_cfg.get("tiingo_token_env") or "TIINGO_API_TOKEN").strip()
+        self._tiingo_token_env = token_env
+        self._tiingo_token: str = ""
+        self._live_data_source = "yfinance"
+        self.yf = None
+
         if not use_mock:
-            try:
-                import yfinance as yf
-                self.yf = yf
-            except ImportError:
-                print("Warning: yfinance not installed. Falling back to mock data.")
-                self.use_mock = True
+            if cfg_source == "tiingo":
+                self._tiingo_token = os.environ.get(token_env, "").strip()
+                if self._tiingo_token:
+                    self._live_data_source = "tiingo"
+                else:
+                    print(
+                        f"Warning: stock_analysis.data_source is tiingo but {token_env} is unset; "
+                        "using yfinance."
+                    )
+                    self._live_data_source = "yfinance"
+            elif cfg_source not in ("yfinance", "yahoo", ""):
+                print(f"Warning: unknown stock_analysis.data_source {cfg_source!r}; using yfinance.")
+
+            if self._live_data_source == "yfinance":
+                try:
+                    import yfinance as yf
+
+                    self.yf = yf
+                except ImportError:
+                    print("Warning: yfinance not installed. Falling back to mock data.")
+                    self.use_mock = True
 
     @staticmethod
     def _is_supported_symbol_format(ticker: str) -> bool:
@@ -73,6 +99,14 @@ class StockAnalyzer:
         if self.use_mock:
             self._tradable_cache[symbol] = True
             return True
+
+        if self._live_data_source == "tiingo":
+            end_d = datetime.now().date()
+            start_d = end_d - timedelta(days=14)
+            rows = self._tiingo_fetch_daily(symbol, start_d, end_d)
+            is_tradable = bool(rows)
+            self._tradable_cache[symbol] = is_tradable
+            return is_tradable
 
         try:
             stock = self.yf.Ticker(symbol)
@@ -148,6 +182,9 @@ class StockAnalyzer:
         if self.use_mock:
             return self._get_mock_price_history(symbol, days)
 
+        if self._live_data_source == "tiingo":
+            return self._get_tiingo_price_history(symbol, days)
+
         try:
             stock = self.yf.Ticker(symbol)
             hist = stock.history(period=f"{days}d")
@@ -170,6 +207,89 @@ class StockAnalyzer:
             self._tradable_cache[symbol] = False
             print(f"Error fetching data for {symbol}: {e}")
             return None
+
+    def _tiingo_fetch_daily(self, symbol: str, start_d: date, end_d: date) -> Optional[List[Dict[str, Any]]]:
+        """Return Tiingo EOD rows (sorted ascending by date) or None on transport/API failure."""
+        if not self._tiingo_token:
+            return None
+        url = f"https://api.tiingo.com/tiingo/daily/{symbol}/prices"
+        params = {"startDate": start_d.isoformat(), "endDate": end_d.isoformat()}
+        headers = {"Authorization": f"Token {self._tiingo_token}"}
+        try:
+            r = requests.get(url, params=params, headers=headers, timeout=30)
+            if r.status_code == 404:
+                return []
+            if r.status_code != 200:
+                print(f"Tiingo API HTTP {r.status_code} for {symbol}: {r.text[:240]}")
+                return None
+            data = r.json()
+            if not isinstance(data, list):
+                return None
+            return sorted(data, key=lambda row: str(row.get("date", "")))
+        except Exception as exc:
+            print(f"Tiingo request failed for {symbol}: {exc}")
+            return None
+
+    @staticmethod
+    def _tiingo_row_date_str(row: Dict[str, Any]) -> str:
+        raw = str(row.get("date", "") or "")
+        if "T" in raw:
+            return raw.split("T", 1)[0]
+        return raw[:10]
+
+    def _tiingo_rows_to_history(self, symbol: str, rows: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        if not rows:
+            return None
+        dates: List[str] = []
+        prices: List[float] = []
+        volumes: List[float] = []
+        highs: List[float] = []
+        lows: List[float] = []
+        for row in rows:
+            dt = self._tiingo_row_date_str(row)
+            if not dt:
+                continue
+            close = row.get("adjClose")
+            if close is None:
+                close = row.get("close")
+            if close is None:
+                continue
+            vol = row.get("adjVolume", row.get("volume", 0))
+            if vol is None:
+                vol = 0
+            hi = row.get("high", close)
+            lo = row.get("low", close)
+            dates.append(dt)
+            prices.append(float(close))
+            volumes.append(float(vol))
+            highs.append(float(hi if hi is not None else close))
+            lows.append(float(lo if lo is not None else close))
+        if not prices:
+            return None
+        return {
+            "ticker": symbol,
+            "prices": prices,
+            "volumes": volumes,
+            "dates": dates,
+            "high": max(highs),
+            "low": min(lows),
+            "close": float(prices[-1]),
+            "volume": float(volumes[-1]),
+        }
+
+    def _get_tiingo_price_history(self, symbol: str, days: int) -> Optional[Dict[str, Any]]:
+        end_d = datetime.now().date()
+        calendar_span = max(int(days * 1.75) + 5, days + 20)
+        start_d = end_d - timedelta(days=calendar_span)
+        rows = self._tiingo_fetch_daily(symbol, start_d, end_d)
+        if rows is None:
+            self._tradable_cache[symbol] = False
+            return None
+        history = self._tiingo_rows_to_history(symbol, rows)
+        if not history:
+            self._tradable_cache[symbol] = False
+            return None
+        return history
 
     def calculate_rsi(self, prices: List[float], period: int = 14) -> List[float]:
         """

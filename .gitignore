@@ -27,6 +27,9 @@ data/*
 .env.local
 .env.tiingo
 
+# Local copy of strict-rules Compose env (optional; may hold overrides)
+profiles/agent-validation/strict-rules.env
+
 # Generated ticker review markdown (keep review_sessions/README.md)
 review_sessions/*
 !review_sessions/README.md

@@ -11,6 +11,7 @@ Goal: detect material company events, map them to tickers, evaluate likely finan
 1. `README.md`
 2. `docs/EVENT_CATEGORIES_AND_IMPACT.md`
 3. `ARCHITECTURE.md`
+4. `docs/AGENT_AND_DEV_WORKFLOW_NOTES.md`
 
 ## Current product direction
 
@@ -19,6 +20,7 @@ Goal: detect material company events, map them to tickers, evaluate likely finan
 - Category depth is currently strongest in:
   - `cybersecurity`
   - `clinical_regulatory_binary`
+  - `fraud_accounting_enforcement` (newer; tune keywords and feeds over time)
 
 ## Core constraints
 

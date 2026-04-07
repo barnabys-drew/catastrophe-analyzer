@@ -54,6 +54,11 @@ class EntityExtractor:
             "- Approve only if the company manufactured/distributed/retailed the recalled product.\n"
             "- Reject food nouns, adjective homonyms, and generic words (e.g. urgent, black beans)."
         ),
+        "fraud_accounting_enforcement": (
+            "- Approve only if the company is the subject of the accounting/enforcement action "
+            "(issuer under investigation, charged, settling, or restating).\n"
+            "- Reject law firms, auditors named only as advisors, unrelated quoted experts, and pure market commentary."
+        ),
     }
 
     # Yahoo / search "exchange" values that indicate US listing (major venues).
@@ -727,6 +732,22 @@ class EntityExtractor:
                     r"(?:production|shipments?|operations|product line)",
                 ]
             )
+        elif event_category == "fraud_accounting_enforcement":
+            patterns.extend(
+                [
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:announces?|discloses?|reports?|reported)\s+"
+                    r"(?:a\s+)?(?:restatement|accounting review|internal investigation)",
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:restates?|revised)\s+(?:financial|results|earnings)",
+                    r"(?:sec|securities and exchange commission)\s+"
+                    r"(?:charges|alleges|announces charges against|files complaint against)\s+"
+                    r"(?:[A-Za-z]+\s+)?([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})",
+                    r"(?:sec|securities and exchange commission)\s+"
+                    r"(?:settles|settled)\s+with\s+"
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})",
+                ]
+            )
 
         for pattern in patterns:
             for match in re.finditer(pattern, text, re.IGNORECASE):
@@ -753,6 +774,13 @@ class EntityExtractor:
             "recall product recall safety recall grounding safety alert warning letter defect defective "
             "contamination injury injuries production halt stop sale do not use cpsc nhtsa faa"
         )
+        fraud_enforcement_words = (
+            "restatement securities fraud accounting fraud sec charges indictment enforcement "
+            "wells notice material weakness internal control subpoena guilty plea civil complaint "
+            "department of justice accounting irregularities misstated financial revenue recognition "
+            "disgorgement cease and desist administrative proceeding fcpa insider trading wire fraud "
+            "market manipulation delisting trading halt finra deferred prosecution"
+        )
         context_words = breach_words
         if event_category == "cybersecurity":
             context_words = f"{breach_words} {cyber_words}"
@@ -760,6 +788,8 @@ class EntityExtractor:
             context_words = f"{breach_words} {clinical_words}"
         elif event_category == "product_safety_recall":
             context_words = f"{breach_words} {product_safety_words}"
+        elif event_category == "fraud_accounting_enforcement":
+            context_words = f"{breach_words} {fraud_enforcement_words}"
         stop_words = (
             "the and said have this that with from when company medical device maker firm "
             "medical medtech device maker monday tuesday wednesday thursday friday saturday "
@@ -1252,6 +1282,51 @@ class EntityExtractor:
                 return {
                     "validation_status": "rejected",
                     "validation_reason": "clinical mention appears comparator/peer context, not sponsor context",
+                    "validation_confidence": 0.82,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+        elif event_category == "fraud_accounting_enforcement":
+            fraud_terms = (
+                "securities fraud",
+                "accounting fraud",
+                "sec charges",
+                "sec alleges",
+                "restatement",
+                "wells notice",
+                "material weakness",
+                "internal control",
+                "indictment",
+                "criminal charges",
+                "enforcement action",
+                "civil complaint",
+                "department of justice",
+            )
+            issuer_patterns = (
+                rf"\b{company_pat}\b.{{0,100}}\b(announced|disclosed|reports?|reported|restates?|revised|agrees?|settled)\b.{{0,100}}\b"
+                rf"(restatement|investigation|sec|settlement|indictment|charges|fraud|weakness)",
+                rf"\b(sec|securities and exchange commission)\b.{{0,90}}\b(charges|alleges|files complaint against|announces charges against|settles with)\b.{{0,70}}\b{company_pat}\b",
+                rf"\b{company_pat}\b.{{0,90}}\b(received|gets?|got)\s+a\s+wells\s+notice\b",
+            )
+            commentary_patterns = (
+                rf"\b(according to|analyst|law firm|attorneys? for)\b.{{0,70}}\b{company_pat}\b",
+            )
+            if any(v in content for v in fraud_terms) and any(
+                re.search(p, content) for p in issuer_patterns
+            ):
+                return {
+                    "validation_status": "approved",
+                    "validation_reason": "strict fraud/enforcement pattern matched subject issuer",
+                    "validation_confidence": 0.91,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+            if any(v in content for v in fraud_terms) and any(
+                re.search(p, content) for p in commentary_patterns
+            ):
+                return {
+                    "validation_status": "rejected",
+                    "validation_reason": "fraud/enforcement context appears commentary or third-party counsel, not subject issuer",
                     "validation_confidence": 0.82,
                     "validation_engine": "strict_rules",
                     "validation_source": "strict",

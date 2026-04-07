@@ -178,6 +178,55 @@ class CatastropheAnalyzerApp:
                     score += weight
                     reasons.append(reason)
 
+        elif event_category == "fraud_accounting_enforcement":
+            weighted_markers = [
+                ("indictment", 30, "Indictments imply severe legal and governance overhang"),
+                ("criminal charges", 28, "Criminal charges elevate tail risk and distraction"),
+                ("guilty plea", 26, "Guilty pleas often precede costly remediation and oversight"),
+                ("wire fraud", 26, "Wire-fraud allegations signal acute enforcement exposure"),
+                ("securities fraud", 28, "Securities-fraud allegations directly threaten credibility and access to capital"),
+                ("accounting fraud", 28, "Accounting-fraud language implies restatement and control failure risk"),
+                ("sec charges", 26, "SEC charges usually force disclosure, defense spend, and remediation"),
+                ("sec alleges", 24, "SEC allegations increase regulatory resolution uncertainty"),
+                ("enforcement action", 22, "Enforcement actions often include penalties and conduct remedies"),
+                ("cease and desist", 18, "Cease-and-desist remedies can constrain business conduct"),
+                ("cease-and-desist", 18, "Cease-and-desist remedies can constrain business conduct"),
+                ("civil complaint", 20, "Civil complaints increase litigation duration and cost risk"),
+                ("restatement", 24, "Restatements often reset earnings quality and analyst trust"),
+                ("material weakness", 22, "Material weakness language signals control and reporting risk"),
+                ("internal control", 18, "Internal-control failures can widen restatement scope"),
+                ("wells notice", 24, "Wells notices usually precede charged enforcement outcomes"),
+                ("subpoena", 14, "Subpoenas imply investigative process and legal spend"),
+                ("auditor resignation", 20, "Auditor resignations can trigger credibility shocks"),
+                ("going concern", 18, "Going-concern language signals financing and covenant pressure"),
+                ("delisting notice", 20, "Delisting notices threaten liquidity and index ownership"),
+                ("market manipulation", 22, "Manipulation allegations can impair trading and financing"),
+                ("insider trading", 20, "Insider-trading cases can implicate governance and controls"),
+                ("class action", 12, "Securities class actions add legal cost and settlement risk"),
+                ("revenue recognition", 18, "Revenue-recognition issues often precede restatements and credibility loss"),
+                ("disgorgement", 16, "Disgorgement language usually accompanies charged enforcement resolutions"),
+                ("fcpa", 20, "FCPA matters imply multi-year investigations and governance remediation"),
+                ("foreign corrupt practices", 20, "FCPA-style matters imply multi-year investigations and fines"),
+                ("deferred prosecution", 14, "Deferred-prosecution agreements still embed oversight and conduct risk"),
+                ("trading halt", 16, "Trading halts often coincide with material disclosure uncertainty"),
+                ("delisting", 18, "Delisting threats impair liquidity and institutional ownership"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+
+            positive_offsets = [
+                ("without admitting or denying", 10, "Settle-without-admitting language can reduce narrative severity vs charged fraud"),
+                ("dismissed", 16, "Dismissal language lowers active enforcement overhang"),
+                ("no findings of fraud", 18, "No-fraud findings reduce worst-case accounting narrative"),
+                ("terminated investigation", 14, "Closed investigations reduce open regulatory tail risk"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if marker in content:
+                    score -= weight
+                    reasons.append(reason)
+
         score = max(0, min(100, score))
         if score >= 70:
             likelihood = "HIGH"
@@ -194,7 +243,12 @@ class CatastropheAnalyzerApp:
 
     @staticmethod
     def _depth_categories() -> List[str]:
-        return ["cybersecurity", "clinical_regulatory_binary", "product_safety_recall"]
+        return [
+            "cybersecurity",
+            "clinical_regulatory_binary",
+            "product_safety_recall",
+            "fraud_accounting_enforcement",
+        ]
 
     def _active_event_categories(self) -> List[str]:
         """Return enabled event categories from settings (fallback to depth set)."""
@@ -531,6 +585,75 @@ class CatastropheAnalyzerApp:
                     "production halt",
                 )
             ):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "fraud_accounting_enforcement":
+            event_subtype = "Financial Reporting Event"
+            if "wells notice" in content:
+                event_subtype = "Wells Notice"
+            elif any(
+                marker in content
+                for marker in (
+                    "indictment",
+                    "criminal charges",
+                    "guilty plea",
+                    "pleaded guilty",
+                    "department of justice",
+                    "u.s. attorney",
+                    "wire fraud",
+                )
+            ):
+                event_subtype = "DOJ Criminal Action"
+            elif any(
+                marker in content
+                for marker in (
+                    "sec charges",
+                    "sec alleges",
+                    "enforcement action",
+                    "cease and desist",
+                    "cease-and-desist",
+                    "civil complaint",
+                    "securities fraud",
+                    "accounting fraud",
+                    "market manipulation",
+                    "insider trading",
+                    "spoofing",
+                )
+            ):
+                event_subtype = "SEC Enforcement Action"
+            elif any(
+                marker in content
+                for marker in (
+                    "restatement",
+                    "restate financial",
+                    "revised financial results",
+                    "accounting irregularities",
+                    "misstated financial",
+                    "financial misstatement",
+                )
+            ):
+                event_subtype = "Accounting Restatement"
+            elif "material weakness" in content or "material weaknesses" in content:
+                event_subtype = "Material Weakness Disclosure"
+            elif "internal control" in content or "internal controls" in content:
+                event_subtype = "Internal Control Failure"
+
+            severity = "Medium"
+            high_markers = [
+                "indictment",
+                "criminal charges",
+                "guilty plea",
+                "securities fraud",
+                "accounting fraud",
+                "restatement",
+                "sec charges",
+                "wells notice",
+                "wire fraud",
+                "going concern",
+                "delisting notice",
+            ]
+            if any(marker in content for marker in high_markers):
                 severity = "High"
             return event_subtype, severity
 

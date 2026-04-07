@@ -268,11 +268,12 @@ class MainSignalTriageGateTests(unittest.TestCase):
     def test_triage_thresholds_gate_signal_persistence(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             db = DatabaseManager(data_dir=tmpdir)
+            event_day = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d")
             db.add_watch_if_new(
                 {
                     "ticker": "PASS",
                     "company": "Passing Co",
-                    "event_date": "2026-03-25",
+                    "event_date": event_day,
                     "event_category": "cybersecurity",
                     "status": "ACTIVE",
                 }
@@ -281,7 +282,7 @@ class MainSignalTriageGateTests(unittest.TestCase):
                 {
                     "ticker": "FAIL",
                     "company": "Failing Co",
-                    "event_date": "2026-03-25",
+                    "event_date": event_day,
                     "event_category": "cybersecurity",
                     "status": "ACTIVE",
                 }
@@ -291,7 +292,7 @@ class MainSignalTriageGateTests(unittest.TestCase):
                     "event_key": "pass-key",
                     "ticker": "PASS",
                     "company": "Passing Co",
-                    "event_date": "2026-03-25",
+                    "event_date": event_day,
                     "event_category": "cybersecurity",
                     "event_subtype": "Ransomware",
                     "distress_score": 70,
@@ -308,7 +309,7 @@ class MainSignalTriageGateTests(unittest.TestCase):
                     "event_key": "fail-key",
                     "ticker": "FAIL",
                     "company": "Failing Co",
-                    "event_date": "2026-03-25",
+                    "event_date": event_day,
                     "event_category": "cybersecurity",
                     "event_subtype": "Ransomware",
                     "distress_score": 45,

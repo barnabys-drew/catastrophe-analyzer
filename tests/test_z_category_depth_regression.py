@@ -77,6 +77,15 @@ class ClassificationRegressionTests(unittest.TestCase):
         self.assertEqual(subtype, "Class I Recall")
         self.assertEqual(severity, "High")
 
+    def test_fraud_subtype_sec_enforcement(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="SEC charges WidgetCo and two executives with securities fraud",
+            summary="Civil complaint alleges misstated revenue and internal control failures.",
+            event_category="fraud_accounting_enforcement",
+        )
+        self.assertEqual(subtype, "SEC Enforcement Action")
+        self.assertEqual(severity, "High")
+
     def test_cybersecurity_distress_recovery_offsets(self):
         high_risk = self.app._financial_distress_assessment(
             title="Ransomware attack causes operations disrupted at Acme",
@@ -103,6 +112,19 @@ class ClassificationRegressionTests(unittest.TestCase):
         )
         self.assertGreater(downside["score"], upside["score"])
 
+    def test_fraud_distress_settlement_offsets(self):
+        severe = self.app._financial_distress_assessment(
+            title="GrandCo CFO indicted on wire fraud and securities fraud counts",
+            summary="Department of Justice announces criminal charges after restatement.",
+            event_category="fraud_accounting_enforcement",
+        )
+        milder = self.app._financial_distress_assessment(
+            title="GrandCo settles with SEC without admitting or denying findings",
+            summary="Terminated investigation with no findings of fraud; cooperation credit noted.",
+            event_category="fraud_accounting_enforcement",
+        )
+        self.assertGreater(severe["score"], milder["score"])
+
 
 class ImpactTriageRegressionTests(unittest.TestCase):
     def setUp(self):
@@ -128,6 +150,12 @@ class ImpactTriageRegressionTests(unittest.TestCase):
                 "summary": "Serious injury reports and warning letter disclosed.",
                 "distress_score": 70,
             },
+            {
+                "event_category": "fraud_accounting_enforcement",
+                "title": "SEC charges issuer with securities fraud after restatement",
+                "summary": "Material weakness and internal control failures cited in civil complaint.",
+                "distress_score": 70,
+            },
         ]
 
         for article in articles:
@@ -142,7 +170,12 @@ class ConfigParityRegressionTests(unittest.TestCase):
         with cfg_path.open("r", encoding="utf-8") as f:
             cfg = json.load(f)
 
-        active = ["cybersecurity", "clinical_regulatory_binary", "product_safety_recall"]
+        active = [
+            "cybersecurity",
+            "clinical_regulatory_binary",
+            "product_safety_recall",
+            "fraud_accounting_enforcement",
+        ]
         categories = cfg.get("event_categories", {})
         gates = cfg.get("distress_model", {}).get("min_score_for_watch_by_category", {})
 

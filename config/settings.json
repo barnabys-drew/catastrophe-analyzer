@@ -124,8 +124,88 @@
       ]
     },
     "fraud_accounting_enforcement": {
-      "enabled": false,
-      "keywords": []
+      "enabled": true,
+      "keywords": [
+        "sec charges",
+        "sec alleges",
+        "securities and exchange commission",
+        "securities fraud",
+        "accounting fraud",
+        "accounting irregularities",
+        "financial misstatement",
+        "misstated financial",
+        "misstated results",
+        "accounting error",
+        "restatement",
+        "restate financial",
+        "revised financial results",
+        "revenue recognition",
+        "improper revenue",
+        "channel stuffing",
+        "material weakness",
+        "material weaknesses",
+        "internal control",
+        "internal controls",
+        "deficient disclosure controls",
+        "disclosure controls",
+        "enforcement action",
+        "administrative proceeding",
+        "administrative order",
+        "cease and desist",
+        "cease-and-desist",
+        "civil complaint",
+        "settlement with sec",
+        "settles with sec",
+        "disgorgement",
+        "civil penalty",
+        "wells notice",
+        "subpoena",
+        "search warrant",
+        "indictment",
+        "criminal charges",
+        "guilty plea",
+        "pleaded guilty",
+        "convicted",
+        "sentenced",
+        "department of justice",
+        "u.s. attorney",
+        "wire fraud",
+        "bank fraud",
+        "mail fraud",
+        "market manipulation",
+        "insider trading",
+        "spoofing",
+        "pump and dump",
+        "ponzi scheme",
+        "pyramid scheme",
+        "fcpa",
+        "foreign corrupt practices",
+        "bribery scheme",
+        "auditor resignation",
+        "auditor resigns",
+        "auditor change",
+        "forensic review",
+        "special committee",
+        "internal investigation",
+        "independent investigation",
+        "going concern",
+        "delisting notice",
+        "delisting",
+        "trading halt",
+        "halted trading",
+        "suspension of trading",
+        "finra",
+        "class action",
+        "derivative suit",
+        "securities lawsuit",
+        "officer and director bar",
+        "permanent bar",
+        "barred from serving",
+        "deferred prosecution",
+        "non-prosecution agreement",
+        "cooperating with the sec",
+        "cooperating with investigators"
+      ]
     },
     "financial_distress": {
       "enabled": false,
@@ -325,6 +405,90 @@
       "event_category": "product_safety_recall",
       "update_interval_hours": 8,
       "max_results": 60
+    },
+    "sec_litigation_releases": {
+      "enabled": true,
+      "url": "https://www.sec.gov/rss/litigation/lreleases.xml",
+      "event_category": "fraud_accounting_enforcement",
+      "update_interval_hours": 8,
+      "max_results": 60
+    },
+    "sec_press_releases": {
+      "enabled": true,
+      "url": "https://www.sec.gov/rss/news/press.xml",
+      "event_category": "fraud_accounting_enforcement",
+      "update_interval_hours": 8,
+      "max_results": 40
+    },
+    "google_news_fraud_enforcement_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(SEC+OR+%22securities+fraud%22+OR+restatement+OR+indictment+OR+%22accounting+irregularities%22+OR+%22wells+notice%22+OR+%22material+weakness%22+OR+%22internal+control%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "fraud_accounting_enforcement",
+      "update_interval_hours": 4,
+      "max_results": 60
+    },
+    "google_news_sec_charges_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22sec+charges%22+OR+%22sec+alleges%22+OR+%22cease+and+desist%22+OR+%22civil+complaint%22+OR+disgorgement+OR+%22administrative+proceeding%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "fraud_accounting_enforcement",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_restatement_audit_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(restatement+OR+%22material+weakness%22+OR+%22going+concern%22+OR+%22auditor+resign%22+OR+%22revenue+recognition%22+OR+%22accounting+error%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "fraud_accounting_enforcement",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_insider_trading_manipulation_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22insider+trading%22+OR+%22market+manipulation%22+OR+spoofing+OR+%22wire+fraud%22+OR+%22securities+fraud%22+OR+indictment)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "fraud_accounting_enforcement",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_fcpa_corruption_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(FCPA+OR+%22foreign+corrupt%22+OR+bribery+OR+%22deferred+prosecution%22+OR+%22non-prosecution%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "fraud_accounting_enforcement",
+      "update_interval_hours": 6,
+      "max_results": 45
+    },
+    "google_news_exchange_halt_delist_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22trading+halt%22+OR+delisting+OR+%22suspension+of+trading%22+OR+%22regulatory+halt%22+OR+%22finra+bar%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "fraud_accounting_enforcement",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+    "justice_department_news_rss": {
+      "enabled": true,
+      "url": "https://www.justice.gov/news/rss",
+      "event_category": "fraud_accounting_enforcement",
+      "update_interval_hours": 8,
+      "max_results": 50
+    },
+    "reuters_business_news_rss": {
+      "enabled": true,
+      "url": "https://feeds.reuters.com/reuters/businessNews",
+      "event_category": "fraud_accounting_enforcement",
+      "update_interval_hours": 8,
+      "max_results": 50
+    },
+    "marketwatch_top_stories_rss": {
+      "enabled": true,
+      "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+      "event_category": "fraud_accounting_enforcement",
+      "update_interval_hours": 8,
+      "max_results": 45
+    },
+    "yahoo_finance_news_rss": {
+      "enabled": true,
+      "url": "https://finance.yahoo.com/news/rssindex",
+      "event_category": "fraud_accounting_enforcement",
+      "update_interval_hours": 8,
+      "max_results": 50
     }
   },
 
@@ -333,7 +497,8 @@
     "max_results_per_source": 50,
     "hours_back": 24,
     "retry_on_failure": true,
-    "max_retries": 3
+    "max_retries": 3,
+    "http_user_agent": ""
   },
 
   "entity_extraction": {
@@ -397,6 +562,14 @@
         "drop_within_48h_threshold": 2.0,
         "recovery_days_threshold": 6,
         "volume_spike_threshold": 2.2
+      },
+      "fraud_accounting_enforcement": {
+        "rsi_oversold_threshold": 29,
+        "price_drop_threshold": 14,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.5,
+        "recovery_days_threshold": 5,
+        "volume_spike_threshold": 2.0
       }
     },
     "confidence_levels": {
@@ -410,7 +583,8 @@
     "min_score_for_watch_by_category": {
       "cybersecurity": 50,
       "clinical_regulatory_binary": 60,
-      "product_safety_recall": 55
+      "product_safety_recall": 55,
+      "fraud_accounting_enforcement": 58
     }
   },
   "triage": {

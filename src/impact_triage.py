@@ -134,6 +134,33 @@ class ImpactTriage:
                 if marker in content:
                     score += weight
                     reasons.append(reason)
+        elif category == "fraud_accounting_enforcement":
+            fraud = [
+                ("indictment", 20, "Indictment language signals acute legal and governance risk"),
+                ("criminal charges", 18, "Criminal charges elevate tail-risk and distraction"),
+                ("securities fraud", 20, "Securities fraud allegations threaten credibility and capital access"),
+                ("accounting fraud", 20, "Accounting fraud language implies restatement and control failure risk"),
+                ("sec charges", 18, "SEC charges increase defense spend and remediation uncertainty"),
+                ("sec alleges", 16, "SEC allegations increase regulatory resolution uncertainty"),
+                ("restatement", 18, "Restatements often reset earnings quality and trust"),
+                ("material weakness", 16, "Material weakness disclosures signal reporting and control risk"),
+                ("wells notice", 18, "Wells notices usually precede enforcement outcomes"),
+                ("enforcement action", 14, "Enforcement actions often include penalties and conduct remedies"),
+                ("going concern", 14, "Going-concern language signals financing stress"),
+                ("delisting notice", 16, "Delisting threats impair liquidity and ownership"),
+                ("wire fraud", 16, "Wire-fraud charges imply severe enforcement exposure"),
+                ("market manipulation", 16, "Manipulation allegations can impair trading and financing"),
+                ("insider trading", 14, "Insider-trading cases implicate governance and controls"),
+                ("disgorgement", 12, "Disgorgement signals a charged enforcement resolution path"),
+                ("revenue recognition", 12, "Revenue recognition probes often expand into restatement risk"),
+                ("fcpa", 14, "FCPA exposure implies long-cycle fines and compliance spend"),
+                ("delisting", 12, "Delisting language threatens liquidity and index ownership"),
+                ("trading halt", 12, "Halts often coincide with acute disclosure uncertainty"),
+            ]
+            for marker, weight, reason in fraud:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
 
         score = self._clip_score(score)
         likelihood = self._likelihood_from_score(score)

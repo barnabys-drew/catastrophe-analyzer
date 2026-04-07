@@ -3,6 +3,7 @@ News Scraper Module
 Collects event-related news from configured RSS sources
 """
 
+import os
 import feedparser
 from calendar import timegm
 from datetime import datetime, timedelta, timezone
@@ -41,6 +42,20 @@ class NewsScraper:
             for category, category_config in self.event_categories.items()
         }
         self.breach_keywords = self.keywords_by_category.get("cybersecurity", [])
+
+        scraping = self.config.get("scraping", {}) or {}
+        ua = (os.environ.get("CATASTROPHE_HTTP_USER_AGENT") or "").strip() or (
+            str(scraping.get("http_user_agent") or "").strip()
+        )
+        if not ua:
+            ua = (
+                "CatastropheAnalyzer/1.0 (+https://www.sec.gov/about/developer-resources; "
+                "set scraping.http_user_agent in settings.json or CATASTROPHE_HTTP_USER_AGENT)"
+            )
+        self._feed_request_headers = {
+            "User-Agent": ua[:500],
+            "Accept": "application/rss+xml, application/xml;q=0.9, */*;q=0.8",
+        }
 
     def _get_default_config(self) -> Dict:
         """Get default configuration"""
@@ -174,7 +189,7 @@ class NewsScraper:
 
         try:
             print(f"Fetching {source_name}...", end="")
-            feed = feedparser.parse(feed_url)
+            feed = feedparser.parse(feed_url, request_headers=self._feed_request_headers)
 
             if not feed.entries:
                 print(" No articles found")

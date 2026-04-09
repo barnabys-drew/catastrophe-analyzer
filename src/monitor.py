@@ -28,6 +28,11 @@ def main() -> None:
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
     app = CatastropheAnalyzerApp()
+    try:
+        vmode = getattr(app.entity_extractor, "_validation_mode", "?")
+    except Exception:
+        vmode = "?"
+    print(f"catastrophe-analyzer: entity validation mode={vmode}", flush=True)
     alerts = AlertManager()
 
     run_service_loop(

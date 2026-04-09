@@ -31,4 +31,4 @@ When a change affects runtime behavior:
 
 ## Git hygiene
 
-Do not commit: `.venv/`, `data/*` (except `data/.gitkeep`), `**/__pycache__/**`, `.env`.
+Do not commit: `.venv/`, `data/*` (except `data/.gitkeep`), `**/__pycache__/**`, `.env`, `.env.agent`.

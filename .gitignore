@@ -26,6 +26,7 @@ data/*
 .env
 .env.local
 .env.tiingo
+.env.agent
 
 # Local copy of strict-rules Compose env (optional; may hold overrides)
 profiles/agent-validation/strict-rules.env

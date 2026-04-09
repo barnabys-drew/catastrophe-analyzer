@@ -8,7 +8,8 @@ services:
     command: ["--quiet"]
     environment:
       TZ: ${TZ:-UTC}
-      CATASTROPHE_ENTITY_VALIDATION_MODE: ${CATASTROPHE_ENTITY_VALIDATION_MODE:-agent}
+      # strict_rules = no Ollama required; agent = requires reachable LLM (see profiles/agent-validation/)
+      CATASTROPHE_ENTITY_VALIDATION_MODE: ${CATASTROPHE_ENTITY_VALIDATION_MODE:-strict_rules}
       CATASTROPHE_ENTITY_AGENT_ENDPOINT: ${CATASTROPHE_ENTITY_AGENT_ENDPOINT:-}
       CATASTROPHE_ENTITY_AGENT_API_KEY: ${CATASTROPHE_ENTITY_AGENT_API_KEY:-}
       CATASTROPHE_ENTITY_AGENT_PROVIDER: ${CATASTROPHE_ENTITY_AGENT_PROVIDER:-generic_http}

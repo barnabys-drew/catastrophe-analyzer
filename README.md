@@ -78,7 +78,21 @@ docker-compose version
 
 If only `docker-compose` exists, replace `docker compose` with `docker-compose` in the commands below.
 
-### 4) Docker: leave the service up for days (Ollama on Windows example)
+### 4) Docker: leave the service up for days
+
+**Without Ollama (simplest):** use deterministic entity validation so the service does not depend on a local LLM. Copy the example env, then start:
+
+```bash
+cd ~/code/catastrophe-analyzer
+cp profiles/agent-validation/no-ollama.env.example .env.agent
+# Add TIINGO_API_TOKEN to .env.agent if you use Tiingo; otherwise yfinance is used.
+docker compose --env-file .env.agent up -d --build
+docker compose --env-file .env.agent ps
+docker inspect --format='{{.State.Health.Status}}' catastrophe-analyzer
+docker compose --env-file .env.agent logs -f catastrophe-analyzer
+```
+
+**With Ollama (LLM entity validation):** start Ollama on the host first, then:
 
 ```bash
 cd ~/code/catastrophe-analyzer

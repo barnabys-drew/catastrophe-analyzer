@@ -1523,6 +1523,11 @@ def main():
 
     app = CatastropheAnalyzerApp()
     if args.service or args.once or args.quiet or args.interval_minutes is not None:
+        try:
+            vmode = getattr(app.entity_extractor, "_validation_mode", "?")
+        except Exception:
+            vmode = "?"
+        print(f"catastrophe-analyzer: entity validation mode={vmode}", flush=True)
         alerts = AlertManager()
         run_service_loop(
             app,

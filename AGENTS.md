@@ -48,3 +48,4 @@ Do not commit runtime artifacts:
 - `data/*` (except `data/.gitkeep`)
 - `**/__pycache__/**`
 - `.env`
+- `.env.agent` (local Docker env; often contains API tokens)

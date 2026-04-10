@@ -2,7 +2,9 @@
 Catastrophe Analyzer — shock events in the news, ticker linkage, and equity signal heuristics.
 
 Implementation today spans multiple `event_category` lanes (cybersecurity, clinical/regulatory,
-product safety, fraud/accounting/enforcement); see docs/EVENT_CATEGORIES_AND_IMPACT.md.
+product safety, fraud/accounting/enforcement, supply chain disruption, financial distress,
+dilutive financing, M&A/corporate action, leadership scandal, positive earnings catalyst);
+see docs/EVENT_CATEGORIES_AND_IMPACT.md.
 """
 
 __version__ = "1.0.0"

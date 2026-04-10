@@ -4,13 +4,13 @@ Execution checklist to expand beyond current categories while keeping signals hi
 
 ## Priority order for remaining categories
 
-- [ ] `fraud_accounting_enforcement`
-- [ ] `financial_distress`
-- [ ] `dilutive_financing`
-- [ ] `ma_corporate_action`
-- [ ] `leadership_scandal`
-- [ ] `supply_chain_disruption`
-- [ ] `positive_earnings_catalyst`
+- [x] `fraud_accounting_enforcement`
+- [x] `supply_chain_disruption`
+- [x] `financial_distress`
+- [x] `dilutive_financing`
+- [x] `ma_corporate_action`
+- [x] `leadership_scandal`
+- [x] `positive_earnings_catalyst`
 
 ## Per-category implementation checklist
 

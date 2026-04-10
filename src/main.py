@@ -229,6 +229,172 @@ class CatastropheAnalyzerApp:
                     score -= weight
                     reasons.append(reason)
 
+        elif event_category == "supply_chain_disruption":
+            weighted_markers = [
+                ("supply chain disruption", 22, "Direct supply-chain disruption language signals throughput risk"),
+                ("production halt", 24, "Production halts directly pressure near-term output"),
+                ("plant shutdown", 22, "Plant shutdowns constrain capacity and revenue timing"),
+                ("factory fire", 22, "Factory or plant incidents can erase near-term production"),
+                ("force majeure", 20, "Force majeure implies contractual and delivery uncertainty"),
+                ("supplier bankruptcy", 24, "Supplier failure can strand inventory and revenue"),
+                ("supplier failure", 22, "Supplier failure can strand inventory and revenue"),
+                ("chip shortage", 18, "Input shortages can constrain shipments and margins"),
+                ("semiconductor shortage", 18, "Semiconductor shortages can delay production"),
+                ("port congestion", 16, "Port and logistics congestion delays fulfillment"),
+                ("port closure", 20, "Port closures can halt inbound and outbound flows"),
+                ("logistics disruption", 18, "Logistics disruption increases working capital and delays"),
+                ("labor strike", 14, "Strikes can halt plants or transport lanes"),
+                ("strike at", 14, "Strike language at facilities can stop production or shipping"),
+                ("freight rates", 12, "Freight shocks can compress margins"),
+                ("inventory shortage", 14, "Inventory shortages imply demand or production mismatch"),
+                ("backlog", 12, "Order backlog language signals capacity constraints"),
+                ("container shortage", 16, "Container shortages constrain export/import timing"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("resumes production", 12, "Production restart language reduces acute disruption severity"),
+                ("resumed operations", 12, "Operational normalization lowers disruption tail risk"),
+                ("alleviates shortage", 10, "Alleviated shortage language can ease margin pressure narrative"),
+                ("easing supply", 10, "Easing supply language can reduce bottleneck narrative"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if marker in content:
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "financial_distress":
+            weighted_markers = [
+                ("chapter 11", 34, "Chapter 11 filing signals acute balance-sheet stress"),
+                ("chapter 7", 32, "Chapter 7 language implies liquidation risk"),
+                ("bankruptcy", 30, "Bankruptcy language implies severe solvency pressure"),
+                ("going concern", 26, "Going-concern disclosure is a high-signal distress marker"),
+                ("payment default", 24, "Payment default indicates immediate creditor pressure"),
+                ("missed interest payment", 22, "Missed coupon language elevates restructuring probability"),
+                ("covenant breach", 20, "Covenant breaches often trigger lender renegotiation risk"),
+                ("covenant default", 22, "Covenant default indicates contract breach with debt holders"),
+                ("forbearance", 18, "Forbearance agreements imply near-term refinancing stress"),
+                ("restructuring support agreement", 24, "RSA language usually precedes formal restructuring path"),
+                ("liquidity crisis", 22, "Liquidity stress can force fire-sale financing decisions"),
+                ("insolvency", 24, "Insolvency references imply extreme downside scenarios"),
+                ("credit rating downgrade", 14, "Downgrades can raise refinancing costs and covenant pressure"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("refinancing completed", 14, "Completed refinancing can ease near-term maturity pressure"),
+                ("debt repaid", 12, "Debt repayment language reduces immediate distress pressure"),
+                ("liquidity improved", 10, "Liquidity improvement reduces near-term default risk"),
+                ("covenant waiver", 8, "Waivers can buy time versus technical default outcomes"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if marker in content:
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "dilutive_financing":
+            weighted_markers = [
+                ("secondary offering", 18, "Secondary offerings can pressure share supply and valuation"),
+                ("at-the-market", 20, "ATM programs can create ongoing dilution overhang"),
+                ("atm offering", 20, "ATM programs can create ongoing dilution overhang"),
+                ("registered direct offering", 20, "Registered direct deals often price at discount"),
+                ("private placement", 18, "Private placements can dilute existing holders"),
+                ("convertible notes", 20, "Convertible issuance embeds future dilution risk"),
+                ("convertible preferred", 18, "Convertibles can cap upside and add share overhang"),
+                ("warrant issuance", 18, "Warrants add contingent dilution"),
+                ("equity line", 18, "Equity lines can increase persistent issuance pressure"),
+                ("priced at discount", 22, "Discounted offerings usually imply stressed financing terms"),
+                ("dilution", 16, "Explicit dilution language is negative for existing shareholders"),
+                ("capital raise", 14, "Capital raises can reflect funding gap and dilution needs"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("oversubscribed", 8, "Oversubscription can soften signaling impact of financing"),
+                ("minimal dilution", 10, "Explicit low-dilution language reduces downside narrative"),
+                ("non-dilutive tranche", 12, "Non-dilutive capital components reduce equity pressure"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if marker in content:
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "ma_corporate_action":
+            weighted_markers = [
+                ("hostile bid", 14, "Hostile processes can raise execution and legal uncertainty"),
+                ("competing bid", 12, "Competing bids increase deal path uncertainty and volatility"),
+                ("deal termination", 20, "Terminated transactions often drive repricing risk"),
+                ("deal break", 20, "Broken deals remove expected premium and can trigger downside"),
+                ("antitrust challenge", 16, "Antitrust challenges increase closing risk"),
+                ("doj sues to block", 22, "DOJ action materially elevates transaction failure risk"),
+                ("ftc sues to block", 22, "FTC action materially elevates transaction failure risk"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("definitive merger agreement", 8, "Definitive agreement reduces uncertainty vs rumor"),
+                ("transaction closes", 14, "Closed transactions reduce execution uncertainty"),
+                ("shareholder approval", 8, "Shareholder approval de-risks one major close condition"),
+                ("all-cash deal", 6, "All-cash terms can lower financing uncertainty"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if marker in content:
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "leadership_scandal":
+            weighted_markers = [
+                ("terminated for cause", 24, "For-cause terminations imply severe governance breakdown"),
+                ("executive misconduct", 20, "Misconduct allegations can damage trust and execution"),
+                ("board investigation", 18, "Board probes imply unresolved governance risk"),
+                ("ethics probe", 16, "Ethics probes can widen legal and reputational overhang"),
+                ("whistleblower complaint", 16, "Whistleblower claims often trigger prolonged investigations"),
+                ("ceo resigns", 14, "Unplanned CEO turnover creates strategy uncertainty"),
+                ("cfo resigns", 14, "CFO turnover can weaken reporting confidence"),
+                ("compliance failure", 16, "Compliance breakdowns can trigger fines and remediation spend"),
+                ("conflict of interest", 14, "Conflict disclosures can pressure board credibility"),
+                ("succession uncertainty", 12, "Succession uncertainty can impair execution confidence"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("interim ceo appointed", 8, "Interim leadership can reduce immediate uncertainty"),
+                ("independent review completed", 10, "Completed review narrows open-ended governance overhang"),
+                ("no wrongdoing found", 14, "No-wrongdoing conclusions reduce scandal tail risk"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if marker in content:
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "positive_earnings_catalyst":
+            weighted_markers = [
+                ("margin compression", 10, "Margin pressure can offset headline catalyst strength"),
+                ("below expectations", 14, "Below-consensus details can reverse positive setup"),
+                ("withdraws guidance", 20, "Guidance withdrawal increases uncertainty despite headline beats"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("raised guidance", 18, "Raised guidance reduces near-term distress risk"),
+                ("guidance increased", 18, "Guidance increases reduce downside expectations"),
+                ("beat estimates", 12, "Beats can improve confidence in near-term fundamentals"),
+                ("record revenue", 12, "Record revenue lowers immediate distress narrative"),
+                ("margin expansion", 10, "Margin expansion indicates improving operating leverage"),
+                ("above consensus", 10, "Above-consensus prints can de-risk near-term expectations"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if marker in content:
+                    score -= weight
+                    reasons.append(reason)
+
         score = max(0, min(100, score))
         if score >= 70:
             likelihood = "HIGH"
@@ -250,6 +416,12 @@ class CatastropheAnalyzerApp:
             "clinical_regulatory_binary",
             "product_safety_recall",
             "fraud_accounting_enforcement",
+            "supply_chain_disruption",
+            "financial_distress",
+            "dilutive_financing",
+            "ma_corporate_action",
+            "leadership_scandal",
+            "positive_earnings_catalyst",
         ]
 
     def _active_event_categories(self) -> List[str]:
@@ -656,6 +828,170 @@ class CatastropheAnalyzerApp:
                 "delisting notice",
             ]
             if any(marker in content for marker in high_markers):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "supply_chain_disruption":
+            event_subtype = "Supply Chain Event"
+            if "port congestion" in content or "port closure" in content or "canal" in content:
+                event_subtype = "Port/Logistics Disruption"
+            elif "chip shortage" in content or "semiconductor shortage" in content or "component shortage" in content:
+                event_subtype = "Component/Input Shortage"
+            elif "factory fire" in content or "plant shutdown" in content or "production halt" in content:
+                event_subtype = "Factory/Plant Disruption"
+            elif "supplier bankruptcy" in content or "supplier failure" in content or "force majeure" in content:
+                event_subtype = "Supplier/Contract Stress"
+            elif "supply chain disruption" in content or "logistics disruption" in content:
+                event_subtype = "Supply Chain Disruption"
+
+            severity = "Medium"
+            if any(
+                marker in content
+                for marker in (
+                    "factory fire",
+                    "plant shutdown",
+                    "supplier bankruptcy",
+                    "force majeure",
+                    "production halt",
+                    "port closure",
+                    "supply chain disruption",
+                )
+            ):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "financial_distress":
+            event_subtype = "Financial Distress Event"
+            if "chapter 11" in content or "bankruptcy protection" in content:
+                event_subtype = "Chapter 11 Restructuring"
+            elif "chapter 7" in content or "liquidation" in content:
+                event_subtype = "Liquidation Risk"
+            elif "going concern" in content:
+                event_subtype = "Going Concern Warning"
+            elif "payment default" in content or "missed interest payment" in content:
+                event_subtype = "Debt Payment Default"
+            elif "covenant breach" in content or "covenant default" in content:
+                event_subtype = "Debt Covenant Breach"
+            elif "forbearance" in content or "restructuring support agreement" in content:
+                event_subtype = "Debt Restructuring Process"
+
+            severity = "Medium"
+            if any(
+                marker in content
+                for marker in (
+                    "chapter 11",
+                    "chapter 7",
+                    "bankruptcy",
+                    "going concern",
+                    "payment default",
+                    "insolvency",
+                )
+            ):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "dilutive_financing":
+            event_subtype = "Equity Financing Event"
+            if "at-the-market" in content or "atm offering" in content:
+                event_subtype = "ATM Equity Program"
+            elif "registered direct offering" in content:
+                event_subtype = "Registered Direct Offering"
+            elif "private placement" in content or "pipe financing" in content:
+                event_subtype = "Private Placement / PIPE"
+            elif "convertible notes" in content or "convertible debt" in content or "convertible preferred" in content:
+                event_subtype = "Convertible Financing"
+            elif "secondary offering" in content or "follow-on offering" in content:
+                event_subtype = "Secondary Equity Offering"
+            elif "warrant issuance" in content or "pre-funded warrants" in content:
+                event_subtype = "Warrant-Linked Financing"
+
+            severity = "Medium"
+            if any(
+                marker in content
+                for marker in (
+                    "priced at discount",
+                    "registered direct offering",
+                    "convertible notes",
+                    "dilution",
+                    "equity line",
+                )
+            ):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "ma_corporate_action":
+            event_subtype = "M&A / Corporate Action"
+            if "hostile bid" in content:
+                event_subtype = "Hostile Bid"
+            elif "competing bid" in content:
+                event_subtype = "Competing Bid"
+            elif "take-private" in content or "buyout" in content:
+                event_subtype = "Take-Private Transaction"
+            elif "tender offer" in content:
+                event_subtype = "Tender Offer"
+            elif "deal termination" in content or "deal break" in content:
+                event_subtype = "Deal Termination"
+            elif "merger agreement" in content or "acquisition" in content:
+                event_subtype = "Merger/Acquisition Agreement"
+
+            severity = "Medium"
+            if any(
+                marker in content
+                for marker in (
+                    "hostile bid",
+                    "competing bid",
+                    "deal termination",
+                    "doj sues to block",
+                    "ftc sues to block",
+                )
+            ):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "leadership_scandal":
+            event_subtype = "Leadership Governance Event"
+            if "terminated for cause" in content:
+                event_subtype = "For-Cause Executive Termination"
+            elif "board investigation" in content or "special committee" in content:
+                event_subtype = "Board/Special Committee Probe"
+            elif "whistleblower complaint" in content:
+                event_subtype = "Whistleblower Allegation"
+            elif "ceo resigns" in content or "ceo steps down" in content:
+                event_subtype = "CEO Departure"
+            elif "cfo resigns" in content:
+                event_subtype = "CFO Departure"
+            elif "ethics probe" in content or "executive misconduct" in content:
+                event_subtype = "Executive Misconduct Probe"
+
+            severity = "Medium"
+            if any(
+                marker in content
+                for marker in (
+                    "terminated for cause",
+                    "executive misconduct",
+                    "board investigation",
+                    "whistleblower complaint",
+                    "compliance failure",
+                )
+            ):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "positive_earnings_catalyst":
+            event_subtype = "Positive Earnings Catalyst"
+            if "raised guidance" in content or "raises guidance" in content or "guidance increased" in content:
+                event_subtype = "Guidance Raise"
+            elif "record revenue" in content or "record bookings" in content:
+                event_subtype = "Record Topline Print"
+            elif "beat estimates" in content or "above consensus" in content:
+                event_subtype = "Consensus Beat"
+            elif "margin expansion" in content:
+                event_subtype = "Margin Expansion Catalyst"
+            elif "positive preannouncement" in content:
+                event_subtype = "Positive Preannouncement"
+
+            severity = "Medium"
+            if any(marker in content for marker in ("raised guidance", "record revenue", "positive preannouncement")):
                 severity = "High"
             return event_subtype, severity
 

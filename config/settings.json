@@ -51,12 +51,91 @@
       ]
     },
     "leadership_scandal": {
-      "enabled": false,
-      "keywords": []
+      "enabled": true,
+      "keywords": [
+        "ceo resigns",
+        "ceo steps down",
+        "cfo resigns",
+        "forced resignation",
+        "terminated for cause",
+        "board investigation",
+        "special committee",
+        "ethics probe",
+        "harassment allegations",
+        "sexual misconduct",
+        "whistleblower complaint",
+        "compliance failure",
+        "governance failure",
+        "executive misconduct",
+        "conflict of interest",
+        "insider allegations",
+        "falsified credentials",
+        "executive suspension",
+        "leadership turmoil",
+        "succession uncertainty",
+        "chairman resigns",
+        "chief legal officer resigns",
+        "code of conduct violation",
+        "related-party transactions",
+        "executive scandal",
+        "fraud allegations against ceo"
+      ]
     },
     "supply_chain_disruption": {
-      "enabled": false,
-      "keywords": []
+      "enabled": true,
+      "keywords": [
+        "supply chain disruption",
+        "supply chain risk",
+        "supply chain stress",
+        "logistics disruption",
+        "shipping delay",
+        "shipment delay",
+        "port congestion",
+        "port closure",
+        "canal blockage",
+        "freight rates",
+        "container shortage",
+        "trucking shortage",
+        "warehouse backlog",
+        "inventory shortage",
+        "input shortage",
+        "raw material shortage",
+        "component shortage",
+        "chip shortage",
+        "semiconductor shortage",
+        "supplier bankruptcy",
+        "supplier failure",
+        "supplier outage",
+        "force majeure",
+        "production halt",
+        "factory fire",
+        "plant shutdown",
+        "plant closure",
+        "assembly halt",
+        "production suspended",
+        "manufacturing disruption",
+        "sourcing disruption",
+        "supplier dispute",
+        "strike at",
+        "labor strike",
+        "dock strike",
+        "rail disruption",
+        "border delay",
+        "customs delay",
+        "import ban",
+        "export restrictions",
+        "energy rationing",
+        "power outage plant",
+        "just-in-time",
+        "dual sourcing",
+        "single source supplier",
+        "tier 1 supplier",
+        "subcontractor failure",
+        "lead times extend",
+        "backlog orders",
+        "allocation",
+        "allocations"
+      ]
     },
     "clinical_regulatory_binary": {
       "enabled": true,
@@ -218,20 +297,128 @@
       ]
     },
     "financial_distress": {
-      "enabled": false,
-      "keywords": []
+      "enabled": true,
+      "keywords": [
+        "chapter 11",
+        "chapter 7",
+        "bankruptcy filing",
+        "bankruptcy protection",
+        "restructuring support agreement",
+        "restructuring",
+        "going concern",
+        "covenant breach",
+        "covenant default",
+        "missed interest payment",
+        "payment default",
+        "default notice",
+        "debt exchange",
+        "out-of-court restructuring",
+        "liquidity crisis",
+        "cash burn",
+        "debt maturity wall",
+        "debt restructuring",
+        "forbearance agreement",
+        "credit rating downgrade",
+        "distressed debt",
+        "deleveraging plan",
+        "insolvency",
+        "receivership",
+        "administration",
+        "wind-down"
+      ]
     },
     "dilutive_financing": {
-      "enabled": false,
-      "keywords": []
+      "enabled": true,
+      "keywords": [
+        "secondary offering",
+        "follow-on offering",
+        "at-the-market",
+        "atm offering",
+        "registered direct offering",
+        "private placement",
+        "convertible notes",
+        "convertible debt",
+        "convertible preferred",
+        "equity raise",
+        "capital raise",
+        "share issuance",
+        "issued shares",
+        "dilution",
+        "warrant issuance",
+        "pre-funded warrants",
+        "equity line of credit",
+        "shelf registration",
+        "mixed shelf",
+        "public offering",
+        "underwritten offering",
+        "rights offering",
+        "pipe financing",
+        "priced at discount",
+        "offering price",
+        "gross proceeds"
+      ]
     },
     "ma_corporate_action": {
-      "enabled": false,
-      "keywords": []
+      "enabled": true,
+      "keywords": [
+        "acquire",
+        "acquisition",
+        "to be acquired",
+        "merger agreement",
+        "definitive merger agreement",
+        "all-cash deal",
+        "all-stock deal",
+        "take-private",
+        "buyout",
+        "tender offer",
+        "hostile bid",
+        "competing bid",
+        "strategic alternatives",
+        "sale process",
+        "deal termination",
+        "deal break",
+        "antitrust challenge",
+        "doj sues to block",
+        "ftc sues to block",
+        "transaction closes",
+        "shareholder approval",
+        "go-shop period",
+        "spin-off",
+        "asset sale",
+        "divestiture",
+        "reverse merger"
+      ]
     },
     "positive_earnings_catalyst": {
-      "enabled": false,
-      "keywords": []
+      "enabled": true,
+      "keywords": [
+        "raised guidance",
+        "guidance raise",
+        "guidance increased",
+        "beat earnings",
+        "beat estimates",
+        "beats on revenue",
+        "record revenue",
+        "record bookings",
+        "margin expansion",
+        "operating leverage",
+        "strong demand",
+        "accelerating growth",
+        "upside surprise",
+        "above consensus",
+        "positive preannouncement",
+        "reaffirmed outlook",
+        "backlog growth",
+        "eps beat",
+        "revenue beat",
+        "free cash flow beat",
+        "improving outlook",
+        "upgraded forecast",
+        "profit guidance raised",
+        "strong quarter",
+        "better-than-expected results",
+        "outlook raised"
+      ]
     }
   },
   "news_sources": {
@@ -506,6 +693,146 @@
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 4,
       "max_results": 55
+    },
+    "supplychaindive_news_rss": {
+      "enabled": true,
+      "url": "https://www.supplychaindive.com/feeds/news/",
+      "event_category": "supply_chain_disruption",
+      "update_interval_hours": 6,
+      "max_results": 55
+    },
+    "freightwaves_news_rss": {
+      "enabled": true,
+      "url": "https://www.freightwaves.com/news/feed",
+      "event_category": "supply_chain_disruption",
+      "update_interval_hours": 8,
+      "max_results": 50
+    },
+    "google_news_supply_chain_disruption_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22supply+chain%22+OR+logistics+OR+%22shipping+delay%22+OR+%22port+congestion%22+OR+%22inventory+shortage%22+OR+%22production+halt%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "supply_chain_disruption",
+      "update_interval_hours": 4,
+      "max_results": 60
+    },
+    "google_news_semiconductor_component_shortage_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22chip+shortage%22+OR+%22semiconductor+shortage%22+OR+%22component+shortage%22+OR+%22supplier+outage%22+OR+%22factory+shutdown%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "supply_chain_disruption",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_freight_port_strike_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22freight+rates%22+OR+%22container+shortage%22+OR+%22dock+strike%22+OR+%22force+majeure%22+OR+%22supplier+bankruptcy%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "supply_chain_disruption",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+    "restructuringdive_news_rss": {
+      "enabled": true,
+      "url": "https://www.restructuringdive.com/feeds/news/",
+      "event_category": "financial_distress",
+      "update_interval_hours": 8,
+      "max_results": 50
+    },
+    "google_news_financial_distress_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(bankruptcy+OR+%22going+concern%22+OR+%22liquidity+crisis%22+OR+%22debt+restructuring%22+OR+%22payment+default%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "financial_distress",
+      "update_interval_hours": 4,
+      "max_results": 60
+    },
+    "google_news_covenant_default_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22covenant+breach%22+OR+%22covenant+default%22+OR+forbearance+OR+%22missed+interest+payment%22+OR+insolvency)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "financial_distress",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "reuters_markets_news_rss": {
+      "enabled": true,
+      "url": "https://feeds.reuters.com/reuters/marketsNews",
+      "event_category": "dilutive_financing",
+      "update_interval_hours": 8,
+      "max_results": 50
+    },
+    "google_news_dilutive_financing_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22secondary+offering%22+OR+%22at-the-market%22+OR+%22registered+direct+offering%22+OR+%22private+placement%22+OR+dilution)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "dilutive_financing",
+      "update_interval_hours": 4,
+      "max_results": 60
+    },
+    "google_news_convertible_pipe_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22convertible+notes%22+OR+%22convertible+preferred%22+OR+%22pipe+financing%22+OR+%22warrant+issuance%22+OR+%22equity+line%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "dilutive_financing",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_ma_corporate_action_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(acquisition+OR+%22merger+agreement%22+OR+%22take-private%22+OR+%22tender+offer%22+OR+buyout)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "ma_corporate_action",
+      "update_interval_hours": 4,
+      "max_results": 65
+    },
+    "google_news_competing_bid_antitrust_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22hostile+bid%22+OR+%22competing+bid%22+OR+%22doj+sues+to+block%22+OR+%22ftc+sues+to+block%22+OR+divestiture)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "ma_corporate_action",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_deal_close_termination_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22deal+termination%22+OR+%22deal+break%22+OR+%22transaction+closes%22+OR+%22shareholder+approval%22+OR+%22go-shop%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "ma_corporate_action",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_leadership_scandal_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22ceo+resigns%22+OR+%22cfo+resigns%22+OR+%22executive+misconduct%22+OR+%22board+investigation%22+OR+%22ethics+probe%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "leadership_scandal",
+      "update_interval_hours": 4,
+      "max_results": 60
+    },
+    "google_news_whistleblower_governance_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22whistleblower+complaint%22+OR+%22compliance+failure%22+OR+%22conflict+of+interest%22+OR+%22code+of+conduct+violation%22+OR+%22leadership+turmoil%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "leadership_scandal",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_executive_departure_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22forced+resignation%22+OR+%22terminated+for+cause%22+OR+%22executive+suspension%22+OR+%22chairman+resigns%22+OR+%22succession+uncertainty%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "leadership_scandal",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_positive_earnings_catalyst_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22raised+guidance%22+OR+%22beat+estimates%22+OR+%22record+revenue%22+OR+%22margin+expansion%22+OR+%22upside+surprise%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "positive_earnings_catalyst",
+      "update_interval_hours": 4,
+      "max_results": 65
+    },
+    "google_news_eps_revenue_beat_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22eps+beat%22+OR+%22revenue+beat%22+OR+%22better-than-expected+results%22+OR+%22strong+quarter%22+OR+%22above+consensus%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "positive_earnings_catalyst",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_outlook_raise_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22outlook+raised%22+OR+%22upgraded+forecast%22+OR+%22profit+guidance+raised%22+OR+%22accelerating+growth%22+OR+%22strong+demand%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "positive_earnings_catalyst",
+      "update_interval_hours": 4,
+      "max_results": 55
     }
   },
 
@@ -587,6 +914,54 @@
         "drop_within_48h_threshold": 1.5,
         "recovery_days_threshold": 5,
         "volume_spike_threshold": 2.0
+      },
+      "supply_chain_disruption": {
+        "rsi_oversold_threshold": 29,
+        "price_drop_threshold": 13,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.4,
+        "recovery_days_threshold": 5,
+        "volume_spike_threshold": 1.9
+      },
+      "financial_distress": {
+        "rsi_oversold_threshold": 26,
+        "price_drop_threshold": 20,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 2.3,
+        "recovery_days_threshold": 7,
+        "volume_spike_threshold": 2.4
+      },
+      "dilutive_financing": {
+        "rsi_oversold_threshold": 28,
+        "price_drop_threshold": 12,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.3,
+        "recovery_days_threshold": 5,
+        "volume_spike_threshold": 2.0
+      },
+      "ma_corporate_action": {
+        "rsi_oversold_threshold": 31,
+        "price_drop_threshold": 10,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.1,
+        "recovery_days_threshold": 4,
+        "volume_spike_threshold": 1.8
+      },
+      "leadership_scandal": {
+        "rsi_oversold_threshold": 29,
+        "price_drop_threshold": 11,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.2,
+        "recovery_days_threshold": 5,
+        "volume_spike_threshold": 1.9
+      },
+      "positive_earnings_catalyst": {
+        "rsi_oversold_threshold": 36,
+        "price_drop_threshold": 6,
+        "require_drop_within_48h": false,
+        "drop_within_48h_threshold": 0.5,
+        "recovery_days_threshold": 3,
+        "volume_spike_threshold": 1.6
       }
     },
     "confidence_levels": {
@@ -601,7 +976,13 @@
       "cybersecurity": 50,
       "clinical_regulatory_binary": 60,
       "product_safety_recall": 55,
-      "fraud_accounting_enforcement": 58
+      "fraud_accounting_enforcement": 58,
+      "supply_chain_disruption": 56,
+      "financial_distress": 65,
+      "dilutive_financing": 54,
+      "ma_corporate_action": 52,
+      "leadership_scandal": 53,
+      "positive_earnings_catalyst": 45
     }
   },
   "triage": {

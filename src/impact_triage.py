@@ -163,6 +163,91 @@ class ImpactTriage:
                 if marker in content:
                     score += weight
                     reasons.append(reason)
+        elif category == "supply_chain_disruption":
+            supply = [
+                ("supply chain disruption", 16, "Supply-chain disruption often pressures throughput and margins"),
+                ("production halt", 18, "Production halts create immediate revenue timing risk"),
+                ("plant shutdown", 16, "Plant shutdowns constrain capacity"),
+                ("factory fire", 18, "Factory incidents can erase near-term output"),
+                ("force majeure", 16, "Force majeure implies delivery and cost uncertainty"),
+                ("supplier bankruptcy", 18, "Supplier failure can strand inventory and revenue"),
+                ("chip shortage", 14, "Input shortages can delay shipments"),
+                ("port congestion", 12, "Port congestion delays fulfillment"),
+                ("logistics disruption", 14, "Logistics disruption increases costs and lead times"),
+                ("inventory shortage", 12, "Inventory shortages signal demand/production imbalance"),
+            ]
+            for marker, weight, reason in supply:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+        elif category == "financial_distress":
+            distress = [
+                ("chapter 11", 24, "Chapter 11 typically signals acute solvency repricing"),
+                ("chapter 7", 24, "Chapter 7 language implies liquidation risk"),
+                ("bankruptcy", 22, "Bankruptcy processes often reset equity value expectations"),
+                ("going concern", 18, "Going-concern disclosures are strong distress signals"),
+                ("payment default", 18, "Payment defaults elevate restructuring probability"),
+                ("covenant default", 16, "Covenant defaults can trigger lender actions"),
+                ("forbearance", 14, "Forbearance agreements imply immediate debt stress"),
+                ("liquidity crisis", 16, "Liquidity stress can force value-destructive financing"),
+            ]
+            for marker, weight, reason in distress:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+        elif category == "dilutive_financing":
+            financing = [
+                ("secondary offering", 14, "Secondary offerings can pressure price via supply"),
+                ("at-the-market", 16, "ATM programs can create persistent dilution overhang"),
+                ("registered direct offering", 16, "Registered direct offerings often price at a discount"),
+                ("private placement", 14, "Private placements dilute existing shareholders"),
+                ("convertible notes", 16, "Convertibles can cap upside and add future dilution"),
+                ("warrant issuance", 14, "Warrants add contingent dilution"),
+                ("priced at discount", 18, "Discount terms imply weaker financing position"),
+            ]
+            for marker, weight, reason in financing:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+        elif category == "ma_corporate_action":
+            ma = [
+                ("hostile bid", 14, "Hostile bids increase uncertainty and volatility"),
+                ("competing bid", 12, "Competing bids can trigger sharp event-driven repricing"),
+                ("merger agreement", 10, "Signed merger agreements are typically material events"),
+                ("deal termination", 18, "Deal breaks can remove embedded premium quickly"),
+                ("doj sues to block", 20, "Regulatory block actions materially alter close probability"),
+                ("ftc sues to block", 20, "Regulatory block actions materially alter close probability"),
+                ("tender offer", 12, "Tender processes can produce near-term repricing pressure"),
+            ]
+            for marker, weight, reason in ma:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+        elif category == "leadership_scandal":
+            leadership = [
+                ("ceo resigns", 14, "CEO departures can raise strategy and execution uncertainty"),
+                ("cfo resigns", 12, "CFO turnover can pressure confidence in reporting quality"),
+                ("terminated for cause", 20, "For-cause removals imply serious governance concerns"),
+                ("board investigation", 16, "Board probes usually indicate unresolved governance risk"),
+                ("whistleblower complaint", 14, "Whistleblower allegations can extend legal overhang"),
+                ("executive misconduct", 16, "Misconduct claims create reputational and legal downside"),
+            ]
+            for marker, weight, reason in leadership:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
+        elif category == "positive_earnings_catalyst":
+            positives = [
+                ("raised guidance", 12, "Guidance raises are usually material repricing catalysts"),
+                ("beat estimates", 10, "Earnings beats often trigger immediate sentiment shifts"),
+                ("record revenue", 10, "Record topline prints can materially change valuation narratives"),
+                ("margin expansion", 8, "Margin expansion can drive estimate revisions"),
+                ("above consensus", 8, "Above-consensus prints often move near-term expectations"),
+            ]
+            for marker, weight, reason in positives:
+                if marker in content:
+                    score += weight
+                    reasons.append(reason)
 
         score = self._clip_score(score)
         likelihood = self._likelihood_from_score(score)

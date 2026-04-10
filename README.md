@@ -154,6 +154,12 @@ Actively wired categories:
 - `clinical_regulatory_binary`
 - `product_safety_recall`
 - `fraud_accounting_enforcement`
+- `supply_chain_disruption`
+- `financial_distress`
+- `dilutive_financing`
+- `ma_corporate_action`
+- `leadership_scandal`
+- `positive_earnings_catalyst`
 
 Event categories and future expansion targets are defined in [`docs/EVENT_CATEGORIES_AND_IMPACT.md`](docs/EVENT_CATEGORIES_AND_IMPACT.md).
 

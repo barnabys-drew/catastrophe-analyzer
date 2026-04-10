@@ -37,16 +37,16 @@ These ratings describe how often firm-specific headlines create meaningful short
 - `clinical_regulatory_binary`
 - `product_safety_recall` (baseline wired; continue expanding source and subtype depth)
 - `fraud_accounting_enforcement` (SEC + DOJ RSS, multiple Google News lanes, Reuters/MarketWatch/Yahoo; **set a real `scraping.http_user_agent` or `CATASTROPHE_HTTP_USER_AGENT`** for SEC and other bot-filtering feeds — see `config/settings.json`)
+- `supply_chain_disruption` (trade RSS + Google News lanes; operational/logistics shocks — distinct from cyber “supply chain attack”)
+- `financial_distress` (bankruptcy/covenant/liquidity lane with restructuring-focused feeds + Google News recency lanes)
+- `dilutive_financing` (equity/convertible/warrant issuance lane with financing-specific source queries)
+- `ma_corporate_action` (deal announce/competing bid/regulatory block lane; keep outcomes as subtypes)
+- `leadership_scandal` (governance/executive-turnover scandal lane with board/ethics probe detection)
+- `positive_earnings_catalyst` (raised-guidance/beat lane; currently buy-oriented and paired with lower distress gate)
 
 ### Next expansion candidates (keep these)
 
-- `leadership_scandal`
-- `supply_chain_disruption`
 - `product_safety_recall`
-- `financial_distress`
-- `dilutive_financing`
-- `ma_corporate_action`
-- `positive_earnings_catalyst`
 
 ### Optional structural notes
 

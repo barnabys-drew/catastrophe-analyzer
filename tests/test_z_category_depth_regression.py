@@ -86,6 +86,60 @@ class ClassificationRegressionTests(unittest.TestCase):
         self.assertEqual(subtype, "SEC Enforcement Action")
         self.assertEqual(severity, "High")
 
+    def test_supply_chain_subtype_factory_disruption(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="PartsCo halts production after factory fire at key plant",
+            summary="Company cites damage assessment and supply chain disruption.",
+            event_category="supply_chain_disruption",
+        )
+        self.assertEqual(subtype, "Factory/Plant Disruption")
+        self.assertEqual(severity, "High")
+
+    def test_financial_distress_subtype_chapter_11(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="RetailCo files Chapter 11 after liquidity crunch",
+            summary="Company seeks debtor-in-possession financing.",
+            event_category="financial_distress",
+        )
+        self.assertEqual(subtype, "Chapter 11 Restructuring")
+        self.assertEqual(severity, "High")
+
+    def test_dilutive_financing_subtype_registered_direct(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="BioCo prices registered direct offering with warrants",
+            summary="Capital raise priced at discount to market.",
+            event_category="dilutive_financing",
+        )
+        self.assertEqual(subtype, "Registered Direct Offering")
+        self.assertEqual(severity, "High")
+
+    def test_ma_subtype_hostile_bid(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="Bidder launches hostile bid for TargetCo",
+            summary="Competing bid expected within days.",
+            event_category="ma_corporate_action",
+        )
+        self.assertEqual(subtype, "Hostile Bid")
+        self.assertEqual(severity, "High")
+
+    def test_leadership_subtype_for_cause_termination(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="Board says CEO terminated for cause after ethics probe",
+            summary="Special committee investigation continues.",
+            event_category="leadership_scandal",
+        )
+        self.assertEqual(subtype, "For-Cause Executive Termination")
+        self.assertEqual(severity, "High")
+
+    def test_positive_earnings_subtype_guidance_raise(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="SoftwareCo raises guidance after record revenue quarter",
+            summary="Results came in above consensus with margin expansion.",
+            event_category="positive_earnings_catalyst",
+        )
+        self.assertEqual(subtype, "Guidance Raise")
+        self.assertEqual(severity, "High")
+
     def test_cybersecurity_distress_recovery_offsets(self):
         high_risk = self.app._financial_distress_assessment(
             title="Ransomware attack causes operations disrupted at Acme",
@@ -125,6 +179,45 @@ class ClassificationRegressionTests(unittest.TestCase):
         )
         self.assertGreater(severe["score"], milder["score"])
 
+    def test_supply_chain_distress_recovery_offsets(self):
+        shock = self.app._financial_distress_assessment(
+            title="ShipCo flags supplier bankruptcy and production halt",
+            summary="Force majeure declared on key components.",
+            event_category="supply_chain_disruption",
+        )
+        easing = self.app._financial_distress_assessment(
+            title="ShipCo says it resumes production as shortage eases",
+            summary="Alleviates shortage after new supplier agreement.",
+            event_category="supply_chain_disruption",
+        )
+        self.assertGreater(shock["score"], easing["score"])
+
+    def test_financial_distress_refinancing_offsets(self):
+        severe = self.app._financial_distress_assessment(
+            title="RetailCo files Chapter 11 after payment default",
+            summary="Liquidity crisis and covenant default disclosed.",
+            event_category="financial_distress",
+        )
+        mitigated = self.app._financial_distress_assessment(
+            title="RetailCo says refinancing completed and covenant waiver received",
+            summary="Liquidity improved after debt repaid with asset sale proceeds.",
+            event_category="financial_distress",
+        )
+        self.assertGreater(severe["score"], mitigated["score"])
+
+    def test_positive_earnings_distress_reduction(self):
+        neutral = self.app._financial_distress_assessment(
+            title="SoftCo reports quarterly update",
+            summary="Operating trends are mixed.",
+            event_category="positive_earnings_catalyst",
+        )
+        bullish = self.app._financial_distress_assessment(
+            title="SoftCo raised guidance after beat estimates and record revenue",
+            summary="Results were above consensus with margin expansion.",
+            event_category="positive_earnings_catalyst",
+        )
+        self.assertGreater(neutral["score"], bullish["score"])
+
 
 class ImpactTriageRegressionTests(unittest.TestCase):
     def setUp(self):
@@ -156,6 +249,42 @@ class ImpactTriageRegressionTests(unittest.TestCase):
                 "summary": "Material weakness and internal control failures cited in civil complaint.",
                 "distress_score": 70,
             },
+            {
+                "event_category": "supply_chain_disruption",
+                "title": "Manufacturer discloses plant shutdown amid chip shortage",
+                "summary": "Supply chain disruption may delay shipments for two quarters.",
+                "distress_score": 70,
+            },
+            {
+                "event_category": "financial_distress",
+                "title": "Issuer files Chapter 11 after covenant default",
+                "summary": "Going-concern warning and liquidity crisis disclosed.",
+                "distress_score": 80,
+            },
+            {
+                "event_category": "dilutive_financing",
+                "title": "Biotech prices registered direct offering with warrants",
+                "summary": "Capital raise priced at discount with convertible notes option.",
+                "distress_score": 65,
+            },
+            {
+                "event_category": "ma_corporate_action",
+                "title": "Hostile bid launched as DOJ sues to block prior merger",
+                "summary": "Competing bid process introduces transaction volatility.",
+                "distress_score": 68,
+            },
+            {
+                "event_category": "leadership_scandal",
+                "title": "CEO terminated for cause after board investigation",
+                "summary": "Whistleblower complaint alleges executive misconduct.",
+                "distress_score": 66,
+            },
+            {
+                "event_category": "positive_earnings_catalyst",
+                "title": "Chipmaker raises guidance after record revenue beat",
+                "summary": "Margin expansion and above-consensus results announced.",
+                "distress_score": 45,
+            },
         ]
 
         for article in articles:
@@ -175,6 +304,12 @@ class ConfigParityRegressionTests(unittest.TestCase):
             "clinical_regulatory_binary",
             "product_safety_recall",
             "fraud_accounting_enforcement",
+            "supply_chain_disruption",
+            "financial_distress",
+            "dilutive_financing",
+            "ma_corporate_action",
+            "leadership_scandal",
+            "positive_earnings_catalyst",
         ]
         categories = cfg.get("event_categories", {})
         gates = cfg.get("distress_model", {}).get("min_score_for_watch_by_category", {})

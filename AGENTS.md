@@ -21,6 +21,12 @@ Goal: detect material company events, map them to tickers, evaluate likely finan
   - `cybersecurity`
   - `clinical_regulatory_binary`
   - `fraud_accounting_enforcement` (newer; tune keywords and feeds over time)
+  - `supply_chain_disruption` (newer; tune keywords and feeds over time)
+  - `financial_distress` (newer; tune keywords and feeds over time)
+  - `dilutive_financing` (newer; tune keywords and feeds over time)
+  - `ma_corporate_action` (newer; tune keywords and feeds over time)
+  - `leadership_scandal` (newer; tune keywords and feeds over time)
+  - `positive_earnings_catalyst` (newer; tune keywords and feeds over time)
 
 ## Core constraints
 

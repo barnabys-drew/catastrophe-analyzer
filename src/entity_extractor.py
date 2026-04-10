@@ -59,6 +59,30 @@ class EntityExtractor:
             "(issuer under investigation, charged, settling, or restating).\n"
             "- Reject law firms, auditors named only as advisors, unrelated quoted experts, and pure market commentary."
         ),
+        "supply_chain_disruption": (
+            "- Approve only if the company is directly exposed as operator, shipper, manufacturer, or named counterparty.\n"
+            "- Reject generic macro commentary, unrelated ports, and logistics providers discussed only as industry backdrop."
+        ),
+        "financial_distress": (
+            "- Approve only if the company is the issuer facing solvency, covenant, refinancing, or restructuring pressure.\n"
+            "- Reject generic macro credit commentary and lenders/counsel mentioned only as counterparties."
+        ),
+        "dilutive_financing": (
+            "- Approve only if the company is issuing equity/convertible/warrants or explicitly guiding to dilution.\n"
+            "- Reject banks/underwriters mentioned solely as placement agents."
+        ),
+        "ma_corporate_action": (
+            "- Approve only if the company is a bidder/target/issuer in the announced transaction or regulatory action.\n"
+            "- Reject sector-level M&A commentary and unrelated peers."
+        ),
+        "leadership_scandal": (
+            "- Approve only if the company is the employer/issuer tied to executive misconduct, forced departures, or board probes.\n"
+            "- Reject quoted experts and firms mentioned only as comparables."
+        ),
+        "positive_earnings_catalyst": (
+            "- Approve only if the company is the reporting issuer tied to raised guidance, beat, or positive preannouncement.\n"
+            "- Reject broad market recap mentions without issuer-specific results context."
+        ),
     }
 
     # Yahoo / search "exchange" values that indicate US listing (major venues).
@@ -748,6 +772,72 @@ class EntityExtractor:
                     r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})",
                 ]
             )
+        elif event_category == "supply_chain_disruption":
+            patterns.extend(
+                [
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:says|said|reports?|reported|announces?|announced)\s+"
+                    r"(?:a\s+)?(?:supply chain|production|shipping|logistics|factory|plant)\s+",
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:halts?|halted|suspends?|suspended|shuts?|shut down)\s+"
+                    r"(?:production|operations|plant|factory|assembly)",
+                    r"(?:disruption|shortage|delay)\s+(?:at|for)\s+"
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})",
+                ]
+            )
+        elif event_category == "financial_distress":
+            patterns.extend(
+                [
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:files?|filed|seeks?|sought|announces?|announced)\s+"
+                    r"(?:a\s+)?(?:chapter\s*11|bankruptcy|restructuring|forbearance|debt exchange)",
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:warns?|warned|discloses?|disclosed|reports?|reported)\s+"
+                    r"(?:a\s+)?(?:going concern|liquidity crisis|covenant breach|payment default)",
+                ]
+            )
+        elif event_category == "dilutive_financing":
+            patterns.extend(
+                [
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:announces?|announced|prices?|priced|launches?|launched)\s+"
+                    r"(?:a\s+)?(?:secondary offering|follow-on offering|at-the-market|atm offering|registered direct offering|private placement)",
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:issues?|issued|sells?|sold)\s+"
+                    r"(?:convertible notes|convertible preferred|warrants|shares)",
+                ]
+            )
+        elif event_category == "ma_corporate_action":
+            patterns.extend(
+                [
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:acquires?|acquired|to acquire|to be acquired by|merges?|merged)\s+",
+                    r"(?:tender offer|hostile bid|competing bid|merger agreement)\s+"
+                    r"(?:for|by|from)\s+([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})",
+                ]
+            )
+        elif event_category == "leadership_scandal":
+            patterns.extend(
+                [
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:ceo|cfo|chairman|chief executive|chief financial officer)\s+"
+                    r"(?:resigns?|resigned|steps down|stepped down|is fired|was fired|terminated)",
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:faces?|facing|announces?|announced|discloses?|disclosed)\s+"
+                    r"(?:a\s+)?(?:board investigation|ethics probe|whistleblower complaint|executive misconduct)",
+                ]
+            )
+        elif event_category == "positive_earnings_catalyst":
+            patterns.extend(
+                [
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:raises?|raised|increases?|increased|reaffirms?|reaffirmed)\s+"
+                    r"(?:guidance|outlook|forecast)",
+                    r"([A-Z][A-Za-z0-9&.\-]+(?:\s+[A-Z][A-Za-z0-9&.\-]+){0,2})\s+"
+                    r"(?:beats?|beat|reports?|reported|posts?|posted)\s+"
+                    r"(?:estimates|expectations|record revenue|eps beat|revenue beat)",
+                ]
+            )
 
         for pattern in patterns:
             for match in re.finditer(pattern, text, re.IGNORECASE):
@@ -782,6 +872,32 @@ class EntityExtractor:
             "market manipulation delisting trading halt finra deferred prosecution pcaob audit committee "
             "earnings restatement accounting probe"
         )
+        supply_chain_words = (
+            "supply chain disruption logistics shipping delay port congestion factory fire plant shutdown "
+            "production halt semiconductor shortage chip shortage inventory shortage supplier bankruptcy "
+            "force majeure freight backlog container shortage strike logistics disruption manufacturing"
+        )
+        financial_distress_words = (
+            "chapter 11 chapter 7 bankruptcy restructuring going concern covenant breach covenant default "
+            "payment default missed interest forbearance liquidity crisis insolvency debt exchange debt maturity"
+        )
+        dilutive_financing_words = (
+            "secondary offering follow-on offering at-the-market atm offering registered direct offering "
+            "private placement convertible notes convertible preferred warrant issuance dilution equity raise "
+            "shelf registration rights offering pipe financing priced at discount"
+        )
+        ma_words = (
+            "acquisition merger agreement take-private buyout tender offer hostile bid competing bid "
+            "deal termination deal break antitrust challenge doj sues to block ftc sues to block divestiture"
+        )
+        leadership_scandal_words = (
+            "ceo resigns cfo resigns forced resignation terminated for cause executive misconduct "
+            "board investigation ethics probe whistleblower complaint compliance failure governance failure"
+        )
+        positive_earnings_words = (
+            "raised guidance guidance increased beat estimates beats on revenue record revenue margin expansion "
+            "above consensus positive preannouncement strong quarter improved outlook"
+        )
         context_words = breach_words
         if event_category == "cybersecurity":
             context_words = f"{breach_words} {cyber_words}"
@@ -791,6 +907,18 @@ class EntityExtractor:
             context_words = f"{breach_words} {product_safety_words}"
         elif event_category == "fraud_accounting_enforcement":
             context_words = f"{breach_words} {fraud_enforcement_words}"
+        elif event_category == "supply_chain_disruption":
+            context_words = f"{breach_words} {supply_chain_words}"
+        elif event_category == "financial_distress":
+            context_words = f"{breach_words} {financial_distress_words}"
+        elif event_category == "dilutive_financing":
+            context_words = f"{breach_words} {dilutive_financing_words}"
+        elif event_category == "ma_corporate_action":
+            context_words = f"{breach_words} {ma_words}"
+        elif event_category == "leadership_scandal":
+            context_words = f"{breach_words} {leadership_scandal_words}"
+        elif event_category == "positive_earnings_catalyst":
+            context_words = f"{breach_words} {positive_earnings_words}"
         stop_words = (
             "the and said have this that with from when company medical device maker firm "
             "medical medtech device maker monday tuesday wednesday thursday friday saturday "
@@ -1329,6 +1457,247 @@ class EntityExtractor:
                     "validation_status": "rejected",
                     "validation_reason": "fraud/enforcement context appears commentary or third-party counsel, not subject issuer",
                     "validation_confidence": 0.82,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+        elif event_category == "supply_chain_disruption":
+            supply_terms = (
+                "supply chain",
+                "logistics",
+                "production halt",
+                "plant shutdown",
+                "factory",
+                "shortage",
+                "shipping",
+                "supplier",
+                "inventory",
+                "port",
+                "freight",
+                "force majeure",
+            )
+            issuer_patterns = (
+                rf"\b{company_pat}\b.{{0,100}}\b(says|said|reports?|reported|announces?|announced)\b.{{0,100}}\b"
+                rf"(supply|production|shipping|shortage|disruption|halt|suspend|factory|plant|logistics)",
+                rf"\b{company_pat}\b.{{0,90}}\b(halts?|suspends?|shuts?)\b.{{0,60}}\b(production|operations|plant|factory)",
+                rf"(?:disruption|shortage|delay|congestion)\s+(?:at|for|in)\s+{company_pat}\b",
+            )
+            macro_patterns = (
+                rf"\b(global supply chain|industry-wide|macroeconomic|broad market)\b.{{0,80}}\b{company_pat}\b",
+            )
+            if any(v in content for v in supply_terms) and any(
+                re.search(p, content) for p in issuer_patterns
+            ):
+                return {
+                    "validation_status": "approved",
+                    "validation_reason": "strict supply-chain pattern matched affected operator/manufacturer context",
+                    "validation_confidence": 0.88,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+            if any(v in content for v in supply_terms) and any(
+                re.search(p, content) for p in macro_patterns
+            ):
+                return {
+                    "validation_status": "rejected",
+                    "validation_reason": "supply chain mention appears broad macro/industry commentary, not firm-specific exposure",
+                    "validation_confidence": 0.78,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+        elif event_category == "financial_distress":
+            distress_terms = (
+                "chapter 11",
+                "chapter 7",
+                "bankruptcy",
+                "going concern",
+                "covenant breach",
+                "covenant default",
+                "payment default",
+                "forbearance",
+                "restructuring",
+                "insolvency",
+            )
+            issuer_patterns = (
+                rf"\b{company_pat}\b.{{0,100}}\b(files?|filed|seeks?|sought|announces?|announced|discloses?|disclosed)\b.{{0,100}}\b"
+                rf"(chapter\s*11|chapter\s*7|bankruptcy|restructuring|going concern|forbearance|default)",
+                rf"\b{company_pat}\b.{{0,90}}\b(covenant|liquidity|debt)\b.{{0,70}}\b(breach|default|stress|crisis|maturity)",
+            )
+            commentary_patterns = (
+                rf"\b(credit strategist|macro|sector-wide|industry-wide)\b.{{0,80}}\b{company_pat}\b",
+            )
+            if any(v in content for v in distress_terms) and any(
+                re.search(p, content) for p in issuer_patterns
+            ):
+                return {
+                    "validation_status": "approved",
+                    "validation_reason": "strict financial-distress pattern matched affected issuer",
+                    "validation_confidence": 0.9,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+            if any(v in content for v in distress_terms) and any(
+                re.search(p, content) for p in commentary_patterns
+            ):
+                return {
+                    "validation_status": "rejected",
+                    "validation_reason": "financial distress mention appears macro/commentary, not issuer-specific",
+                    "validation_confidence": 0.8,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+        elif event_category == "dilutive_financing":
+            financing_terms = (
+                "secondary offering",
+                "follow-on offering",
+                "at-the-market",
+                "atm offering",
+                "registered direct offering",
+                "private placement",
+                "convertible notes",
+                "convertible preferred",
+                "warrant issuance",
+                "dilution",
+            )
+            issuer_patterns = (
+                rf"\b{company_pat}\b.{{0,100}}\b(announces?|announced|prices?|priced|launches?|launched|issues?|issued)\b.{{0,100}}\b"
+                rf"(offering|placement|convertible|warrant|dilution|equity)",
+                rf"\b{company_pat}\b.{{0,100}}\b(raises?|raised|seeks?|sought)\b.{{0,80}}\b(capital|equity|proceeds)",
+            )
+            agent_only_patterns = (
+                rf"\b(underwriter|bookrunner|placement agent|advisor)\b.{{0,60}}\b{company_pat}\b",
+            )
+            if any(v in content for v in financing_terms) and any(
+                re.search(p, content) for p in issuer_patterns
+            ):
+                return {
+                    "validation_status": "approved",
+                    "validation_reason": "strict dilutive-financing pattern matched issuing company context",
+                    "validation_confidence": 0.9,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+            if any(v in content for v in financing_terms) and any(
+                re.search(p, content) for p in agent_only_patterns
+            ):
+                return {
+                    "validation_status": "rejected",
+                    "validation_reason": "dilutive financing mention appears intermediary-only, not issuer subject",
+                    "validation_confidence": 0.8,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+        elif event_category == "ma_corporate_action":
+            ma_terms = (
+                "acquisition",
+                "merger agreement",
+                "take-private",
+                "buyout",
+                "tender offer",
+                "hostile bid",
+                "competing bid",
+                "deal termination",
+            )
+            issuer_patterns = (
+                rf"\b{company_pat}\b.{{0,100}}\b(acquires?|acquired|to acquire|to be acquired|merges?|merged|announces?|announced)\b",
+                rf"\b{company_pat}\b.{{0,90}}\b(tender offer|hostile bid|competing bid|deal termination|deal break)\b",
+            )
+            commentary_patterns = (
+                rf"\b(analyst|deal talk|rumor|speculation)\b.{{0,70}}\b{company_pat}\b",
+            )
+            if any(v in content for v in ma_terms) and any(
+                re.search(p, content) for p in issuer_patterns
+            ):
+                return {
+                    "validation_status": "approved",
+                    "validation_reason": "strict M&A/corporate-action pattern matched transaction party",
+                    "validation_confidence": 0.89,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+            if any(v in content for v in ma_terms) and any(
+                re.search(p, content) for p in commentary_patterns
+            ):
+                return {
+                    "validation_status": "rejected",
+                    "validation_reason": "M&A mention appears rumor/commentary-only, not firm transaction role",
+                    "validation_confidence": 0.79,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+        elif event_category == "leadership_scandal":
+            leadership_terms = (
+                "ceo resigns",
+                "ceo steps down",
+                "cfo resigns",
+                "terminated for cause",
+                "executive misconduct",
+                "board investigation",
+                "ethics probe",
+                "whistleblower complaint",
+                "compliance failure",
+            )
+            issuer_patterns = (
+                rf"\b{company_pat}\b.{{0,100}}\b(ceo|cfo|chairman|chief executive|chief financial officer)\b.{{0,80}}\b"
+                rf"(resigns?|resigned|steps down|stepped down|terminated|fired)\b",
+                rf"\b{company_pat}\b.{{0,100}}\b(board investigation|ethics probe|whistleblower complaint|executive misconduct)\b",
+            )
+            commentary_patterns = (
+                rf"\b(commentator|analyst|expert)\b.{{0,70}}\b{company_pat}\b",
+            )
+            if any(v in content for v in leadership_terms) and any(
+                re.search(p, content) for p in issuer_patterns
+            ):
+                return {
+                    "validation_status": "approved",
+                    "validation_reason": "strict leadership-scandal pattern matched issuer governance context",
+                    "validation_confidence": 0.88,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+            if any(v in content for v in leadership_terms) and any(
+                re.search(p, content) for p in commentary_patterns
+            ):
+                return {
+                    "validation_status": "rejected",
+                    "validation_reason": "leadership scandal mention appears commentary-only, not issuer event",
+                    "validation_confidence": 0.78,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+        elif event_category == "positive_earnings_catalyst":
+            earnings_terms = (
+                "raised guidance",
+                "guidance increased",
+                "beat estimates",
+                "record revenue",
+                "margin expansion",
+                "above consensus",
+                "strong quarter",
+            )
+            issuer_patterns = (
+                rf"\b{company_pat}\b.{{0,100}}\b(reports?|reported|posts?|posted|raises?|raised|increases?|increased|reaffirms?|reaffirmed)\b.{{0,100}}\b"
+                rf"(guidance|outlook|beat|estimates|record revenue|margin expansion|consensus)",
+            )
+            comparator_patterns = (
+                rf"\b(peer|competitor|sector|index)\b.{{0,80}}\b{company_pat}\b",
+            )
+            if any(v in content for v in earnings_terms) and any(
+                re.search(p, content) for p in issuer_patterns
+            ):
+                return {
+                    "validation_status": "approved",
+                    "validation_reason": "strict positive-earnings pattern matched reporting issuer",
+                    "validation_confidence": 0.88,
+                    "validation_engine": "strict_rules",
+                    "validation_source": "strict",
+                }
+            if any(v in content for v in earnings_terms) and any(
+                re.search(p, content) for p in comparator_patterns
+            ):
+                return {
+                    "validation_status": "rejected",
+                    "validation_reason": "positive earnings mention appears peer/comparator context",
+                    "validation_confidence": 0.78,
                     "validation_engine": "strict_rules",
                     "validation_source": "strict",
                 }

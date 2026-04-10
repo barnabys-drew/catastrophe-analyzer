@@ -156,6 +156,8 @@ class ImpactTriage:
                 ("fcpa", 14, "FCPA exposure implies long-cycle fines and compliance spend"),
                 ("delisting", 12, "Delisting language threatens liquidity and index ownership"),
                 ("trading halt", 12, "Halts often coincide with acute disclosure uncertainty"),
+                ("pcaob", 12, "PCAOB language signals auditor and controls scrutiny"),
+                ("audit committee", 10, "Audit-committee investigations often precede restatements"),
             ]
             for marker, weight, reason in fraud:
                 if marker in content:

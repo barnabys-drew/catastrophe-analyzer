@@ -210,6 +210,8 @@ class CatastropheAnalyzerApp:
                 ("deferred prosecution", 14, "Deferred-prosecution agreements still embed oversight and conduct risk"),
                 ("trading halt", 16, "Trading halts often coincide with material disclosure uncertainty"),
                 ("delisting", 18, "Delisting threats impair liquidity and institutional ownership"),
+                ("pcaob", 14, "PCAOB scrutiny often implies auditor or controls exposure"),
+                ("audit committee", 12, "Audit-committee-led reviews can widen into restatement risk"),
             ]
             for marker, weight, reason in weighted_markers:
                 if marker in content:

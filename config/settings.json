@@ -204,7 +204,17 @@
         "deferred prosecution",
         "non-prosecution agreement",
         "cooperating with the sec",
-        "cooperating with investigators"
+        "cooperating with investigators",
+        "pcaob",
+        "public company accounting oversight board",
+        "audit committee",
+        "special investigation",
+        "earnings restatement",
+        "revised guidance",
+        "retract guidance",
+        "accounting probe",
+        "improper expense",
+        "options backdating"
       ]
     },
     "financial_distress": {
@@ -489,6 +499,13 @@
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 8,
       "max_results": 50
+    },
+    "google_news_pcaob_audit_investigation_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(PCAOB+OR+%22audit+committee%22+OR+%22accounting+probe%22+OR+%22internal+investigation%22+OR+%22earnings+restatement%22+OR+%22revised+guidance%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "fraud_accounting_enforcement",
+      "update_interval_hours": 4,
+      "max_results": 55
     }
   },
 
@@ -498,7 +515,7 @@
     "hours_back": 24,
     "retry_on_failure": true,
     "max_retries": 3,
-    "http_user_agent": ""
+    "http_user_agent": "CatastropheAnalyzer/1.0 (+https://github.com/barnabys-drew/catastrophe-analyzer)"
   },
 
   "entity_extraction": {

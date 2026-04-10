@@ -779,7 +779,8 @@ class EntityExtractor:
             "wells notice material weakness internal control subpoena guilty plea civil complaint "
             "department of justice accounting irregularities misstated financial revenue recognition "
             "disgorgement cease and desist administrative proceeding fcpa insider trading wire fraud "
-            "market manipulation delisting trading halt finra deferred prosecution"
+            "market manipulation delisting trading halt finra deferred prosecution pcaob audit committee "
+            "earnings restatement accounting probe"
         )
         context_words = breach_words
         if event_category == "cybersecurity":

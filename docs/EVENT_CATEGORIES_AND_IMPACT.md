@@ -36,7 +36,7 @@ These ratings describe how often firm-specific headlines create meaningful short
 - `cybersecurity`
 - `clinical_regulatory_binary`
 - `product_safety_recall` (baseline wired; continue expanding source and subtype depth)
-- `fraud_accounting_enforcement` (SEC + DOJ RSS, multiple Google News lanes, Reuters/MarketWatch/Yahoo headline feeds; tune keywords to reduce noise)
+- `fraud_accounting_enforcement` (SEC + DOJ RSS, multiple Google News lanes, Reuters/MarketWatch/Yahoo; **set a real `scraping.http_user_agent` or `CATASTROPHE_HTTP_USER_AGENT`** for SEC and other bot-filtering feeds — see `config/settings.json`)
 
 ### Next expansion candidates (keep these)
 

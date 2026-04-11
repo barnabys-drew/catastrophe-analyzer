@@ -1310,6 +1310,9 @@ class CatastropheAnalyzerApp:
             return {
                 "watches_checked": 0,
                 "signals_generated": 0,
+                "signals_generated_raw": 0,
+                "signals_after_confidence_gate": 0,
+                "signals_after_triage_gate": 0,
                 "signals_saved": 0,
                 "new_signals": [],
             }
@@ -1356,6 +1359,7 @@ class CatastropheAnalyzerApp:
             watch_context_by_key[(ticker, event_date, event_category)] = {
                 "company": w.get("company", ""),
                 "event_subtype": w.get("event_subtype", ""),
+                "distress_score": w.get("distress_score", ""),
                 "url": w.get("url", ""),
                 "source": w.get("source", ""),
             }
@@ -1373,6 +1377,9 @@ class CatastropheAnalyzerApp:
             return {
                 "watches_checked": len(watches_to_check),
                 "signals_generated": 0,
+                "signals_generated_raw": 0,
+                "signals_after_confidence_gate": 0,
+                "signals_after_triage_gate": 0,
                 "signals_saved": 0,
                 "new_signals": [],
             }
@@ -1382,7 +1389,7 @@ class CatastropheAnalyzerApp:
         ranked_signals = self.signal_generator.rank_signals(signals)
         triage_context_by_key = {}
         watch_keys = set(watch_context_by_key.keys())
-        for triage in self.db.get_triage_events():
+        for triage in self.db.get_triage_events_for_keys(list(watch_keys)):
             key = (
                 triage.get("ticker", ""),
                 triage.get("event_date", ""),
@@ -1402,8 +1409,19 @@ class CatastropheAnalyzerApp:
         min_conf = self.signal_generator.signal_config.get('min_confidence_for_signal', 0.4)
         if isinstance(min_conf, (int, float)):
             ranked_signals = self.signal_generator.filter_signals(ranked_signals, min_confidence=float(min_conf))
+        signals_after_confidence_gate = len(ranked_signals)
+
+        def _score_to_int(value: object) -> int:
+            try:
+                raw = str(value).strip()
+                if raw == "":
+                    return 0
+                return max(0, min(100, int(float(raw))))
+            except ValueError:
+                return 0
 
         saved_signals = 0
+        signals_after_triage_gate = 0
         new_signals = []
 
         # Save analysis metrics
@@ -1445,16 +1463,21 @@ class CatastropheAnalyzerApp:
                 if not signal.get("url"):
                     signal["url"] = triage_ctx.get("url", "")
 
-            try:
-                impact_score = int(str(triage_ctx.get("impact_score", "0")).strip() or "0")
-            except ValueError:
-                impact_score = 0
-            try:
-                distress_score = int(str(triage_ctx.get("distress_score", "0")).strip() or "0")
-            except ValueError:
-                distress_score = 0
+            # Keep signal gating resilient when triage rows are missing for an existing watch key.
+            # Prefer explicit triage scores, then watch distress + signal confidence proxies.
+            impact_score = max(
+                _score_to_int(triage_ctx.get("impact_score", "")),
+                _score_to_int(signal.get("impact_score", "")),
+                _score_to_int(signal.get("confidence", "")),
+            )
+            distress_score = max(
+                _score_to_int(triage_ctx.get("distress_score", "")),
+                _score_to_int(signal.get("distress_score", "")),
+                _score_to_int(watch_ctx.get("distress_score", "")),
+            )
             if impact_score < signal_min_impact or distress_score < signal_min_distress:
                 continue
+            signals_after_triage_gate += 1
             if s_key in existing_signal_keys:
                 continue
             if self.db.add_signal(signal):
@@ -1489,7 +1512,10 @@ class CatastropheAnalyzerApp:
 
         return {
             "watches_checked": len(watches_to_check),
-            "signals_generated": len(signals),
+            "signals_generated": signals_after_triage_gate,
+            "signals_generated_raw": len(signals),
+            "signals_after_confidence_gate": signals_after_confidence_gate,
+            "signals_after_triage_gate": signals_after_triage_gate,
             "signals_saved": saved_signals,
             "new_signals": new_signals,
         }
@@ -1510,6 +1536,9 @@ class CatastropheAnalyzerApp:
             "new_high_value_events": detect_summary.get("new_high_value_events", []),
             "watches_checked": update_summary.get("watches_checked", 0),
             "signals_generated": update_summary.get("signals_generated", 0),
+            "signals_generated_raw": update_summary.get("signals_generated_raw", 0),
+            "signals_after_confidence_gate": update_summary.get("signals_after_confidence_gate", 0),
+            "signals_after_triage_gate": update_summary.get("signals_after_triage_gate", 0),
             "signals_saved": update_summary.get("signals_saved", 0),
             "new_signals": update_summary.get("new_signals", []),
         }
@@ -1865,7 +1894,8 @@ def main():
             vmode = getattr(app.entity_extractor, "_validation_mode", "?")
         except Exception:
             vmode = "?"
-        print(f"catastrophe-analyzer: entity validation mode={vmode}", flush=True)
+        if not args.quiet:
+            print(f"catastrophe-analyzer: entity validation mode={vmode}", flush=True)
         alerts = AlertManager()
         run_service_loop(
             app,

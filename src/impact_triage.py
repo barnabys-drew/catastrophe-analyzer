@@ -64,194 +64,75 @@ class ImpactTriage:
         title = str(article.get("title", "") or "")
         summary = str(article.get("summary", "") or "")
         category = str(article.get("event_category", "cybersecurity") or "cybersecurity")
-        distress_score = int(article.get("distress_score") or 0)
+        try:
+            distress_score = int(article.get("distress_score") or 0)
+        except (TypeError, ValueError):
+            distress_score = 0
+        distress_likelihood = str(article.get("distress_likelihood", "") or "").upper().strip()
+        event_subtype = str(article.get("event_subtype", "") or "").strip()
 
         content = f"{title} {summary}".lower()
-        score = 20 + int(distress_score * 0.35)
+        # Layered ownership:
+        # - Distress model in main.py remains source-of-truth for category-specific severity.
+        # - Impact triage derives from that distress context plus lightweight materiality cues.
+        score = 25 + int(distress_score * 0.55)
         reasons: List[str] = []
 
-        common = [
-            ("investigation", 8, "Investigation language implies possible prolonged overhang"),
-            ("class action", 8, "Class-action risk adds legal cost uncertainty"),
-            ("guidance", 7, "Guidance references can signal earnings impact"),
-            ("production halt", 10, "Production halt can directly pressure revenue"),
+        if distress_likelihood == "HIGH":
+            score += 12
+            reasons.append("High distress likelihood supports material impact risk")
+        elif distress_likelihood == "MEDIUM":
+            score += 6
+            reasons.append("Medium distress likelihood supports moderate impact risk")
+
+        if event_subtype:
+            score += 4
+            reasons.append("Event subtype classification indicates a concrete catalyst shape")
+
+        material_markers = [
+            ("chapter 11", 12, "Bankruptcy language usually reprices quickly"),
+            ("chapter 7", 12, "Liquidation language usually reprices quickly"),
+            ("bankruptcy", 10, "Bankruptcy processes often trigger direct repricing"),
+            ("covenant default", 10, "Debt-default language elevates financing risk"),
+            ("payment default", 10, "Payment default language elevates financing risk"),
+            ("indictment", 10, "Criminal-process language adds governance and legal tail risk"),
+            ("sec charges", 10, "SEC charges can drive penalties and prolonged overhang"),
+            ("restatement", 10, "Restatements can reset trust in reported fundamentals"),
+            ("class i recall", 10, "Class I recall language implies severe product risk"),
+            ("grounding", 10, "Grounding actions can halt revenue-generating operations"),
+            ("do not use", 8, "Urgent safety directives signal immediate commercial disruption"),
+            ("material cybersecurity incident", 10, "Material incident language implies broad fallout"),
+            ("ransomware", 8, "Ransomware often carries operational and recovery cost"),
+            ("production halt", 8, "Production halts can directly reduce near-term output"),
+            ("supplier bankruptcy", 8, "Supplier failures can strand production and deliveries"),
+            ("hostile bid", 7, "Hostile bids often increase near-term event volatility"),
+            ("deal termination", 9, "Deal breaks can remove embedded transaction premium"),
+            ("ceo resigns", 7, "CEO turnover can raise near-term execution uncertainty"),
+            ("terminated for cause", 9, "For-cause terminations can signal acute governance risk"),
+            ("raised guidance", 8, "Guidance raises can still be high-impact catalysts"),
+            ("beat estimates", 6, "Earnings surprises can materially move expectations"),
+            ("record revenue", 6, "Record revenue often shifts valuation narrative"),
         ]
-        for marker, weight, reason in common:
+
+        for marker, weight, reason in material_markers:
             if marker in content:
                 score += weight
                 reasons.append(reason)
 
-        if category == "cybersecurity":
-            cyber = [
-                ("material cybersecurity incident", 18, "Material incident wording is high-impact"),
-                ("ransomware", 14, "Ransomware often has operational and financial fallout"),
-                ("destructive malware", 16, "Destructive malware can imply prolonged recovery impact"),
-                ("wiper", 16, "Wiper activity often indicates severe operational damage risk"),
-                ("service outage", 10, "Outages create immediate service and reputation risk"),
-                ("operations disrupted", 12, "Disruption language points to near-term financial pressure"),
-                ("regulator", 8, "Regulatory scrutiny can add compliance and penalty risk"),
-                ("8-k", 8, "8-K style disclosure usually indicates materiality"),
-                ("sec filing", 8, "SEC filing references often signal broader impact"),
-                ("unauthorized access", 8, "Unauthorized access can elevate remediation and legal cost risk"),
-                ("supply chain attack", 12, "Supply-chain compromise can broaden downstream impact"),
-            ]
-            for marker, weight, reason in cyber:
-                if marker in content:
-                    score += weight
-                    reasons.append(reason)
-        elif category == "clinical_regulatory_binary":
-            clinical = [
-                ("complete response letter", 20, "CRL usually delays commercialization"),
-                ("clinical hold", 18, "Clinical hold can freeze trial progression"),
-                ("partial clinical hold", 14, "Partial hold still constrains trial progression"),
-                ("trial hold", 18, "Trial hold can freeze trial progression"),
-                ("missed primary endpoint", 20, "Missed endpoint can reset program value"),
-                ("did not meet endpoint", 18, "Endpoint miss can materially weaken program value"),
-                ("terminated trial", 18, "Trial termination can materially impair commercialization path"),
-                ("fda approval", -12, "Approval is de-risking vs distress scenarios"),
-                ("met primary endpoint", -10, "Positive efficacy reduces downside pressure"),
-                ("priority review", -6, "Priority review can reduce timeline uncertainty"),
-                ("breakthrough therapy", -8, "Breakthrough designation can improve regulatory confidence"),
-            ]
-            for marker, weight, reason in clinical:
-                if marker in content:
-                    score += weight
-                    reasons.append(reason)
-        elif category == "product_safety_recall":
-            safety = [
-                ("recall", 16, "Recall language often implies direct cost and brand pressure"),
-                ("class i recall", 22, "Class I recall often signals acute safety and liability pressure"),
-                ("class 1 recall", 22, "Class I recall often signals acute safety and liability pressure"),
-                ("grounding", 20, "Grounding can materially reduce operating throughput"),
-                ("do not use", 16, "Do-not-use directives indicate immediate commercial disruption"),
-                ("stop sale", 16, "Stop-sale actions can create near-term revenue pressure"),
-                ("warning letter", 12, "Warning letters can lead to costly remediation"),
-                ("contamination", 16, "Contamination events can widen scope and legal exposure"),
-                ("injury", 10, "Injury-related language increases litigation risk"),
-                ("fatality", 14, "Fatality references elevate legal and reputational downside"),
-            ]
-            for marker, weight, reason in safety:
-                if marker in content:
-                    score += weight
-                    reasons.append(reason)
-        elif category == "fraud_accounting_enforcement":
-            fraud = [
-                ("indictment", 20, "Indictment language signals acute legal and governance risk"),
-                ("criminal charges", 18, "Criminal charges elevate tail-risk and distraction"),
-                ("securities fraud", 20, "Securities fraud allegations threaten credibility and capital access"),
-                ("accounting fraud", 20, "Accounting fraud language implies restatement and control failure risk"),
-                ("sec charges", 18, "SEC charges increase defense spend and remediation uncertainty"),
-                ("sec alleges", 16, "SEC allegations increase regulatory resolution uncertainty"),
-                ("restatement", 18, "Restatements often reset earnings quality and trust"),
-                ("material weakness", 16, "Material weakness disclosures signal reporting and control risk"),
-                ("wells notice", 18, "Wells notices usually precede enforcement outcomes"),
-                ("enforcement action", 14, "Enforcement actions often include penalties and conduct remedies"),
-                ("going concern", 14, "Going-concern language signals financing stress"),
-                ("delisting notice", 16, "Delisting threats impair liquidity and ownership"),
-                ("wire fraud", 16, "Wire-fraud charges imply severe enforcement exposure"),
-                ("market manipulation", 16, "Manipulation allegations can impair trading and financing"),
-                ("insider trading", 14, "Insider-trading cases implicate governance and controls"),
-                ("disgorgement", 12, "Disgorgement signals a charged enforcement resolution path"),
-                ("revenue recognition", 12, "Revenue recognition probes often expand into restatement risk"),
-                ("fcpa", 14, "FCPA exposure implies long-cycle fines and compliance spend"),
-                ("delisting", 12, "Delisting language threatens liquidity and index ownership"),
-                ("trading halt", 12, "Halts often coincide with acute disclosure uncertainty"),
-                ("pcaob", 12, "PCAOB language signals auditor and controls scrutiny"),
-                ("audit committee", 10, "Audit-committee investigations often precede restatements"),
-            ]
-            for marker, weight, reason in fraud:
-                if marker in content:
-                    score += weight
-                    reasons.append(reason)
-        elif category == "supply_chain_disruption":
-            supply = [
-                ("supply chain disruption", 16, "Supply-chain disruption often pressures throughput and margins"),
-                ("production halt", 18, "Production halts create immediate revenue timing risk"),
-                ("plant shutdown", 16, "Plant shutdowns constrain capacity"),
-                ("factory fire", 18, "Factory incidents can erase near-term output"),
-                ("force majeure", 16, "Force majeure implies delivery and cost uncertainty"),
-                ("supplier bankruptcy", 18, "Supplier failure can strand inventory and revenue"),
-                ("chip shortage", 14, "Input shortages can delay shipments"),
-                ("port congestion", 12, "Port congestion delays fulfillment"),
-                ("logistics disruption", 14, "Logistics disruption increases costs and lead times"),
-                ("inventory shortage", 12, "Inventory shortages signal demand/production imbalance"),
-            ]
-            for marker, weight, reason in supply:
-                if marker in content:
-                    score += weight
-                    reasons.append(reason)
-        elif category == "financial_distress":
-            distress = [
-                ("chapter 11", 24, "Chapter 11 typically signals acute solvency repricing"),
-                ("chapter 7", 24, "Chapter 7 language implies liquidation risk"),
-                ("bankruptcy", 22, "Bankruptcy processes often reset equity value expectations"),
-                ("going concern", 18, "Going-concern disclosures are strong distress signals"),
-                ("payment default", 18, "Payment defaults elevate restructuring probability"),
-                ("covenant default", 16, "Covenant defaults can trigger lender actions"),
-                ("forbearance", 14, "Forbearance agreements imply immediate debt stress"),
-                ("liquidity crisis", 16, "Liquidity stress can force value-destructive financing"),
-            ]
-            for marker, weight, reason in distress:
-                if marker in content:
-                    score += weight
-                    reasons.append(reason)
-        elif category == "dilutive_financing":
-            financing = [
-                ("secondary offering", 14, "Secondary offerings can pressure price via supply"),
-                ("at-the-market", 16, "ATM programs can create persistent dilution overhang"),
-                ("registered direct offering", 16, "Registered direct offerings often price at a discount"),
-                ("private placement", 14, "Private placements dilute existing shareholders"),
-                ("convertible notes", 16, "Convertibles can cap upside and add future dilution"),
-                ("warrant issuance", 14, "Warrants add contingent dilution"),
-                ("priced at discount", 18, "Discount terms imply weaker financing position"),
-            ]
-            for marker, weight, reason in financing:
-                if marker in content:
-                    score += weight
-                    reasons.append(reason)
-        elif category == "ma_corporate_action":
-            ma = [
-                ("hostile bid", 14, "Hostile bids increase uncertainty and volatility"),
-                ("competing bid", 12, "Competing bids can trigger sharp event-driven repricing"),
-                ("merger agreement", 10, "Signed merger agreements are typically material events"),
-                ("deal termination", 18, "Deal breaks can remove embedded premium quickly"),
-                ("doj sues to block", 20, "Regulatory block actions materially alter close probability"),
-                ("ftc sues to block", 20, "Regulatory block actions materially alter close probability"),
-                ("tender offer", 12, "Tender processes can produce near-term repricing pressure"),
-            ]
-            for marker, weight, reason in ma:
-                if marker in content:
-                    score += weight
-                    reasons.append(reason)
-        elif category == "leadership_scandal":
-            leadership = [
-                ("ceo resigns", 14, "CEO departures can raise strategy and execution uncertainty"),
-                ("cfo resigns", 12, "CFO turnover can pressure confidence in reporting quality"),
-                ("terminated for cause", 20, "For-cause removals imply serious governance concerns"),
-                ("board investigation", 16, "Board probes usually indicate unresolved governance risk"),
-                ("whistleblower complaint", 14, "Whistleblower allegations can extend legal overhang"),
-                ("executive misconduct", 16, "Misconduct claims create reputational and legal downside"),
-            ]
-            for marker, weight, reason in leadership:
-                if marker in content:
-                    score += weight
-                    reasons.append(reason)
-        elif category == "positive_earnings_catalyst":
-            positives = [
-                ("raised guidance", 12, "Guidance raises are usually material repricing catalysts"),
-                ("beat estimates", 10, "Earnings beats often trigger immediate sentiment shifts"),
-                ("record revenue", 10, "Record topline prints can materially change valuation narratives"),
-                ("margin expansion", 8, "Margin expansion can drive estimate revisions"),
-                ("above consensus", 8, "Above-consensus prints often move near-term expectations"),
-            ]
-            for marker, weight, reason in positives:
-                if marker in content:
-                    score += weight
-                    reasons.append(reason)
+        dampeners = [
+            ("rumor", 8, "Rumor framing lowers confidence in immediate repricing"),
+            ("speculation", 8, "Speculative framing lowers confidence in immediate repricing"),
+            ("may", 3, "Tentative wording can reduce near-term impact confidence"),
+            ("considering", 3, "Exploratory wording can reduce near-term impact confidence"),
+            ("preliminary", 4, "Preliminary disclosures are often revised"),
+        ]
+        for marker, weight, reason in dampeners:
+            if marker in content:
+                score -= weight
+                reasons.append(reason)
 
         score = self._clip_score(score)
         likelihood = self._likelihood_from_score(score)
-        event_subtype = str(article.get("event_subtype", "") or "").strip()
         topic = event_subtype or category.replace("_", " ").strip()
         headline = " ".join(title.split())
         lead = f"{topic}: {headline}" if headline else topic

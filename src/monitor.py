@@ -32,7 +32,8 @@ def main() -> None:
         vmode = getattr(app.entity_extractor, "_validation_mode", "?")
     except Exception:
         vmode = "?"
-    print(f"catastrophe-analyzer: entity validation mode={vmode}", flush=True)
+    if not args.quiet:
+        print(f"catastrophe-analyzer: entity validation mode={vmode}", flush=True)
     alerts = AlertManager()
 
     run_service_loop(

@@ -72,6 +72,13 @@ Current deep categories:
 - `cybersecurity`
 - `clinical_regulatory_binary`
 - `product_safety_recall`
+- `fraud_accounting_enforcement`
+- `supply_chain_disruption`
+- `financial_distress`
+- `dilutive_financing`
+- `ma_corporate_action`
+- `leadership_scandal`
+- `positive_earnings_catalyst`
 
 Future category ideas remain in `docs/EVENT_CATEGORIES_AND_IMPACT.md`.
 
@@ -90,6 +97,16 @@ Docker is the canonical live runtime:
 - `Dockerfile` installs deps, copies repo, sets `WORKDIR /app/src`.
 - Entry: `python -u monitor.py`.
 - Mount `config/` and `data/` so settings and records persist outside the container.
+
+## Service behavior notes
+
+- Service cycles run through `runtime_cycle.run_cycle_with_alerts` and persist heartbeat state in `data/runtime_heartbeat.json`.
+- Heartbeat signal counters include staged fields:
+  - `signals_generated_raw`
+  - `signals_after_confidence_gate`
+  - `signals_after_triage_gate`
+  - `signals_saved`
+- `monitoring_schedule.market_hours_only` and `monitoring_schedule.after_hours_scan` are enforced in `service_runtime.py` using US market hours (America/New_York).
 
 ## Design principle
 

@@ -146,6 +146,13 @@ python3 scripts/generate_ticker_review_report.py --days 30
 
 Output is under `review_sessions/` (gitignored except `review_sessions/README.md`).
 
+Calibration snapshot helper (captures funnel stats + rolling log):
+
+```bash
+cd ~/code/catastrophe-analyzer
+.venv/bin/python scripts/capture_calibration_stats.py --days 14
+```
+
 ## Current category depth
 
 Actively wired categories:
@@ -179,6 +186,13 @@ The production path is the monitor loop, not the interactive CLI.
 - Monitor entrypoint: `src/monitor.py`
 - Docker entrypoint: `Dockerfile` -> `python -u monitor.py`
 - Alert channels: ntfy, email, Twilio (config-driven)
+- Runtime heartbeat: `data/runtime_heartbeat.json` (includes staged signal counters)
+
+Service scheduling toggles in `config/settings.json -> monitoring_schedule`:
+
+- `scan_interval_minutes`: base loop interval.
+- `market_hours_only`: if `true`, only run during US market hours unless after-hours scans are enabled.
+- `after_hours_scan`: when `market_hours_only=true`, controls whether cycles are allowed outside market hours.
 
 Run one cycle locally:
 

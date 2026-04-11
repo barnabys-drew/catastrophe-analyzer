@@ -20,6 +20,7 @@ from typing import Dict, List, Optional, Tuple
 from urllib.parse import quote
 
 import requests
+from signal_generator import compute_signal_rank_score
 
 
 class AlertManager:
@@ -343,40 +344,40 @@ class AlertManager:
     @classmethod
     def _order_signals_for_alerts(cls, signals: List[Dict]) -> List[Dict]:
         """
-        Order by strongest signal first, then lowest stock price.
+        Order by canonical signal rank, then lower stock price.
         """
         return sorted(
             signals,
             key=lambda s: (
-                -cls._signal_strength_score(s),
+                -compute_signal_rank_score(s),
                 cls._signal_price_for_sort(s),
                 str(s.get("ticker", "")),
             ),
         )
 
-    def send_buy_signal_alerts(self, signals: List[Dict]) -> None:
+    def send_buy_signal_alerts(self, signals: List[Dict], *, emit_console: bool = True) -> None:
         """
         Send alerts for a list of newly created signals.
-        Always prints to stdout; additionally sends email / ntfy / SMS if configured.
+        Prints to stdout when emit_console=True; always sends email / ntfy / SMS if configured.
         """
         if not signals:
             return
         signals = self._dedupe_one_company_per_ticker(signals)
         signals = self._order_signals_for_alerts(signals)
 
-        # Console alert (works immediately in Docker logs)
-        print("\n" + "=" * 80)
-        print("NEW BUY SIGNAL(S)")
-        print("=" * 80)
-        for s in signals:
-            ticker = s.get("ticker", "")
-            conf_level = s.get("confidence_level", "")
-            entry = s.get("suggested_entry", s.get("entry_price", ""))
-            target = s.get("risk_reward", {}).get("target_price", s.get("target_price", ""))
-            event_date = s.get("event_date", s.get("breach_date"))
-            event_category = s.get("event_category", "")
-            category_text = f" | category={event_category}" if event_category else ""
-            print(f"- {ticker} | {conf_level} | entry={entry} target={target} | event_date={event_date}{category_text}")
+        if emit_console:
+            print("\n" + "=" * 80)
+            print("NEW BUY SIGNAL(S)")
+            print("=" * 80)
+            for s in signals:
+                ticker = s.get("ticker", "")
+                conf_level = s.get("confidence_level", "")
+                entry = s.get("suggested_entry", s.get("entry_price", ""))
+                target = s.get("risk_reward", {}).get("target_price", s.get("target_price", ""))
+                event_date = s.get("event_date", s.get("breach_date"))
+                event_category = s.get("event_category", "")
+                category_text = f" | category={event_category}" if event_category else ""
+                print(f"- {ticker} | {conf_level} | entry={entry} target={target} | event_date={event_date}{category_text}")
 
         # Email / ntfy / SMS (best-effort)
         subject = "Catastrophe Analyzer: New Buy Signal(s)"
@@ -440,24 +441,25 @@ class AlertManager:
         except Exception:
             pass
 
-    def send_high_value_event_alerts(self, events: List[Dict]) -> None:
+    def send_high_value_event_alerts(self, events: List[Dict], *, emit_console: bool = True) -> None:
         """
         Send per-item alerts for newly triaged high-value events.
-        Always logs to stdout; sends ntfy/email/SMS when configured.
+        Logs to stdout when emit_console=True; sends ntfy/email/SMS when configured.
         """
         if not events:
             return
         events = self._dedupe_one_company_per_ticker(events)
 
-        print("\n" + "=" * 80)
-        print("NEW HIGH-VALUE EVENT(S)")
-        print("=" * 80)
-        for e in events:
-            print(
-                f"- {e.get('ticker', '')} | {e.get('event_category', '')} | "
-                f"impact={e.get('impact_likelihood', '')} {e.get('impact_score', '')}/100 | "
-                f"distress={e.get('distress_likelihood', '')} {e.get('distress_score', '')}/100"
-            )
+        if emit_console:
+            print("\n" + "=" * 80)
+            print("NEW HIGH-VALUE EVENT(S)")
+            print("=" * 80)
+            for e in events:
+                print(
+                    f"- {e.get('ticker', '')} | {e.get('event_category', '')} | "
+                    f"impact={e.get('impact_likelihood', '')} {e.get('impact_score', '')}/100 | "
+                    f"distress={e.get('distress_likelihood', '')} {e.get('distress_score', '')}/100"
+                )
 
         for e in events:
             ticker = e.get("ticker", "")

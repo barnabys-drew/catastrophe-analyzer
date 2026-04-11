@@ -26,11 +26,11 @@ def run_cycle_with_alerts(app, alerts, quiet: bool = False) -> Dict:
     new_signals = summary.get("new_signals", []) or []
 
     if new_high_value_events:
-        alerts.send_high_value_event_alerts(new_high_value_events)
+        alerts.send_high_value_event_alerts(new_high_value_events, emit_console=not quiet)
         app.db.mark_triage_sent([e.get("event_key", "") for e in new_high_value_events])
 
     if new_signals:
-        alerts.send_buy_signal_alerts(new_signals)
+        alerts.send_buy_signal_alerts(new_signals, emit_console=not quiet)
 
     write_runtime_heartbeat(
         repo_root=app.repo_root,

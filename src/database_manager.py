@@ -468,6 +468,40 @@ class DatabaseManager:
             out.append(row)
         return out
 
+    def get_triage_events_for_keys(self, event_keys: List[Tuple[str, str, str]]) -> List[Dict]:
+        """
+        Read triage rows for specific (ticker, event_date, event_category) keys.
+        """
+        if not event_keys:
+            return []
+
+        normalized = {
+            (
+                (ticker or "").strip(),
+                (event_date or "").strip(),
+                (event_category or "").strip(),
+            )
+            for ticker, event_date, event_category in event_keys
+            if ticker and event_date
+        }
+        if not normalized:
+            return []
+
+        _, rows = self._read_csv(self.triage_file)
+        if not rows:
+            return []
+
+        out: List[Dict] = []
+        for row in rows:
+            row_key = (
+                (row.get("ticker") or "").strip(),
+                (row.get("event_date") or "").strip(),
+                (row.get("event_category") or "").strip(),
+            )
+            if row_key in normalized:
+                out.append(row)
+        return out
+
     def mark_triage_sent(self, event_keys: List[str]) -> int:
         """Mark triage rows as SENT and stamp last_alerted_at."""
         if not event_keys:

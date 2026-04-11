@@ -8,6 +8,25 @@ from datetime import datetime
 import json
 
 
+def compute_signal_rank_score(signal: Dict) -> float:
+    """Canonical ranking score used by persistence and alert presentation."""
+    try:
+        confidence = float(signal.get('confidence', 0) or 0)
+    except (TypeError, ValueError):
+        confidence = 0.0
+
+    if confidence <= 0:
+        level = str(signal.get("confidence_level", "")).upper().strip()
+        confidence = {"HIGH": 90.0, "MEDIUM": 60.0, "LOW": 30.0}.get(level, 0.0)
+
+    try:
+        risk_reward = float(signal.get('risk_reward', {}).get('risk_reward_ratio', 0) or 0)
+    except (TypeError, ValueError):
+        risk_reward = 0.0
+
+    return (confidence * 0.6) + (min(risk_reward, 5.0) * 12.0)
+
+
 class SignalGenerator:
     """
     Generates trading signals based on breach events and stock analysis
@@ -372,16 +391,7 @@ class SignalGenerator:
         Returns:
             list: Signals sorted by quality (best first)
         """
-        def score_signal(signal):
-            confidence = signal.get('confidence', 0)
-            risk_reward = signal.get('risk_reward', {}).get('risk_reward_ratio', 0)
-
-            # Combine confidence and risk/reward
-            combined_score = (confidence * 0.6) + (min(risk_reward, 5) * 12)  # Cap risk/reward at 5
-
-            return combined_score
-
-        return sorted(signals, key=score_signal, reverse=True)
+        return sorted(signals, key=compute_signal_rank_score, reverse=True)
 
     def filter_signals(self, signals: List[Dict], min_confidence: float = 0.5) -> List[Dict]:
         """
@@ -415,15 +425,22 @@ class SignalGenerator:
             print("No buy signals generated")
             return
 
+        print("Sorted by rank score (confidence + capped risk/reward)")
         for i, signal in enumerate(signals, 1):
             print(f"\n{i}. {signal['ticker']} - {signal['confidence_level']} confidence")
             print("-"*40)
+            target_price = signal.get('risk_reward', {}).get('target_price', signal.get('target_price', 0.0))
+            try:
+                target_price_value = float(target_price)
+            except (TypeError, ValueError):
+                target_price_value = 0.0
             print(f"   Current Price:       ${signal['price']:.2f}")
             print(f"   Suggested Entry:     ${signal['suggested_entry']:.2f}")
             print(f"   Stop Loss:           ${signal['suggested_stop_loss']:.2f}")
-            print(f"   Target (Pre-event):  ${signal['suggested_entry'] + signal['risk_reward']['reward_pct']/100 * signal['suggested_entry']:.2f}")
+            print(f"   Target (Pre-event):  ${target_price_value:.2f}")
             print(f"   Confidence Score:    {signal['confidence']:.1f}/100")
             print(f"   Risk/Reward Ratio:   {signal['risk_reward']['risk_reward_ratio']:.2f}:1")
+            print(f"   Rank Score:          {compute_signal_rank_score(signal):.1f}")
 
             if detailed:
                 print(f"\n   Reasons:")

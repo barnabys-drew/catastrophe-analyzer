@@ -14,6 +14,8 @@ It continuously ingests high-impact company news, maps stories to listed tickers
 
 This is a decision-support tool, not automated execution.
 
+**Homelab / multi-tool context:** If you run several containers from `~/code` on a spare PC (optionally with local LLM workloads and later Grafana/ELK in cloud or on-prem), see [docs/LOCAL_INFRA_ROADMAP.md](docs/LOCAL_INFRA_ROADMAP.md). The same note exists in **concentration-manager** and **zeromouse-monitor**.
+
 ## Install Modes
 
 Choose one of two install paths depending on your use case:

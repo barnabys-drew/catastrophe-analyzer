@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Homelab roadmap** (spare PC, optional local LLM, future observability): [docs/LOCAL_INFRA_ROADMAP.md](docs/LOCAL_INFRA_ROADMAP.md) — same document pattern as `concentration-manager` and `zeromouse-monitor`.
+
 ## What This Project Does
 
 Catastrophe Analyzer is a continuous news-to-signal pipeline for public equities. It ingests RSS feeds across 10 event categories (cybersecurity breaches, FDA actions, product recalls, fraud, supply chain disruptions, financial distress, dilutive financings, M&A, leadership scandals, earnings catalysts), extracts company/ticker entities, scores event severity, and generates rule-based trade signals with entry/stop/target levels.

@@ -833,6 +833,89 @@
       "event_category": "positive_earnings_catalyst",
       "update_interval_hours": 4,
       "max_results": 55
+    },
+
+    "sec_edgar_8k": {
+      "enabled": true,
+      "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&dateb=&owner=include&count=40&search_text=&output=atom",
+      "event_category": "fraud_accounting_enforcement",
+      "update_interval_hours": 2,
+      "max_results": 40
+    },
+
+    "manufacturing_dive_news_rss": {
+      "enabled": true,
+      "url": "https://www.manufacturingdive.com/feeds/news/",
+      "event_category": "supply_chain_disruption",
+      "update_interval_hours": 6,
+      "max_results": 50
+    },
+    "logistics_management_rss": {
+      "enabled": true,
+      "url": "https://www.logisticsmgmt.com/rss/all",
+      "event_category": "supply_chain_disruption",
+      "update_interval_hours": 8,
+      "max_results": 45
+    },
+    "google_news_trade_policy_supply_chain_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(tariff+OR+%22export+restriction%22+OR+%22import+ban%22+OR+%22trade+war%22+OR+%22sanctions+impact%22+OR+%22trade+policy%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "supply_chain_disruption",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+
+    "abi_bankruptcy_rss": {
+      "enabled": true,
+      "url": "https://www.abi.org/feed",
+      "event_category": "financial_distress",
+      "update_interval_hours": 8,
+      "max_results": 40
+    },
+    "google_news_chapter11_bankruptcy_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22chapter+11%22+OR+%22chapter+7%22+OR+receivership+OR+%22wind-down%22+OR+%22voluntary+administration%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "financial_distress",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+
+    "reuters_ma_news_rss": {
+      "enabled": true,
+      "url": "https://feeds.reuters.com/reuters/mergersNews",
+      "event_category": "ma_corporate_action",
+      "update_interval_hours": 6,
+      "max_results": 50
+    },
+
+    "fortune_leadership_rss": {
+      "enabled": true,
+      "url": "https://fortune.com/section/leadership/feed/",
+      "event_category": "leadership_scandal",
+      "update_interval_hours": 8,
+      "max_results": 40
+    },
+    "google_news_interim_ceo_leave_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22special+committee%22+OR+%22interim+ceo%22+OR+%22placed+on+leave%22+OR+%22administrative+leave%22+OR+%22put+on+leave%22+OR+%22independent+review%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "leadership_scandal",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+
+    "reuters_company_news_rss": {
+      "enabled": true,
+      "url": "https://feeds.reuters.com/reuters/companyNews",
+      "event_category": "positive_earnings_catalyst",
+      "update_interval_hours": 6,
+      "max_results": 50
+    },
+    "google_news_preannouncement_guidance_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22preliminary+results%22+OR+%22pre-announcement%22+OR+%22guidance+raise%22+OR+%22raised+its+outlook%22+OR+%22positive+preannouncement%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "positive_earnings_catalyst",
+      "update_interval_hours": 4,
+      "max_results": 55
     }
   },
 

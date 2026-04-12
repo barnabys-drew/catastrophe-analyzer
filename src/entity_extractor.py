@@ -126,6 +126,7 @@ class EntityExtractor:
     _RECALL_SINGLE_WORD_ALLOWLIST = frozenset(
         {
             "walgreens",
+            "kroger",
             "costco",
             "target",
             "walmart",
@@ -1307,6 +1308,20 @@ class EntityExtractor:
                 owner_tokens = set(self._tokenize_name(owner))
                 company_tokens = set(self._tokenize_name(company_lower))
                 if owner_tokens and company_tokens and not owner_tokens.intersection(company_tokens):
+                    retailer_context_patterns = (
+                        rf"\b(at|via|through|sold at|sold by|available at|carried by)\b.{{0,60}}\b{company_pat}\b",
+                        rf"\b{company_pat}\b.{{0,80}}\b(retaile?r|store(?:s)?|pharmacy|supermarket|sold|shelf|location(?:s)?)\b",
+                        rf"\b{company_pat}\b.{{0,80}}\b(and|&|,)\b",
+                    )
+                    has_retailer_context = any(re.search(p, content) for p in retailer_context_patterns)
+                    if has_retailer_context:
+                        return {
+                            "validation_status": "approved",
+                            "validation_reason": "strict recall rule accepted co-mentioned retailer/distributor exposure context",
+                            "validation_confidence": 0.86,
+                            "validation_engine": "strict_rules",
+                            "validation_source": "strict",
+                        }
                     return {
                         "validation_status": "rejected",
                         "validation_reason": "recall article names a different manufacturer/distributor owner",

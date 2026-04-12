@@ -1053,17 +1053,17 @@ class CatastropheAnalyzerApp:
     def _classify_breach_type_and_severity(self, title: str, summary: str) -> tuple:
         return self._classify_event_subtype_and_severity(title, summary)
 
-    def _select_canonical_entity(self, article: Dict) -> Optional[Dict]:
+    def _ordered_candidate_entities(self, article: Dict) -> List[Dict]:
         """
-        Choose the best (company, ticker) candidate for watch creation.
+        Return approved ticker candidates ordered by article-context relevance.
 
-        This is where we reduce false positives by selecting the candidate that is
-        closest (by string distance) to a breach keyword in the article text,
-        and preferring US-listed-like tickers (no '.' in symbol).
+        Multi-company event headlines can legitimately map to multiple issuers.
+        We keep one row per ticker, but order candidates so primary issuer-like
+        entities are processed first.
         """
         candidates = article.get("mapped_entities", []) or []
         if not candidates:
-            return None
+            return []
 
         title = article.get("title", "") or ""
         summary = article.get("summary", "") or ""
@@ -1080,9 +1080,8 @@ class CatastropheAnalyzerApp:
         if not kw_positions:
             kw_positions = [0]
 
-        best = None
-        # (distance, us_preference, len(company)) - smaller is better
-        best_tuple = None
+        # Keep best row per ticker by distance tuple.
+        selected_by_ticker: Dict[str, tuple] = {}
 
         for c in candidates:
             company = c.get("company", "") or ""
@@ -1104,18 +1103,30 @@ class CatastropheAnalyzerApp:
             us_preference = 1 if "." not in ticker else 0
             # Prefer shorter company strings when distance/us_preference match.
             cand_tuple = (distance, -us_preference, len(company))
-            if best_tuple is None or cand_tuple < best_tuple:
-                best_tuple = cand_tuple
-                best = {
-                    "company": company,
-                    "ticker": ticker,
-                    "validation_status": c.get("validation_status", "approved"),
-                    "validation_reason": c.get("validation_reason", ""),
-                    "validation_confidence": c.get("validation_confidence", ""),
-                    "validation_engine": c.get("validation_engine", "deterministic"),
-                }
+            row = {
+                "company": company,
+                "ticker": ticker,
+                "validation_status": c.get("validation_status", "approved"),
+                "validation_reason": c.get("validation_reason", ""),
+                "validation_confidence": c.get("validation_confidence", ""),
+                "validation_engine": c.get("validation_engine", "deterministic"),
+            }
+            current = selected_by_ticker.get(ticker)
+            if current is None or cand_tuple < current[0]:
+                selected_by_ticker[ticker] = (
+                    cand_tuple,
+                    row,
+                )
 
-        return best
+        ordered = sorted(selected_by_ticker.values(), key=lambda item: item[0])
+        return [row for _, row in ordered]
+
+    def _select_canonical_entity(self, article: Dict) -> Optional[Dict]:
+        """Backward-compatible single-candidate accessor."""
+        ordered = self._ordered_candidate_entities(article)
+        if not ordered:
+            return None
+        return ordered[0]
 
     def detect_new_events(self, quiet: bool = False) -> Dict:
         """
@@ -1137,6 +1148,10 @@ class CatastropheAnalyzerApp:
             return {
                 "articles": 0,
                 "watches_created": 0,
+                "skipped_low_distress": 0,
+                "skipped_unapproved_validation": 0,
+                "skipped_untradable_candidates": 0,
+                "skipped_duplicate_article_ticker": 0,
                 "new_high_value_events": [],
             }
 
@@ -1149,6 +1164,8 @@ class CatastropheAnalyzerApp:
         created = 0
         skipped_low_distress = 0
         skipped_unapproved_validation = 0
+        skipped_untradable_candidates = 0
+        skipped_duplicate_article_ticker = 0
 
         for article in entities:
             if not article.get("has_publicly_traded"):
@@ -1156,8 +1173,8 @@ class CatastropheAnalyzerApp:
                     skipped_unapproved_validation += 1
                 continue
 
-            canonical = self._select_canonical_entity(article)
-            if not canonical:
+            candidates = self._ordered_candidate_entities(article)
+            if not candidates:
                 continue
 
             published = article.get("published", "Unknown")
@@ -1195,98 +1212,118 @@ class CatastropheAnalyzerApp:
             if self._severity_rank(distress_label) > self._severity_rank(severity):
                 severity = distress_label.title()
 
-            event_key = self.db.build_event_key(
-                ticker=canonical["ticker"],
-                event_date=event_date,
-                event_category=event_category,
-                source_url=article.get("link", ""),
-                title=title,
-            )
-            triage_record = {
-                "event_key": event_key,
-                "ticker": canonical["ticker"],
-                "company": canonical["company"],
-                "event_date": event_date,
-                "event_category": event_category,
-                "event_subtype": event_subtype,
-                "distress_score": distress_score,
-                "distress_likelihood": distress_label,
-                "impact_score": triage.get("impact_score", 0),
-                "impact_likelihood": triage.get("impact_likelihood", "LOW"),
-                "impact_summary": triage.get("impact_summary", ""),
-                "triage_engine": triage.get("triage_engine", "deterministic"),
-                "validation_status": canonical.get("validation_status", "approved"),
-                "validation_reason": canonical.get("validation_reason", ""),
-                "validation_confidence": canonical.get("validation_confidence", ""),
-                "validation_engine": canonical.get("validation_engine", "deterministic"),
-                "alert_state": "NEW",
-                "url": article.get("link", ""),
-                "title": title,
-            }
-            self.db.upsert_triage_event(triage_record)
+            for canonical in candidates:
+                ticker = canonical.get("ticker", "")
+                if not ticker:
+                    continue
+                if not self.stock_analyzer.validate_tradable_ticker(ticker):
+                    skipped_untradable_candidates += 1
+                    continue
 
-            watch = {
-                "ticker": canonical["ticker"],
-                "company": canonical["company"],
-                "event_date": event_date,
-                "breach_date": event_date,  # Legacy compatibility for stream-B merge gap.
-                "event_category": event_category,
-                "event_subtype": event_subtype,
-                "distress_likelihood": distress_label,
-                "distress_score": distress_score,
-                "source": article.get("source", ""),
-                "url": article.get("link", ""),
-                "watch_start_date": event_date,
-                "last_checked_at": datetime.now().isoformat(),
-                "status": "ACTIVE",
-                "timeseries_saved": "No",
-            }
+                already_seen = self.db.triage_event_exists_for_source_ticker(
+                    ticker=ticker,
+                    event_date=event_date,
+                    event_category=event_category,
+                    source_url=article.get("link", ""),
+                    title=title,
+                )
+                if already_seen:
+                    skipped_duplicate_article_ticker += 1
 
-            if self.db.add_watch_if_new(watch):
-                created += 1
-
-                # Persist event record (legacy add_breach API still used for compatibility).
-                self.db.add_breach({
-                    "date_found": event_date,
+                event_key = self.db.build_event_key(
+                    ticker=ticker,
+                    event_date=event_date,
+                    event_category=event_category,
+                    source_url=article.get("link", ""),
+                    title=title,
+                )
+                triage_record = {
+                    "event_key": event_key,
+                    "ticker": ticker,
+                    "company": canonical["company"],
                     "event_date": event_date,
                     "event_category": event_category,
+                    "event_subtype": event_subtype,
+                    "distress_score": distress_score,
+                    "distress_likelihood": distress_label,
+                    "impact_score": triage.get("impact_score", 0),
+                    "impact_likelihood": triage.get("impact_likelihood", "LOW"),
+                    "impact_summary": triage.get("impact_summary", ""),
+                    "triage_engine": triage.get("triage_engine", "deterministic"),
+                    "validation_status": canonical.get("validation_status", "approved"),
+                    "validation_reason": canonical.get("validation_reason", ""),
+                    "validation_confidence": canonical.get("validation_confidence", ""),
+                    "validation_engine": canonical.get("validation_engine", "deterministic"),
+                    "alert_state": "NEW",
+                    "url": article.get("link", ""),
+                    "title": title,
+                }
+                self.db.upsert_triage_event(triage_record)
+
+                watch = {
+                    "ticker": ticker,
                     "company": canonical["company"],
-                    "ticker": canonical["ticker"],
+                    "event_date": event_date,
+                    "breach_date": event_date,  # Legacy compatibility for stream-B merge gap.
+                    "event_category": event_category,
                     "event_subtype": event_subtype,
                     "distress_likelihood": distress_label,
                     "distress_score": distress_score,
-                    "breach_type": event_subtype,
-                    "severity": severity,
-                    "source": watch.get("source", ""),
-                    "url": watch.get("url", ""),
-                    "summary": (summary or "")[:500],
-                })
+                    "source": article.get("source", ""),
+                    "url": article.get("link", ""),
+                    "watch_start_date": event_date,
+                    "last_checked_at": datetime.now().isoformat(),
+                    "status": "ACTIVE",
+                    "timeseries_saved": "No",
+                }
 
-                # Persist price timeseries for the watch (first deliverable)
-                series_rows = self.stock_analyzer.get_event_price_series(
-                    ticker=canonical["ticker"],
-                    event_date=event_date,
-                    pre_days=times_pre_days,
-                    post_days=times_post_days,
-                )
-                if series_rows:
-                    self.db.add_price_timeseries(series_rows)
-                    self.db.mark_timeseries_saved(canonical["ticker"], event_date)
-            else:
-                # Keep watchlist company metadata aligned with latest canonical selection.
-                self.db.update_watch_metadata(
-                    ticker=canonical["ticker"],
-                    breach_date=event_date,
-                    company=canonical["company"],
-                    source=article.get("source", ""),
-                    url=article.get("link", ""),
-                )
+                if self.db.add_watch_if_new(watch):
+                    created += 1
+
+                    # Persist event record (legacy add_breach API still used for compatibility).
+                    self.db.add_breach({
+                        "date_found": event_date,
+                        "event_date": event_date,
+                        "event_category": event_category,
+                        "company": canonical["company"],
+                        "ticker": ticker,
+                        "event_subtype": event_subtype,
+                        "distress_likelihood": distress_label,
+                        "distress_score": distress_score,
+                        "breach_type": event_subtype,
+                        "severity": severity,
+                        "source": watch.get("source", ""),
+                        "url": watch.get("url", ""),
+                        "summary": (summary or "")[:500],
+                    })
+
+                    # Persist price timeseries for the watch (first deliverable)
+                    series_rows = self.stock_analyzer.get_event_price_series(
+                        ticker=ticker,
+                        event_date=event_date,
+                        pre_days=times_pre_days,
+                        post_days=times_post_days,
+                    )
+                    if series_rows:
+                        self.db.add_price_timeseries(series_rows)
+                        self.db.mark_timeseries_saved(ticker, event_date)
+                else:
+                    # Keep watchlist company metadata aligned with latest canonical selection.
+                    self.db.update_watch_metadata(
+                        ticker=ticker,
+                        breach_date=event_date,
+                        company=canonical["company"],
+                        source=article.get("source", ""),
+                        url=article.get("link", ""),
+                    )
 
         return {
             "articles": len(recent_articles),
             "watches_created": created,
             "skipped_low_distress": skipped_low_distress,
             "skipped_unapproved_validation": skipped_unapproved_validation,
+            "skipped_untradable_candidates": skipped_untradable_candidates,
+            "skipped_duplicate_article_ticker": skipped_duplicate_article_ticker,
             "new_high_value_events": self.db.get_triage_events(
                 alert_state="NEW",
                 min_impact_score=self._triage_thresholds()[0],
@@ -1533,6 +1570,9 @@ class CatastropheAnalyzerApp:
             "articles": detect_summary.get("articles", 0),
             "watches_created": detect_summary.get("watches_created", 0),
             "skipped_low_distress": detect_summary.get("skipped_low_distress", 0),
+            "skipped_unapproved_validation": detect_summary.get("skipped_unapproved_validation", 0),
+            "skipped_untradable_candidates": detect_summary.get("skipped_untradable_candidates", 0),
+            "skipped_duplicate_article_ticker": detect_summary.get("skipped_duplicate_article_ticker", 0),
             "new_high_value_events": detect_summary.get("new_high_value_events", []),
             "watches_checked": update_summary.get("watches_checked", 0),
             "signals_generated": update_summary.get("signals_generated", 0),

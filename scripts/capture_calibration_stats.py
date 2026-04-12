@@ -125,6 +125,9 @@ def _build_snapshot(days: int) -> Dict:
             "articles": _to_int(summary.get("articles", 0)),
             "watches_created": _to_int(summary.get("watches_created", 0)),
             "watches_checked": _to_int(summary.get("watches_checked", 0)),
+            "skipped_unapproved_validation": _to_int(summary.get("skipped_unapproved_validation", 0)),
+            "skipped_untradable_candidates": _to_int(summary.get("skipped_untradable_candidates", 0)),
+            "skipped_duplicate_article_ticker": _to_int(summary.get("skipped_duplicate_article_ticker", 0)),
             "signals_generated_raw": _to_int(summary.get("signals_generated_raw", 0)),
             "signals_after_confidence_gate": _to_int(summary.get("signals_after_confidence_gate", 0)),
             "signals_after_triage_gate": _to_int(summary.get("signals_after_triage_gate", 0)),
@@ -236,6 +239,9 @@ def main() -> None:
     print(f"- post_confidence: {h['signals_after_confidence_gate']} ({conf_pass:.1f}% of raw)")
     print(f"- post_triage: {h['signals_after_triage_gate']} ({triage_pass:.1f}% of post_confidence)")
     print(f"- saved: {h['signals_saved']} ({save_pass:.1f}% of post_triage)")
+    print(f"- skipped_unapproved_validation: {h['skipped_unapproved_validation']}")
+    print(f"- skipped_untradable_candidates: {h['skipped_untradable_candidates']}")
+    print(f"- skipped_duplicate_article_ticker: {h['skipped_duplicate_article_ticker']}")
     print("")
     print(f"Window ({args.days}d) counts:")
     print(f"- triage_new_rows: {w['triage_new_rows']}")

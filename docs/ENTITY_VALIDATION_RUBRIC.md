@@ -19,6 +19,8 @@ Use this rubric when deciding whether an article should map to a public ticker.
 - `cybersecurity`: target must be the breached/impacted entity.
 - `clinical_regulatory_binary`: target must own the program tied to trial/FDA outcome.
 - `product_safety_recall`: target must be tied to the recalled product chain.
+  - Multi-issuer headlines can approve multiple public tickers from one article when each ticker has a direct role (for example retailer + manufacturer/distributor).
+  - Do not collapse a retailer mention just because a different manufacturer is named; approve both when role context is explicit.
 
 ### Response format
 

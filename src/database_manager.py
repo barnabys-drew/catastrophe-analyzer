@@ -438,6 +438,38 @@ class DatabaseManager:
         self._write_csv(self.triage_file, fieldnames or self.TRIAGE_FIELDS, rows)
         return record
 
+    def triage_event_exists(self, event_key: str) -> bool:
+        """Return True when triage row exists for event_key."""
+        key = (event_key or "").strip()
+        if not key:
+            return False
+        _, rows = self._read_csv(self.triage_file)
+        for row in rows:
+            if (row.get("event_key") or "").strip() == key:
+                return True
+        return False
+
+    def triage_event_exists_for_source_ticker(
+        self,
+        *,
+        ticker: str,
+        event_date: str,
+        event_category: str,
+        source_url: str = "",
+        title: str = "",
+    ) -> bool:
+        """
+        Source/article-aware dedupe helper for a specific ticker event item.
+        """
+        event_key = self.build_event_key(
+            ticker=ticker,
+            event_date=event_date,
+            event_category=event_category,
+            source_url=source_url,
+            title=title,
+        )
+        return self.triage_event_exists(event_key)
+
     def get_triage_events(
         self,
         alert_state: Optional[str] = None,

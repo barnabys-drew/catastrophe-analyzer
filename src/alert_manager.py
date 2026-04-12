@@ -159,7 +159,7 @@ class AlertManager:
             server.starttls()
             if require_auth:
                 username = email_cfg.get("username")
-                password = email_cfg.get("password")
+                password = os.environ.get("CATASTROPHE_EMAIL_PASSWORD") or email_cfg.get("password")
                 if username and password:
                     server.login(username, password)
             server.sendmail(email_from, [email_to], msg.as_string())

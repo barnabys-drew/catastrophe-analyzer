@@ -7,14 +7,14 @@
   },
   "alert_channels": {
     "email": {
-      "enabled": false,
+      "enabled": true,
       "smtp_server": "smtp.gmail.com",
       "smtp_port": 587,
-      "email_from": "catastrophe-alerts@yourdomain.com",
-      "email_to": "your-email@example.com",
+      "email_from": "drewtheguitarguy@gmail.com",
+      "email_to": "drewtheguitarguy@gmail.com",
       "require_auth": true,
-      "username": "your-email@gmail.com",
-      "password": "YOUR_APP_PASSWORD"
+      "username": "drewtheguitarguy@gmail.com",
+      "password": ""
     },
     "ntfy": {
       "enabled": true,

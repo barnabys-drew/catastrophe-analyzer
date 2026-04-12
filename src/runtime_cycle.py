@@ -32,6 +32,12 @@ def run_cycle_with_alerts(app, alerts, quiet: bool = False) -> Dict:
     if new_signals:
         alerts.send_buy_signal_alerts(new_signals, emit_console=not quiet)
 
+    if not quiet:
+        try:
+            app.db.display_category_yield_dashboard(days=30)
+        except Exception:
+            pass
+
     write_runtime_heartbeat(
         repo_root=app.repo_root,
         status="ok",

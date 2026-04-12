@@ -9,6 +9,7 @@ ntfy.sh (or a self-hosted ntfy server) provides push notifications to the ntfy a
 replacement for SMS without Twilio.
 """
 
+import logging
 import os
 import json
 import re
@@ -18,6 +19,8 @@ from datetime import datetime
 from email.mime.text import MIMEText
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import quote
+
+logger = logging.getLogger(__name__)
 
 import requests
 from signal_generator import compute_signal_rank_score
@@ -410,12 +413,12 @@ class AlertManager:
 
         try:
             self._send_email(subject=subject, body=body)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Alert email delivery failed: %s", exc)
         try:
             self._send_ntfy(title=subject, message=body)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Alert ntfy delivery failed: %s", exc)
 
         try:
             # SMS (Twilio) or ntfy via sms.provider — short summary
@@ -438,8 +441,8 @@ class AlertManager:
                     self._post_ntfy(title=subject[:200], message=sms_message, cfg=sms_cfg)
                 else:
                     self._send_sms_twilio(sms_message)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Alert SMS delivery failed: %s", exc)
 
     def send_high_value_event_alerts(self, events: List[Dict], *, emit_console: bool = True) -> None:
         """
@@ -492,13 +495,13 @@ class AlertManager:
 
             try:
                 self._send_email(subject=subject, body=body)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("High-value event email delivery failed (%s): %s", ticker, exc)
 
             try:
                 self._send_ntfy(title=subject, message=body)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("High-value event ntfy delivery failed (%s): %s", ticker, exc)
 
             try:
                 sms_cfg = self.config.get("alert_channels", {}).get("sms", {}) if self.config else {}
@@ -512,7 +515,7 @@ class AlertManager:
                         self._post_ntfy(title=subject[:200], message=sms_message, cfg=sms_cfg)
                     else:
                         self._send_sms_twilio(sms_message)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("High-value event SMS delivery failed (%s): %s", ticker, exc)
 
 

@@ -47,7 +47,9 @@ class DatabaseManager:
     SIGNAL_FIELDS = [
         "signal_date",
         "ticker",
+        "company",
         "event_category",
+        "event_subtype",
         "signal_type",
         "confidence_level",
         "confidence_score",
@@ -56,6 +58,12 @@ class DatabaseManager:
         "target_price",
         "risk_reward_ratio",
         "event_date",
+        "impact_score",
+        "distress_score",
+        "url",
+        "title",
+        "issue_summary",
+        "reasons",
         "executed",
         "execution_price",
         "execution_date",
@@ -276,20 +284,32 @@ class DatabaseManager:
         }
 
     def _normalize_signal_row(self, row: Dict) -> Dict:
+        rr = row.get("risk_reward", {}) if isinstance(row.get("risk_reward"), dict) else {}
+        reasons = row.get("reasons", [])
+        if isinstance(reasons, list):
+            reasons_str = "; ".join(reasons)
+        else:
+            reasons_str = str(reasons) if reasons else ""
         return {
             "signal_date": row.get("signal_date") or datetime.now().isoformat(),
             "ticker": row.get("ticker", ""),
+            "company": row.get("company", ""),
             "event_category": row.get("event_category") or "cybersecurity",
+            "event_subtype": row.get("event_subtype") or "",
             "signal_type": row.get("signal_type", ""),
             "confidence_level": row.get("confidence_level", ""),
             "confidence_score": row.get("confidence_score") or row.get("confidence") or "",
             "entry_price": row.get("entry_price") or row.get("suggested_entry") or "",
             "stop_loss": row.get("stop_loss") or row.get("suggested_stop_loss") or "",
-            "target_price": row.get("target_price")
-            or (row.get("risk_reward", {}) if isinstance(row.get("risk_reward"), dict) else {}).get("target_price", ""),
-            "risk_reward_ratio": row.get("risk_reward_ratio")
-            or (row.get("risk_reward", {}) if isinstance(row.get("risk_reward"), dict) else {}).get("risk_reward_ratio", ""),
+            "target_price": row.get("target_price") or rr.get("target_price", ""),
+            "risk_reward_ratio": row.get("risk_reward_ratio") or rr.get("risk_reward_ratio", ""),
             "event_date": row.get("event_date") or row.get("breach_date") or "",
+            "impact_score": row.get("impact_score", ""),
+            "distress_score": row.get("distress_score", ""),
+            "url": row.get("url", ""),
+            "title": row.get("title", ""),
+            "issue_summary": row.get("issue_summary") or row.get("impact_summary") or "",
+            "reasons": reasons_str,
             "executed": row.get("executed", "No"),
             "execution_price": row.get("execution_price", ""),
             "execution_date": row.get("execution_date", ""),

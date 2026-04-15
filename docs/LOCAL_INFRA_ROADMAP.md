@@ -22,4 +22,39 @@ This note captures the **intended deployment story** for this project and relate
 - [claude.md](../claude.md) — quick commands for development  
 - Shared hourly cron template (sibling path): `~/code/hourly-checks.crontab.example`
 
+## Homelab handoff over Tailscale (ntfy topics + env)
+
+Use **`tailscale file cp`** from your dev PC to the homelab so you do not need SSH or port 22. Destination is your tailnet node name (example: **`chewbacca-1`**). Tailscale IP for reference: **`100.112.54.107`**.
+
+### Files that carry ntfy topics or alert config
+
+| Repo | What to copy | Notes |
+|------|----------------|--------|
+| `catastrophe-analyzer` | `.env` (if you use it), `.env.agent` | Compose: `docker compose --env-file .env.agent …`. **ntfy topic** is in `config/alerts_config.json` (`alert_channels.ntfy.topic`). |
+| `concentration-manager` | `.env` | `CM_NTFY_TOPIC` (see `.env.example`). |
+| `portfolio-analyzer` | `.env` | `PA_NTFY_TOPIC` (see `.env.example`). |
+| `zeromouse-monitor` | `.env` | `NTFY_TOPIC` (see README). |
+
+### Example: `tailscale file cp` from this PC (WSL)
+
+Run on the machine that has the source files (adjust paths if your home directory differs):
+
+```bash
+tailscale file cp "/home/drewpweiner/code/catastrophe-analyzer/.env" chewbacca-1:
+tailscale file cp "/home/drewpweiner/code/catastrophe-analyzer/.env.agent" chewbacca-1:
+tailscale file cp "/home/drewpweiner/code/catastrophe-analyzer/config/alerts_config.json" chewbacca-1:
+
+tailscale file cp "/home/drewpweiner/code/concentration-manager/.env" chewbacca-1:
+tailscale file cp "/home/drewpweiner/code/portfolio-analyzer/.env" chewbacca-1:
+tailscale file cp "/home/drewpweiner/code/zeromouse-monitor/.env" chewbacca-1:
+```
+
+On **chewbacca-1**, move each received file from the Tailscale **file inbox** into the matching path under `~/code/...` (same layout as this PC). If you do not use a given file (e.g. no `.env` for catastrophe-analyzer), skip that line.
+
+Confirm the **ntfy** app is still subscribed to the **same topic names** as in those files.
+
+### After files are in place
+
+On **chewbacca-1**, from each repo: `docker compose --env-file … up -d` as usual. Catastrophe Analyzer: `docker compose --env-file .env.agent up -d` from `~/code/catastrophe-analyzer`.
+
 Update this file when the homelab hostname, IP, or “single compose stack” layout stabilizes.

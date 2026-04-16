@@ -6,7 +6,7 @@ Orchestrates news scraping, entity extraction, stock analysis, and signal genera
 import sys
 import os
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import json
 import io
 import contextlib
@@ -24,6 +24,8 @@ from database_manager import DatabaseManager
 from impact_triage import ImpactTriage
 from alert_manager import AlertManager
 from service_runtime import run_service_loop
+from text_match import keyword_in_text
+from config_loader import load_and_validate_runtime_settings, SettingsValidationError
 
 
 class CatastropheAnalyzerApp:
@@ -43,7 +45,7 @@ class CatastropheAnalyzerApp:
         if mock_env == "":
             mock_env = os.environ.get("BREACH_ANALYZER_USE_MOCK_DATA", "").strip()
 
-        self.news_scraper = NewsScraper(config_path=self.config_path)
+        self.news_scraper = NewsScraper(config_path=self.config_path, settings=self.settings)
         self.entity_extractor = EntityExtractor(config_path=self.config_path)
         self.stock_analyzer = StockAnalyzer(
             use_mock=(
@@ -53,7 +55,7 @@ class CatastropheAnalyzerApp:
             ),
             stock_analysis_config=self.settings.get("stock_analysis") or {},
         )
-        self.signal_generator = SignalGenerator(config_path=self.config_path)
+        self.signal_generator = SignalGenerator(config_path=self.config_path, settings=self.settings)
         self.db = DatabaseManager(data_dir=self.data_dir)
         self.impact_triage = ImpactTriage(config=self.settings)
 
@@ -63,13 +65,10 @@ class CatastropheAnalyzerApp:
         self.current_signals = []
 
     def _load_settings(self) -> Dict:
-        """Load settings.json with safe defaults."""
-        defaults = {}
-        try:
-            with open(self.config_path, 'r') as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            return defaults
+        """
+        Load settings.json using runtime validation contract.
+        """
+        return load_and_validate_runtime_settings(self.config_path)
 
     @staticmethod
     def _severity_rank(value: str) -> int:
@@ -110,7 +109,7 @@ class CatastropheAnalyzerApp:
                 ("millions", 8, "Large-scale impact tends to elevate downstream cost"),
             ]
             for marker, weight, reason in weighted_markers:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score += weight
                     reasons.append(reason)
 
@@ -120,7 +119,7 @@ class CatastropheAnalyzerApp:
                 ("no customer data accessed", 10, "Limited customer-data impact lowers expected follow-on costs"),
             ]
             for marker, weight, reason in positive_offsets:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score -= weight
                     reasons.append(reason)
         elif event_category == "clinical_regulatory_binary":
@@ -139,7 +138,7 @@ class CatastropheAnalyzerApp:
                 ("safety signal", 16, "Safety signals can trigger restrictions or delay"),
             ]
             for marker, weight, reason in weighted_markers:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score += weight
                     reasons.append(reason)
 
@@ -153,7 +152,7 @@ class CatastropheAnalyzerApp:
                 ("breakthrough therapy", 10, "Breakthrough designation can improve regulatory pathway confidence"),
             ]
             for marker, weight, reason in positive_offsets:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score -= weight
                     reasons.append(reason)
         elif event_category == "product_safety_recall":
@@ -174,7 +173,7 @@ class CatastropheAnalyzerApp:
                 ("fatality", 20, "Fatality language increases legal, regulatory, and reputational risk"),
             ]
             for marker, weight, reason in weighted_markers:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score += weight
                     reasons.append(reason)
 
@@ -214,7 +213,7 @@ class CatastropheAnalyzerApp:
                 ("audit committee", 12, "Audit-committee-led reviews can widen into restatement risk"),
             ]
             for marker, weight, reason in weighted_markers:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score += weight
                     reasons.append(reason)
 
@@ -225,7 +224,7 @@ class CatastropheAnalyzerApp:
                 ("terminated investigation", 14, "Closed investigations reduce open regulatory tail risk"),
             ]
             for marker, weight, reason in positive_offsets:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score -= weight
                     reasons.append(reason)
 
@@ -251,7 +250,7 @@ class CatastropheAnalyzerApp:
                 ("container shortage", 16, "Container shortages constrain export/import timing"),
             ]
             for marker, weight, reason in weighted_markers:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score += weight
                     reasons.append(reason)
             positive_offsets = [
@@ -261,7 +260,7 @@ class CatastropheAnalyzerApp:
                 ("easing supply", 10, "Easing supply language can reduce bottleneck narrative"),
             ]
             for marker, weight, reason in positive_offsets:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score -= weight
                     reasons.append(reason)
         elif event_category == "financial_distress":
@@ -281,7 +280,7 @@ class CatastropheAnalyzerApp:
                 ("credit rating downgrade", 14, "Downgrades can raise refinancing costs and covenant pressure"),
             ]
             for marker, weight, reason in weighted_markers:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score += weight
                     reasons.append(reason)
             positive_offsets = [
@@ -291,7 +290,7 @@ class CatastropheAnalyzerApp:
                 ("covenant waiver", 8, "Waivers can buy time versus technical default outcomes"),
             ]
             for marker, weight, reason in positive_offsets:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score -= weight
                     reasons.append(reason)
         elif event_category == "dilutive_financing":
@@ -310,7 +309,7 @@ class CatastropheAnalyzerApp:
                 ("capital raise", 14, "Capital raises can reflect funding gap and dilution needs"),
             ]
             for marker, weight, reason in weighted_markers:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score += weight
                     reasons.append(reason)
             positive_offsets = [
@@ -319,7 +318,7 @@ class CatastropheAnalyzerApp:
                 ("non-dilutive tranche", 12, "Non-dilutive capital components reduce equity pressure"),
             ]
             for marker, weight, reason in positive_offsets:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score -= weight
                     reasons.append(reason)
         elif event_category == "ma_corporate_action":
@@ -333,7 +332,7 @@ class CatastropheAnalyzerApp:
                 ("ftc sues to block", 22, "FTC action materially elevates transaction failure risk"),
             ]
             for marker, weight, reason in weighted_markers:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score += weight
                     reasons.append(reason)
             positive_offsets = [
@@ -343,7 +342,7 @@ class CatastropheAnalyzerApp:
                 ("all-cash deal", 6, "All-cash terms can lower financing uncertainty"),
             ]
             for marker, weight, reason in positive_offsets:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score -= weight
                     reasons.append(reason)
         elif event_category == "leadership_scandal":
@@ -360,7 +359,7 @@ class CatastropheAnalyzerApp:
                 ("succession uncertainty", 12, "Succession uncertainty can impair execution confidence"),
             ]
             for marker, weight, reason in weighted_markers:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score += weight
                     reasons.append(reason)
             positive_offsets = [
@@ -369,7 +368,7 @@ class CatastropheAnalyzerApp:
                 ("no wrongdoing found", 14, "No-wrongdoing conclusions reduce scandal tail risk"),
             ]
             for marker, weight, reason in positive_offsets:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score -= weight
                     reasons.append(reason)
         elif event_category == "positive_earnings_catalyst":
@@ -379,7 +378,7 @@ class CatastropheAnalyzerApp:
                 ("withdraws guidance", 20, "Guidance withdrawal increases uncertainty despite headline beats"),
             ]
             for marker, weight, reason in weighted_markers:
-                if marker in content:
+                if keyword_in_text(marker, content):
                     score += weight
                     reasons.append(reason)
             positive_offsets = [
@@ -391,7 +390,69 @@ class CatastropheAnalyzerApp:
                 ("above consensus", 10, "Above-consensus prints can de-risk near-term expectations"),
             ]
             for marker, weight, reason in positive_offsets:
-                if marker in content:
+                if keyword_in_text(marker, content):
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "geopolitical_sanctions_exposure":
+            weighted_markers = [
+                ("sanctions", 18, "Sanctions language implies regulatory and revenue freeze risk"),
+                ("ofac", 24, "OFAC designation can block transactions and freeze assets"),
+                ("entity list", 22, "Entity-list addition restricts trade and supply relationships"),
+                ("export ban", 22, "Export bans can sever revenue-generating channels"),
+                ("export control", 18, "Export controls constrain addressable market"),
+                ("trade blacklist", 20, "Blacklist inclusion disrupts supply and customer access"),
+                ("asset freeze", 22, "Asset freezes directly impair cash availability"),
+                ("forced divestiture", 20, "Forced divestitures can destroy embedded value"),
+                ("sanctions violation", 24, "Violation language implies penalties and enforcement risk"),
+                ("sanctions penalty", 22, "Penalty language implies realized fines and compliance spend"),
+                ("embargo", 18, "Embargo language implies broad trade prohibition"),
+                ("secondary sanctions", 20, "Secondary sanctions can cut off third-party relationships"),
+                ("bis order", 18, "BIS orders restrict technology and component access"),
+                ("country exit", 16, "Country-exit language implies asset impairment and revenue loss"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if keyword_in_text(marker, content):
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("sanctions lifted", 14, "Sanctions removal reduces ongoing restriction pressure"),
+                ("license granted", 12, "License grants can restore blocked trade channels"),
+                ("waiver", 10, "Waivers can temporarily ease sanctions impact"),
+                ("delisted from entity list", 16, "Entity-list removal restores trade access"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if keyword_in_text(marker, content):
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "negative_earnings_catalyst":
+            weighted_markers = [
+                ("earnings miss", 20, "Earnings miss signals execution shortfall vs expectations"),
+                ("missed estimates", 20, "Estimate miss can trigger analyst downgrades"),
+                ("revenue miss", 18, "Revenue miss raises demand and pricing concerns"),
+                ("revenue shortfall", 18, "Revenue shortfall implies weaker-than-expected demand"),
+                ("guidance cut", 24, "Guidance cuts reduce forward earnings expectations"),
+                ("lowered guidance", 24, "Lowered guidance compresses valuation multiples"),
+                ("lowered outlook", 22, "Lowered outlook signals management concern about near-term trajectory"),
+                ("profit warning", 26, "Profit warnings often trigger rapid repricing"),
+                ("revenue warning", 22, "Revenue warnings indicate fundamental demand weakness"),
+                ("margin compression", 16, "Margin compression lowers profitability outlook"),
+                ("operating loss", 18, "Operating losses can pressure financing and covenant health"),
+                ("wider loss", 16, "Widening losses increase cash burn and financing risk"),
+                ("withdrew guidance", 20, "Guidance withdrawal increases uncertainty and perceived risk"),
+                ("negative preannouncement", 24, "Negative preannouncements often front-run larger misses"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if keyword_in_text(marker, content):
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("one-time charge", 10, "One-time items can reduce perceived recurring shortfall"),
+                ("non-recurring", 10, "Non-recurring language limits extrapolation of miss"),
+                ("reaffirmed guidance", 14, "Reaffirmed guidance reduces forward uncertainty"),
+                ("expects recovery", 8, "Recovery language signals management confidence in rebound"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if keyword_in_text(marker, content):
                     score -= weight
                     reasons.append(reason)
 
@@ -422,6 +483,8 @@ class CatastropheAnalyzerApp:
             "ma_corporate_action",
             "leadership_scandal",
             "positive_earnings_catalyst",
+            "geopolitical_sanctions_exposure",
+            "negative_earnings_catalyst",
         ]
 
     def _active_event_categories(self) -> List[str]:
@@ -515,6 +578,46 @@ class CatastropheAnalyzerApp:
         except (TypeError, ValueError):
             min_distress = alert_distress
         return max(0, min(100, min_impact)), max(0, min(100, min_distress))
+
+    def _signal_alert_cooldown_hours(self) -> float:
+        triage_cfg = self.settings.get("triage", {})
+        raw = triage_cfg.get("duplicate_alert_suppression_hours", 6)
+        try:
+            return max(0.0, float(raw))
+        except (TypeError, ValueError):
+            return 6.0
+
+    @staticmethod
+    def _parse_iso_utc(value: str) -> Optional[datetime]:
+        raw = str(value or "").strip()
+        if not raw:
+            return None
+        try:
+            dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+
+    def _high_value_events_ready_for_alert(self) -> List[Dict]:
+        min_impact, min_distress = self._triage_thresholds()
+        rows = self.db.get_triage_events(
+            alert_state="NEW",
+            min_impact_score=min_impact,
+            min_distress_score=min_distress,
+        )
+        cooldown_hours = self._signal_alert_cooldown_hours()
+        if cooldown_hours <= 0:
+            return rows
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=cooldown_hours)
+        eligible: List[Dict] = []
+        for row in rows:
+            last_alerted = self._parse_iso_utc(row.get("last_alerted_at", ""))
+            if last_alerted and last_alerted >= cutoff:
+                continue
+            eligible.append(row)
+        return eligible
 
     def display_menu(self) -> None:
         """Display main menu"""
@@ -700,19 +803,19 @@ class CatastropheAnalyzerApp:
                 event_subtype = "Clinical Hold"
             elif "fda approval" in content or "approved by the fda" in content:
                 event_subtype = "FDA Approval"
-            elif "adcom" in content and any(marker in content for marker in ("negative vote", "against", "concern")):
+            elif "adcom" in content and any(keyword_in_text(marker, content) for marker in ("negative vote", "against", "concern")):
                 event_subtype = "AdCom Negative Vote"
             elif "phase 3" in content and any(
-                marker in content for marker in ("failed", "fails", "missed", "did not meet")
+                keyword_in_text(marker, content) for marker in ("failed", "fails", "missed", "did not meet")
             ):
                 event_subtype = "Phase 3 Trial Failure"
             elif "phase 3" in content and any(
-                marker in content for marker in ("met primary endpoint", "met endpoint", "positive data")
+                keyword_in_text(marker, content) for marker in ("met primary endpoint", "met endpoint", "positive data")
             ):
                 event_subtype = "Phase 3 Trial Success"
-            elif any(marker in content for marker in ("missed primary endpoint", "did not meet endpoint")):
+            elif any(keyword_in_text(marker, content) for marker in ("missed primary endpoint", "did not meet endpoint")):
                 event_subtype = "Endpoint Miss"
-            elif "fda" in content and any(marker in content for marker in ("reject", "rejected", "refuse to file")):
+            elif "fda" in content and any(keyword_in_text(marker, content) for marker in ("reject", "rejected", "refuse to file")):
                 event_subtype = "Regulatory Rejection"
 
             severity = "Medium"
@@ -725,7 +828,7 @@ class CatastropheAnalyzerApp:
                 "refuse to file",
                 "phase 3 trial failure",
             ]
-            if any(marker in content for marker in high_markers):
+            if any(keyword_in_text(marker, content) for marker in high_markers):
                 severity = "High"
             return event_subtype, severity
         if event_category == "product_safety_recall":
@@ -827,7 +930,7 @@ class CatastropheAnalyzerApp:
                 "going concern",
                 "delisting notice",
             ]
-            if any(marker in content for marker in high_markers):
+            if any(keyword_in_text(marker, content) for marker in high_markers):
                 severity = "High"
             return event_subtype, severity
 
@@ -991,7 +1094,72 @@ class CatastropheAnalyzerApp:
                 event_subtype = "Positive Preannouncement"
 
             severity = "Medium"
-            if any(marker in content for marker in ("raised guidance", "record revenue", "positive preannouncement")):
+            if any(keyword_in_text(marker, content) for marker in ("raised guidance", "record revenue", "positive preannouncement")):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "geopolitical_sanctions_exposure":
+            event_subtype = "Geopolitical Sanctions Event"
+            if "ofac" in content or "sdn list" in content or "blocked persons" in content:
+                event_subtype = "OFAC Designation"
+            elif "entity list" in content or "trade blacklist" in content:
+                event_subtype = "Entity List / Trade Blacklist"
+            elif "export ban" in content or "export control" in content or "bis order" in content:
+                event_subtype = "Export Control Action"
+            elif "sanctions violation" in content or "sanctions penalty" in content:
+                event_subtype = "Sanctions Enforcement"
+            elif "forced divestiture" in content or "country exit" in content:
+                event_subtype = "Forced Divestiture / Country Exit"
+            elif "asset freeze" in content:
+                event_subtype = "Asset Freeze"
+            elif "embargo" in content:
+                event_subtype = "Trade Embargo"
+
+            severity = "Medium"
+            if any(
+                marker in content
+                for marker in (
+                    "ofac",
+                    "entity list",
+                    "export ban",
+                    "sanctions violation",
+                    "asset freeze",
+                    "forced divestiture",
+                    "sanctions penalty",
+                )
+            ):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "negative_earnings_catalyst":
+            event_subtype = "Negative Earnings Catalyst"
+            if "guidance cut" in content or "lowered guidance" in content or "guidance reduction" in content:
+                event_subtype = "Guidance Cut"
+            elif "profit warning" in content or "revenue warning" in content:
+                event_subtype = "Profit / Revenue Warning"
+            elif "negative preannouncement" in content:
+                event_subtype = "Negative Preannouncement"
+            elif "earnings miss" in content or "missed estimates" in content:
+                event_subtype = "Earnings Miss"
+            elif "revenue miss" in content or "revenue shortfall" in content:
+                event_subtype = "Revenue Shortfall"
+            elif "margin compression" in content or "operating loss" in content:
+                event_subtype = "Margin / Operating Deterioration"
+            elif "withdrew guidance" in content or "lowered outlook" in content:
+                event_subtype = "Outlook Withdrawal"
+
+            severity = "Medium"
+            if any(
+                marker in content
+                for marker in (
+                    "profit warning",
+                    "guidance cut",
+                    "lowered guidance",
+                    "negative preannouncement",
+                    "revenue warning",
+                    "withdrew guidance",
+                )
+            ):
                 severity = "High"
             return event_subtype, severity
 
@@ -1037,7 +1205,7 @@ class CatastropheAnalyzerApp:
             "wiper",
             "operations disrupted",
         ]
-        if any(marker in content for marker in critical_markers):
+        if any(keyword_in_text(marker, content) for marker in critical_markers):
             severity = "High"
         return event_subtype, severity
 
@@ -1324,11 +1492,7 @@ class CatastropheAnalyzerApp:
             "skipped_unapproved_validation": skipped_unapproved_validation,
             "skipped_untradable_candidates": skipped_untradable_candidates,
             "skipped_duplicate_article_ticker": skipped_duplicate_article_ticker,
-            "new_high_value_events": self.db.get_triage_events(
-                alert_state="NEW",
-                min_impact_score=self._triage_thresholds()[0],
-                min_distress_score=self._triage_thresholds()[1],
-            ),
+            "new_high_value_events": self._high_value_events_ready_for_alert(),
         }
 
     # Backward-compatible alias while monitor/callers migrate.
@@ -1422,8 +1586,9 @@ class CatastropheAnalyzerApp:
             }
 
         analyses = self.stock_analyzer.batch_analyze(analyses_requests)
-        signals = self.signal_generator.generate_signals_batch(analyses)
-        ranked_signals = self.signal_generator.rank_signals(signals)
+
+        # Load triage context early so distress/impact scores can feed into
+        # signal confidence (not just persistence gates).
         triage_context_by_key = {}
         watch_keys = set(watch_context_by_key.keys())
         for triage in self.db.get_triage_events_for_keys(list(watch_keys)):
@@ -1443,9 +1608,54 @@ class CatastropheAnalyzerApp:
                 "distress_score": triage.get("distress_score", ""),
             }
 
+        # Enrich analyses with catalyst quality scores before signal generation
+        # so _calculate_confidence can weight article quality alongside technicals.
+        for analysis in analyses:
+            a_key = (
+                analysis.get("ticker", ""),
+                analysis.get("event_date", analysis.get("breach_date", "")),
+                analysis.get("event_category", ""),
+            )
+            t_ctx = triage_context_by_key.get(a_key, {})
+            w_ctx = watch_context_by_key.get(a_key, {})
+            if "distress_score" not in analysis or not analysis["distress_score"]:
+                analysis["distress_score"] = (
+                    t_ctx.get("distress_score") or w_ctx.get("distress_score") or 0
+                )
+            if "impact_score" not in analysis or not analysis["impact_score"]:
+                analysis["impact_score"] = t_ctx.get("impact_score") or 0
+
+        signals, signal_diagnostics = self.signal_generator.generate_signals_with_diagnostics(analyses)
+        ranked_signals = self.signal_generator.rank_signals(signals)
+
         min_conf = self.signal_generator.signal_config.get('min_confidence_for_signal', 0.4)
         if isinstance(min_conf, (int, float)):
-            ranked_signals = self.signal_generator.filter_signals(ranked_signals, min_confidence=float(min_conf))
+            pre_confidence = list(ranked_signals)
+            ranked_signals = self.signal_generator.filter_signals(
+                ranked_signals,
+                min_confidence=float(min_conf),
+            )
+            kept_keys = {
+                (
+                    s.get("ticker", ""),
+                    s.get("event_date", s.get("breach_date", "")),
+                    s.get("event_category", ""),
+                )
+                for s in ranked_signals
+            }
+            for signal in pre_confidence:
+                event_key = (
+                    signal.get("ticker", ""),
+                    signal.get("event_date", signal.get("breach_date", "")),
+                    signal.get("event_category", ""),
+                )
+                if event_key in kept_keys:
+                    continue
+                signal_diagnostics[event_key] = {
+                    "decision": "CONFIDENCE_REJECTED",
+                    "reason": f"confidence_below_floor:{signal.get('confidence', 0)}<{min_conf}",
+                    "confidence": signal.get("confidence", ""),
+                }
         signals_after_confidence_gate = len(ranked_signals)
 
         def _score_to_int(value: object) -> int:
@@ -1461,7 +1671,7 @@ class CatastropheAnalyzerApp:
         signals_after_triage_gate = 0
         new_signals = []
 
-        # Save analysis metrics
+        # Prepare analysis-level signal diagnostics (persist after final signal gates)
         for analysis in analyses:
             a_key = (
                 analysis.get("ticker", ""),
@@ -1470,8 +1680,13 @@ class CatastropheAnalyzerApp:
             )
             if a_key in existing_analysis_keys or "error" in analysis:
                 continue
-            if self.db.add_analysis(analysis):
-                existing_analysis_keys.add(a_key)
+            decision = signal_diagnostics.get(
+                a_key,
+                {"decision": "NO_SIGNAL", "reason": "no_rule_match"},
+            )
+            analysis["signal_decision"] = decision.get("decision", "")
+            analysis["signal_decision_reason"] = decision.get("reason", "")
+            analysis["signal_confidence_snapshot"] = decision.get("confidence", "")
 
         # Save signals + mark watch
         signal_min_impact, signal_min_distress = self._signal_triage_thresholds()
@@ -1501,11 +1716,11 @@ class CatastropheAnalyzerApp:
                     signal["url"] = triage_ctx.get("url", "")
 
             # Keep signal gating resilient when triage rows are missing for an existing watch key.
-            # Prefer explicit triage scores, then watch distress + signal confidence proxies.
+            # Impact and confidence are intentionally separated: confidence should not stand in
+            # for fundamental impact.
             impact_score = max(
                 _score_to_int(triage_ctx.get("impact_score", "")),
                 _score_to_int(signal.get("impact_score", "")),
-                _score_to_int(signal.get("confidence", "")),
             )
             distress_score = max(
                 _score_to_int(triage_ctx.get("distress_score", "")),
@@ -1513,18 +1728,57 @@ class CatastropheAnalyzerApp:
                 _score_to_int(watch_ctx.get("distress_score", "")),
             )
             if impact_score < signal_min_impact or distress_score < signal_min_distress:
+                signal_diagnostics[event_key] = {
+                    "decision": "TRIAGE_REJECTED",
+                    "reason": (
+                        f"triage_threshold_failed:impact={impact_score}<{signal_min_impact}"
+                        f" or distress={distress_score}<{signal_min_distress}"
+                    ),
+                    "confidence": signal.get("confidence", ""),
+                }
                 continue
             signals_after_triage_gate += 1
+            signal["triage_impact_score_used"] = impact_score
+            signal["triage_distress_score_used"] = distress_score
             if s_key in existing_signal_keys:
+                signal_diagnostics[event_key] = {
+                    "decision": "DUPLICATE_SIGNAL_SKIPPED",
+                    "reason": "existing_signal_key",
+                    "confidence": signal.get("confidence", ""),
+                }
                 continue
             if self.db.add_signal(signal):
                 saved_signals += 1
                 existing_signal_keys.add(s_key)
                 new_signals.append(signal)
+                signal_diagnostics[event_key] = {
+                    "decision": "SIGNAL_SAVED",
+                    "reason": "saved_to_db",
+                    "confidence": signal.get("confidence", ""),
+                }
                 self.db.mark_watch_signal_created(
                     signal.get("ticker", ""),
                     signal.get("event_date", signal.get("breach_date", "")),
                 )
+
+        # Save analysis metrics after all signal gates for final decision visibility.
+        for analysis in analyses:
+            a_key = (
+                analysis.get("ticker", ""),
+                analysis.get("event_date", analysis.get("breach_date", "")),
+                analysis.get("event_category", ""),
+            )
+            if a_key in existing_analysis_keys or "error" in analysis:
+                continue
+            final_decision = signal_diagnostics.get(
+                a_key,
+                {"decision": "NO_SIGNAL", "reason": "no_rule_match"},
+            )
+            analysis["signal_decision"] = final_decision.get("decision", "")
+            analysis["signal_decision_reason"] = final_decision.get("reason", "")
+            analysis["signal_confidence_snapshot"] = final_decision.get("confidence", "")
+            if self.db.add_analysis(analysis):
+                existing_analysis_keys.add(a_key)
 
         # Update watch timestamps for those we checked
         for w in watches_to_check:
@@ -1928,7 +2182,11 @@ def main():
     # Keep relative-path behavior consistent with monitor.py runtime.
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-    app = CatastropheAnalyzerApp()
+    try:
+        app = CatastropheAnalyzerApp()
+    except SettingsValidationError as exc:
+        print(f"Configuration error: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
     if args.service or args.once or args.quiet or args.interval_minutes is not None:
         try:
             vmode = getattr(app.entity_extractor, "_validation_mode", "?")

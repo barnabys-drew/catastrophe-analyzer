@@ -3,13 +3,22 @@ Signal Generator Module
 Generates buy/sell signals based on breach analysis
 """
 
-from typing import List, Dict, Tuple, Optional
+import os
+from typing import Any, List, Dict, Tuple, Optional
 from datetime import datetime
 import json
+from config_loader import load_settings
+
+
+def _safe_int_score(value: object) -> float:
+    try:
+        return max(0.0, min(100.0, float(str(value).strip() or "0")))
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def compute_signal_rank_score(signal: Dict) -> float:
-    """Canonical ranking score used by persistence and alert presentation."""
+    """Canonical ranking score: confidence (55%) + risk/reward (cap) + catalyst quality (15%)."""
     try:
         confidence = float(signal.get('confidence', 0) or 0)
     except (TypeError, ValueError):
@@ -24,7 +33,15 @@ def compute_signal_rank_score(signal: Dict) -> float:
     except (TypeError, ValueError):
         risk_reward = 0.0
 
-    return (confidence * 0.6) + (min(risk_reward, 5.0) * 12.0)
+    impact = _safe_int_score(
+        signal.get("triage_impact_score_used", signal.get("impact_score", 0))
+    )
+    distress = _safe_int_score(
+        signal.get("triage_distress_score_used", signal.get("distress_score", 0))
+    )
+    catalyst_bonus = min((impact + distress) / 2.0, 100.0) * 0.15
+
+    return (confidence * 0.55) + (min(risk_reward, 5.0) * 10.0) + catalyst_bonus
 
 
 class SignalGenerator:
@@ -32,18 +49,14 @@ class SignalGenerator:
     Generates trading signals based on breach events and stock analysis
     """
 
-    def __init__(self, config_path: str = "../config/settings.json"):
+    def __init__(self, config_path: str = "../config/settings.json", settings: Dict | None = None):
         """
         Initialize signal generator with configuration
 
         Args:
             config_path: Path to settings.json
         """
-        try:
-            with open(config_path, 'r') as f:
-                self.config = json.load(f)
-        except FileNotFoundError:
-            self.config = self._get_default_config()
+        self.config = settings if settings is not None else load_settings(self._resolve_config_path(config_path))
 
         self.signal_config = self.config.get('signals', {})
 
@@ -58,6 +71,8 @@ class SignalGenerator:
             'drop_within_48h_threshold': self.signal_config.get('drop_within_48h_threshold', 1.0),
             'recovery_days_threshold': self.signal_config.get('recovery_days_threshold', 5),
             'volume_spike_threshold': self.signal_config.get('volume_spike_threshold', 1.5),
+            'min_price_for_signal': self.signal_config.get('min_price_for_signal', 2.5),
+            'min_avg_volume_for_signal': self.signal_config.get('min_avg_volume_for_signal', 300000),
         }
         by_category = self.signal_config.get("by_category", {})
         if isinstance(by_category, dict):
@@ -67,6 +82,14 @@ class SignalGenerator:
                     if k in per_cat:
                         base[k] = per_cat[k]
         return base
+
+    @staticmethod
+    def _analysis_key(analysis: Dict) -> Tuple[str, str, str]:
+        return (
+            str(analysis.get("ticker", "")).strip(),
+            str(analysis.get("event_date", analysis.get("breach_date", ""))).strip(),
+            str(analysis.get("event_category", "")).strip(),
+        )
 
     def _confidence_thresholds(self) -> Tuple[float, float]:
         """
@@ -92,6 +115,30 @@ class SignalGenerator:
             medium = high
         return high, medium
 
+    @staticmethod
+    def _category_target_template(event_category: str) -> str:
+        """
+        Return target template family by event category.
+        - full_reversion: expect retrace toward pre-event level
+        - partial_reversion: avoid assuming full fundamental recovery
+        - momentum_extension: allow a modest upside extension for positive catalysts
+        """
+        category = (event_category or "").strip().lower()
+        if category in {
+            "financial_distress",
+            "fraud_accounting_enforcement",
+            "clinical_regulatory_binary",
+            "product_safety_recall",
+            "leadership_scandal",
+            "dilutive_financing",
+            "geopolitical_sanctions_exposure",
+            "negative_earnings_catalyst",
+        }:
+            return "partial_reversion"
+        if category in {"positive_earnings_catalyst", "ma_corporate_action"}:
+            return "momentum_extension"
+        return "full_reversion"
+
     def _get_default_config(self) -> Dict:
         """Get default configuration"""
         return {
@@ -110,23 +157,17 @@ class SignalGenerator:
             }
         }
 
-    def generate_buy_signal(self, analysis: Dict) -> Optional[Dict]:
-        """
-        Generate a buy signal from breach analysis
+    @staticmethod
+    def _resolve_config_path(config_path: str) -> str:
+        """Resolve relative config path from this module location."""
+        if os.path.isabs(config_path):
+            return config_path
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        return os.path.abspath(os.path.join(base_dir, config_path))
 
-        Conditions:
-        1. Stock is oversold (RSI < 30) OR recently had significant drop
-        2. There was volume spike at breach
-        3. Not in recovery phase yet (optional)
-
-        Args:
-            analysis: Stock analysis result from StockAnalyzer
-
-        Returns:
-            dict: Signal if conditions met, None otherwise
-        """
+    def _evaluate_buy_signal(self, analysis: Dict) -> Tuple[Optional[Dict], str]:
         if 'error' in analysis:
-            return None
+            return None, "analysis_error"
 
         ticker = analysis.get('ticker')
         event_category = analysis.get('event_category', '') or ''
@@ -136,105 +177,169 @@ class SignalGenerator:
         volume_threshold = float(thresholds.get('volume_spike_threshold', 1.5))
         require_drop_48h = bool(thresholds.get('require_drop_within_48h', True))
         drop_48h_threshold = float(thresholds.get('drop_within_48h_threshold', 1.0))
+        min_price = float(thresholds.get("min_price_for_signal", 2.5))
+        min_avg_volume = float(thresholds.get("min_avg_volume_for_signal", 300000))
 
-        # Condition 1: significant event-aligned dislocation and weak technical posture
+        current_price = self._to_float(analysis.get("current_price"), 0.0)
+        avg_volume_raw = analysis.get("avg_volume_20d")
+        if current_price < min_price:
+            return None, f"liquidity_price_floor_failed:{current_price:.2f}<{min_price:.2f}"
+        if avg_volume_raw not in (None, ""):
+            avg_volume_20d = self._to_float(avg_volume_raw, 0.0)
+        else:
+            avg_volume_20d = None
+        if avg_volume_20d is not None and avg_volume_20d < min_avg_volume:
+            return None, (
+                f"liquidity_volume_floor_failed:{avg_volume_20d:.0f}<{min_avg_volume:.0f}"
+            )
+
         rsi_value = analysis.get("event_rsi", analysis.get("current_rsi", 50))
-        rsi_oversold = analysis.get('rsi_oversold', rsi_value < rsi_threshold)
-        significant_drop = analysis.get('max_drop_pct', 0) >= drop_threshold
-        drop_48h_pct = float(analysis.get('drop_48h_pct', analysis.get('max_drop_pct', 0.0)))
+        if isinstance(rsi_value, (int, float)):
+            rsi_oversold = float(rsi_value) < rsi_threshold
+        else:
+            rsi_oversold = bool(analysis.get('rsi_oversold'))
+        significant_drop = self._to_float(analysis.get('max_drop_pct', 0), 0.0) >= drop_threshold
+        drop_48h_pct = self._to_float(
+            analysis.get('drop_48h_pct', analysis.get('max_drop_pct', 0.0)),
+            0.0,
+        )
         dropped_within_48h = drop_48h_pct >= drop_48h_threshold
         below_ma = bool(analysis.get('price_below_ma20'))
 
-        # Condition 2: Volume spike at event
-        volume_spike_at_event = analysis.get('volume_spike_at_event', analysis.get('volume_spike_at_breach', 0))
+        volume_spike_at_event = self._to_float(
+            analysis.get('volume_spike_at_event', analysis.get('volume_spike_at_breach', 0)),
+            0.0,
+        )
         volume_spike = volume_spike_at_event > volume_threshold
 
-        # Condition 3: Event has not fully recovered too quickly (avoid chasing stale rebounds)
         recovery_days_threshold = int(thresholds.get('recovery_days_threshold', 5))
         recovery_days = analysis.get('recovery_days')
         not_recovered_too_quickly = recovery_days is None or recovery_days >= recovery_days_threshold
 
-        # Determine if signal is generated (strict mode: require drop + volume + technical weakness)
-        generates_signal = (
-            significant_drop
-            and (dropped_within_48h or not require_drop_48h)
-            and volume_spike
-            and (rsi_oversold or below_ma)
-            and not_recovered_too_quickly
+        if not significant_drop:
+            return None, "price_drop_threshold_failed"
+        if require_drop_48h and not dropped_within_48h:
+            return None, "drop_within_48h_threshold_failed"
+        if not volume_spike:
+            return None, "volume_spike_threshold_failed"
+        if not (rsi_oversold or below_ma):
+            return None, "technical_weakness_condition_failed"
+        if not not_recovered_too_quickly:
+            return None, "fast_recovery_filter_failed"
+
+        min_catalyst = float(self.signal_config.get('min_catalyst_score_for_signal', 30))
+        ds = self._safe_score(analysis.get('distress_score', 0))
+        imp = self._safe_score(analysis.get('impact_score', 0))
+        catalyst_avg = (ds + imp) / 2.0
+        has_explicit_catalyst = ("distress_score" in analysis) or ("impact_score" in analysis)
+        if has_explicit_catalyst and catalyst_avg < min_catalyst:
+            return None, "min_catalyst_score_failed"
+
+        confidence_score = self._calculate_confidence(
+            analysis,
+            rsi_threshold=rsi_threshold,
+            rsi_oversold=rsi_oversold,
+            distress_score=self._safe_score(analysis.get("distress_score", 0)),
+            impact_score=self._safe_score(analysis.get("impact_score", 0)),
         )
 
-        if not generates_signal:
-            return None
-
-        # Calculate confidence
-        confidence_score = self._calculate_confidence(analysis)
-
-        return {
+        signal = {
             'ticker': ticker,
             'signal_type': 'BUY_OPPORTUNITY',
             'signal_date': datetime.now().isoformat(),
             'event_date': analysis.get('event_date', analysis.get('breach_date')),
-            'breach_date': analysis.get('event_date', analysis.get('breach_date')),  # Legacy compatibility
+            'breach_date': analysis.get('event_date', analysis.get('breach_date')),
             'event_category': analysis.get('event_category', ''),
             'price': analysis.get('current_price'),
             'pre_event_price': analysis.get('pre_event_price', analysis.get('pre_breach_price')),
-            'pre_breach_price': analysis.get('pre_event_price', analysis.get('pre_breach_price')),  # Legacy compatibility
+            'pre_breach_price': analysis.get('pre_event_price', analysis.get('pre_breach_price')),
             'rsi': analysis.get('event_rsi', analysis.get('current_rsi')),
             'max_drop_pct': analysis.get('max_drop_pct'),
             'drop_48h_pct': drop_48h_pct,
             'recovery_days': analysis.get('recovery_days'),
             'volume_spike_at_event': volume_spike_at_event,
             'volume_spike': volume_spike_at_event,
+            'distress_score': self._safe_score(analysis.get('distress_score', 0)),
+            'impact_score': self._safe_score(analysis.get('impact_score', 0)),
             'confidence': confidence_score,
             'confidence_level': self._get_confidence_level(confidence_score),
             'reasons': self._generate_reasons(analysis),
             'suggested_entry': self._calculate_entry_price(analysis),
             'suggested_stop_loss': self._calculate_stop_loss(analysis),
-            'risk_reward': self._calculate_risk_reward(analysis)
+            'risk_reward': self._calculate_risk_reward(analysis),
         }
+        return signal, "rule_passed"
 
-    def _calculate_confidence(self, analysis: Dict) -> float:
+    @staticmethod
+    def _to_float(value: Any, default: float = 0.0) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def generate_buy_signal(self, analysis: Dict) -> Optional[Dict]:
+        signal, _ = self._evaluate_buy_signal(analysis)
+        return signal
+
+    @staticmethod
+    def _safe_score(value: object, default: int = 0) -> int:
+        try:
+            return max(0, min(100, int(float(str(value).strip() or "0"))))
+        except (TypeError, ValueError):
+            return default
+
+    def _calculate_confidence(
+        self,
+        analysis: Dict,
+        *,
+        rsi_threshold: float,
+        rsi_oversold: bool,
+        distress_score: int = 0,
+        impact_score: int = 0,
+    ) -> float:
         """
-        Calculate confidence score 0-100
+        Calculate confidence score 0-100.
 
-        Args:
-            analysis: Stock analysis result
-
-        Returns:
-            float: Confidence score
+        70 pts max from technical factors (RSI, drop, volume, MA, recovery).
+        30 pts max from catalyst quality (distress + impact scores from triage).
         """
-        score = 0
+        raw_technical = 0
 
-        # RSI oversold is strong signal (25 points)
-        if analysis.get('rsi_oversold'):
-            score += 25
+        if rsi_oversold:
+            raw_technical += 25
+        else:
+            rsi_value = analysis.get("event_rsi", analysis.get("current_rsi"))
+            if isinstance(rsi_value, (int, float)) and float(rsi_value) <= (rsi_threshold + 3):
+                raw_technical += 10
 
-        # Significant drop is good signal (20 points)
         drop_pct = analysis.get('max_drop_pct', 0)
         if drop_pct > 10:
-            score += 20
+            raw_technical += 20
         elif drop_pct > 5:
-            score += 10
+            raw_technical += 10
 
-        # Volume spike confirms selling pressure (20 points)
         volume_spike = analysis.get('volume_spike_at_event', analysis.get('volume_spike_at_breach', 1.0))
         if volume_spike > 2.0:
-            score += 20
+            raw_technical += 20
         elif volume_spike > 1.5:
-            score += 10
+            raw_technical += 10
 
-        # Below moving average is good (15 points)
         if analysis.get('price_below_ma20'):
-            score += 15
+            raw_technical += 15
 
-        # Recently breached (recovery_days is None or small) (20 points)
         recovery = analysis.get('recovery_days')
         if recovery is None:
-            score += 20
+            raw_technical += 20
         elif recovery < 3:
-            score += 10
+            raw_technical += 10
 
-        return min(score, 100)
+        technical_score = int(min(raw_technical, 100) * 0.70)
+
+        ds = self._safe_score(distress_score or analysis.get("distress_score", 0))
+        imp = self._safe_score(impact_score or analysis.get("impact_score", 0))
+        catalyst_score = int(ds / 100.0 * 15) + int(imp / 100.0 * 15)
+
+        return min(technical_score + catalyst_score, 100)
 
     def _get_confidence_level(self, score: float) -> str:
         """
@@ -265,6 +370,11 @@ class SignalGenerator:
             list: Reasons for the signal
         """
         reasons = []
+
+        ds = self._safe_score(analysis.get("distress_score", 0))
+        imp = self._safe_score(analysis.get("impact_score", 0))
+        if ds > 0 or imp > 0:
+            reasons.append(f"Catalyst quality: distress {ds}/100, impact {imp}/100")
 
         rsi_for_signal = analysis.get("event_rsi", analysis.get("current_rsi"))
         if analysis.get('rsi_oversold') and isinstance(rsi_for_signal, (int, float)):
@@ -340,14 +450,27 @@ class SignalGenerator:
         current_price = analysis.get('current_price', 0)
         entry_price = self._calculate_entry_price(analysis)
         stop_loss = self._calculate_stop_loss(analysis)
-        pre_event_price = analysis.get('pre_event_price', analysis.get('pre_breach_price', current_price * 1.05))
+        pre_event_price = analysis.get(
+            'pre_event_price',
+            analysis.get('pre_breach_price', current_price * 1.05),
+        )
+        event_category = analysis.get('event_category', '')
 
         # Risk: from entry to stop loss
         risk = entry_price - stop_loss
         risk_pct = (risk / entry_price * 100) if entry_price > 0 else 0
 
-        # Reward: from entry to pre-event price (target)
-        reward = pre_event_price - entry_price
+        # Reward target is category-aware instead of one-size-fits-all full reversion.
+        template = self._category_target_template(event_category)
+        if template == "partial_reversion":
+            target_price = entry_price + (pre_event_price - entry_price) * 0.6
+        elif template == "momentum_extension":
+            target_price = max(pre_event_price, entry_price * 1.06)
+        else:
+            target_price = pre_event_price
+
+        # Reward: from entry to category template target
+        reward = target_price - entry_price
         reward_pct = (reward / entry_price * 100) if entry_price > 0 else 0
 
         # Risk/reward ratio
@@ -356,7 +479,8 @@ class SignalGenerator:
         return {
             'entry_price': entry_price,
             'stop_loss': stop_loss,
-            'target_price': pre_event_price,
+            'target_price': target_price,
+            'target_template': template,
             'risk_pct': risk_pct,
             'reward_pct': reward_pct,
             'risk_reward_ratio': ratio
@@ -380,6 +504,32 @@ class SignalGenerator:
                 signals.append(signal)
 
         return signals
+
+    def generate_signals_with_diagnostics(
+        self,
+        analyses: List[Dict],
+    ) -> Tuple[List[Dict], Dict[Tuple[str, str, str], Dict[str, Any]]]:
+        """
+        Generate candidate signals and include per-analysis gate diagnostics.
+        """
+        signals: List[Dict] = []
+        diagnostics: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
+        for analysis in analyses:
+            key = self._analysis_key(analysis)
+            signal, reason = self._evaluate_buy_signal(analysis)
+            if signal is not None:
+                diagnostics[key] = {
+                    "decision": "RULE_PASSED",
+                    "reason": reason,
+                    "confidence": signal.get("confidence", ""),
+                }
+                signals.append(signal)
+            else:
+                diagnostics[key] = {
+                    "decision": "RULE_REJECTED",
+                    "reason": reason,
+                }
+        return signals, diagnostics
 
     def rank_signals(self, signals: List[Dict]) -> List[Dict]:
         """
@@ -425,7 +575,7 @@ class SignalGenerator:
             print("No buy signals generated")
             return
 
-        print("Sorted by rank score (confidence + capped risk/reward)")
+        print("Sorted by rank score (confidence + risk/reward + catalyst quality)")
         for i, signal in enumerate(signals, 1):
             print(f"\n{i}. {signal['ticker']} - {signal['confidence_level']} confidence")
             print("-"*40)
@@ -439,6 +589,10 @@ class SignalGenerator:
             print(f"   Stop Loss:           ${signal['suggested_stop_loss']:.2f}")
             print(f"   Target (Pre-event):  ${target_price_value:.2f}")
             print(f"   Confidence Score:    {signal['confidence']:.1f}/100")
+            ds = signal.get('distress_score', signal.get('triage_distress_score_used', ''))
+            imp = signal.get('impact_score', signal.get('triage_impact_score_used', ''))
+            if ds or imp:
+                print(f"   Catalyst Quality:    distress {ds}/100, impact {imp}/100")
             print(f"   Risk/Reward Ratio:   {signal['risk_reward']['risk_reward_ratio']:.2f}:1")
             print(f"   Rank Score:          {compute_signal_rank_score(signal):.1f}")
 

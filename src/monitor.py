@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from alert_manager import AlertManager
 from main import CatastropheAnalyzerApp
+from config_loader import SettingsValidationError
 
 
 def main() -> None:
@@ -27,7 +28,11 @@ def main() -> None:
     # Make relative paths inside modules predictable
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-    app = CatastropheAnalyzerApp()
+    try:
+        app = CatastropheAnalyzerApp()
+    except SettingsValidationError as exc:
+        print(f"Configuration error: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
     try:
         vmode = getattr(app.entity_extractor, "_validation_mode", "?")
     except Exception:

@@ -4,14 +4,39 @@ Collects event-related news from configured RSS sources
 """
 
 import os
-import feedparser
+import time
 from calendar import timegm
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Tuple
 from urllib.parse import urlparse, urlunparse
 import json
+from email.utils import parsedate_to_datetime
 
-from dateutil import parser as date_parser
+from text_match import keyword_in_text
+from config_loader import load_settings
+
+try:
+    from dateutil import parser as date_parser
+except ImportError:
+    class _DateParserFallback:
+        @staticmethod
+        def parse(value: str):
+            try:
+                return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            except (TypeError, ValueError):
+                return parsedate_to_datetime(str(value))
+
+    date_parser = _DateParserFallback()
+
+try:
+    import feedparser
+except ImportError:
+    class _FeedParserFallback:
+        @staticmethod
+        def parse(*args, **kwargs):
+            raise ImportError("feedparser is required for RSS parsing")
+
+    feedparser = _FeedParserFallback()
 
 
 class NewsScraper:
@@ -19,19 +44,14 @@ class NewsScraper:
     Scrapes configured news sources for event-category-specific articles
     """
 
-    def __init__(self, config_path: str = "../config/settings.json"):
+    def __init__(self, config_path: str = "../config/settings.json", settings: Dict | None = None):
         """
         Initialize scraper with configuration
 
         Args:
             config_path: Path to settings.json configuration file
         """
-        try:
-            with open(config_path, 'r') as f:
-                self.config = json.load(f)
-        except FileNotFoundError:
-            # Use default config if file not found
-            self.config = self._get_default_config()
+        self.config = settings if settings is not None else load_settings(self._resolve_config_path(config_path))
 
         self.event_categories = self.config.get("event_categories", {})
         if not self.event_categories:
@@ -56,6 +76,20 @@ class NewsScraper:
             "User-Agent": ua[:500],
             "Accept": "application/rss+xml, application/xml;q=0.9, */*;q=0.8",
         }
+        self._retry_on_failure = bool(scraping.get("retry_on_failure", True))
+        try:
+            self._max_retries = max(0, int(scraping.get("max_retries", 0)))
+        except (TypeError, ValueError):
+            self._max_retries = 0
+        try:
+            self._retry_backoff_seconds = max(0.0, float(scraping.get("retry_backoff_seconds", 1.0)))
+        except (TypeError, ValueError):
+            self._retry_backoff_seconds = 1.0
+        self._drop_unparseable_published = bool(scraping.get("drop_unparseable_published", True))
+        try:
+            self._max_article_age_hours = float(scraping.get("max_article_age_hours", 0))
+        except (TypeError, ValueError):
+            self._max_article_age_hours = 0.0
 
     def _get_default_config(self) -> Dict:
         """Get default configuration"""
@@ -109,6 +143,14 @@ class NewsScraper:
                 "hours_back": 24
             }
         }
+
+    @staticmethod
+    def _resolve_config_path(config_path: str) -> str:
+        """Resolve relative config path from this module location."""
+        if os.path.isabs(config_path):
+            return config_path
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        return os.path.abspath(os.path.join(base_dir, config_path))
 
     def _scraping_limits(self) -> Tuple[int, int]:
         """Return (max_results_per_source, timeout_seconds) from config."""
@@ -187,41 +229,55 @@ class NewsScraper:
         """
         articles = []
 
-        try:
-            print(f"Fetching {source_name}...", end="")
-            feed = feedparser.parse(feed_url, request_headers=self._feed_request_headers)
+        max_attempts = 1 + self._max_retries if self._retry_on_failure else 1
+        print(f"Fetching {source_name}...", end="")
+        for attempt in range(1, max_attempts + 1):
+            try:
+                feed = feedparser.parse(feed_url, request_headers=self._feed_request_headers)
+                if getattr(feed, "bozo", False) and getattr(feed, "bozo_exception", None):
+                    raise RuntimeError(str(feed.bozo_exception))
 
-            if not feed.entries:
-                print(" No articles found")
+                if not feed.entries:
+                    print(" No articles found")
+                    return articles
+
+                entries = feed.entries[: max(1, max_entries)]
+
+                # Look for breach-related articles
+                for entry in entries:
+                    title = entry.get('title', '').lower()
+                    summary = entry.get('summary', '').lower()
+                    content = f"{title} {summary}".lower()
+
+                    if any(keyword_in_text(keyword, content) for keyword in keywords):
+                        published_iso = self._entry_published_iso(entry)
+                        articles.append({
+                            'source': source_name,
+                            'event_category': event_category,
+                            'title': entry.get('title', 'N/A'),
+                            'link': entry.get('link', ''),
+                            'published': published_iso,
+                            'summary': entry.get('summary', ''),
+                            'date_fetched': datetime.now().isoformat(),
+                            'content_preview': content[:500]
+                        })
+
+                if attempt > 1:
+                    print(f" recovered on attempt {attempt}; found {len(articles)} relevant articles")
+                else:
+                    print(f" Found {len(articles)} relevant articles")
+                return articles
+            except Exception as e:
+                should_retry = attempt < max_attempts
+                if should_retry:
+                    print(f" attempt {attempt}/{max_attempts} failed ({e}); retrying...", end="")
+                    if self._retry_backoff_seconds > 0:
+                        time.sleep(self._retry_backoff_seconds * attempt)
+                    continue
+                print(f" Error fetching feed: {e}")
                 return articles
 
-            entries = feed.entries[: max(1, max_entries)]
-
-            # Look for breach-related articles
-            for entry in entries:
-                title = entry.get('title', '').lower()
-                summary = entry.get('summary', '').lower()
-                content = f"{title} {summary}".lower()
-
-                if any(keyword in content for keyword in keywords):
-                    published_iso = self._entry_published_iso(entry)
-                    articles.append({
-                        'source': source_name,
-                        'event_category': event_category,
-                        'title': entry.get('title', 'N/A'),
-                        'link': entry.get('link', ''),
-                        'published': published_iso,
-                        'summary': entry.get('summary', ''),
-                        'date_fetched': datetime.now().isoformat(),
-                        'content_preview': content[:500]
-                    })
-
-            print(f" Found {len(articles)} relevant articles")
-            return articles
-
-        except Exception as e:
-            print(f" Error fetching feed: {e}")
-            return articles
+        return articles
 
     def scrape_all_sources(self) -> List[Dict]:
         """
@@ -300,7 +356,10 @@ class NewsScraper:
         Returns:
             list: Articles from the past N hours
         """
-        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+        effective_hours = float(max(1, int(hours)))
+        if self._max_article_age_hours > 0:
+            effective_hours = min(effective_hours, self._max_article_age_hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=effective_hours)
         recent = []
 
         for article in articles:
@@ -321,8 +380,8 @@ class NewsScraper:
                     if pub_date > cutoff_time:
                         recent.append(article)
                 except (ValueError, TypeError, OverflowError):
-                    # If date parsing fails, include the article anyway
-                    recent.append(article)
+                    if not self._drop_unparseable_published:
+                        recent.append(article)
 
         return recent
 
@@ -381,7 +440,7 @@ class NewsScraper:
 
             keywords = self._get_category_keywords(article.get("event_category", "cybersecurity"))
             for keyword in keywords:
-                if keyword in content:
+                if keyword_in_text(keyword, content):
                     stats['breach_keywords_found'][keyword] = \
                         stats['breach_keywords_found'].get(keyword, 0) + 1
 

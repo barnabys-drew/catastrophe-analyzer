@@ -1079,16 +1079,16 @@
     "volume_spike_threshold": 2.0,
     "min_price_for_signal": 2.5,
     "min_avg_volume_for_signal": 300000,
-    "min_confidence_for_signal": 0.7,
+    "min_confidence_for_signal": 0.65,
     "min_catalyst_score_for_signal": 30,
     "by_category": {
       "cybersecurity": {
         "rsi_oversold_threshold": 28,
-        "price_drop_threshold": 15,
+        "price_drop_threshold": 13,
         "require_drop_within_48h": true,
-        "drop_within_48h_threshold": 1.5,
+        "drop_within_48h_threshold": 1.1,
         "recovery_days_threshold": 5,
-        "volume_spike_threshold": 2.0
+        "volume_spike_threshold": 1.8
       },
       "clinical_regulatory_binary": {
         "rsi_oversold_threshold": 30,
@@ -1100,59 +1100,59 @@
       },
       "product_safety_recall": {
         "rsi_oversold_threshold": 27,
-        "price_drop_threshold": 18,
+        "price_drop_threshold": 16,
         "require_drop_within_48h": true,
-        "drop_within_48h_threshold": 2.0,
+        "drop_within_48h_threshold": 1.5,
         "recovery_days_threshold": 6,
-        "volume_spike_threshold": 2.2
+        "volume_spike_threshold": 2.0
       },
       "fraud_accounting_enforcement": {
         "rsi_oversold_threshold": 29,
-        "price_drop_threshold": 14,
-        "require_drop_within_48h": true,
-        "drop_within_48h_threshold": 1.5,
-        "recovery_days_threshold": 5,
-        "volume_spike_threshold": 2.0
-      },
-      "supply_chain_disruption": {
-        "rsi_oversold_threshold": 29,
-        "price_drop_threshold": 13,
-        "require_drop_within_48h": true,
-        "drop_within_48h_threshold": 1.4,
-        "recovery_days_threshold": 5,
-        "volume_spike_threshold": 1.9
-      },
-      "financial_distress": {
-        "rsi_oversold_threshold": 26,
-        "price_drop_threshold": 20,
-        "require_drop_within_48h": true,
-        "drop_within_48h_threshold": 2.3,
-        "recovery_days_threshold": 7,
-        "volume_spike_threshold": 2.4
-      },
-      "dilutive_financing": {
-        "rsi_oversold_threshold": 28,
         "price_drop_threshold": 12,
-        "require_drop_within_48h": true,
-        "drop_within_48h_threshold": 1.3,
-        "recovery_days_threshold": 5,
-        "volume_spike_threshold": 2.0
-      },
-      "ma_corporate_action": {
-        "rsi_oversold_threshold": 31,
-        "price_drop_threshold": 10,
-        "require_drop_within_48h": true,
-        "drop_within_48h_threshold": 1.1,
-        "recovery_days_threshold": 4,
-        "volume_spike_threshold": 1.8
-      },
-      "leadership_scandal": {
-        "rsi_oversold_threshold": 29,
-        "price_drop_threshold": 11,
         "require_drop_within_48h": true,
         "drop_within_48h_threshold": 1.2,
         "recovery_days_threshold": 5,
-        "volume_spike_threshold": 1.9
+        "volume_spike_threshold": 1.8
+      },
+      "supply_chain_disruption": {
+        "rsi_oversold_threshold": 29,
+        "price_drop_threshold": 11,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.1,
+        "recovery_days_threshold": 5,
+        "volume_spike_threshold": 1.7
+      },
+      "financial_distress": {
+        "rsi_oversold_threshold": 26,
+        "price_drop_threshold": 17,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.8,
+        "recovery_days_threshold": 7,
+        "volume_spike_threshold": 2.2
+      },
+      "dilutive_financing": {
+        "rsi_oversold_threshold": 28,
+        "price_drop_threshold": 10,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.0,
+        "recovery_days_threshold": 5,
+        "volume_spike_threshold": 1.7
+      },
+      "ma_corporate_action": {
+        "rsi_oversold_threshold": 31,
+        "price_drop_threshold": 8,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 0.8,
+        "recovery_days_threshold": 4,
+        "volume_spike_threshold": 1.6
+      },
+      "leadership_scandal": {
+        "rsi_oversold_threshold": 29,
+        "price_drop_threshold": 9,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 0.9,
+        "recovery_days_threshold": 5,
+        "volume_spike_threshold": 1.7
       },
       "positive_earnings_catalyst": {
         "rsi_oversold_threshold": 36,
@@ -1164,19 +1164,19 @@
       },
       "geopolitical_sanctions_exposure": {
         "rsi_oversold_threshold": 28,
-        "price_drop_threshold": 16,
+        "price_drop_threshold": 14,
         "require_drop_within_48h": true,
-        "drop_within_48h_threshold": 1.8,
+        "drop_within_48h_threshold": 1.3,
         "recovery_days_threshold": 6,
-        "volume_spike_threshold": 2.5
+        "volume_spike_threshold": 2.2
       },
       "negative_earnings_catalyst": {
         "rsi_oversold_threshold": 30,
-        "price_drop_threshold": 8,
+        "price_drop_threshold": 6,
         "require_drop_within_48h": true,
-        "drop_within_48h_threshold": 6,
+        "drop_within_48h_threshold": 1.2,
         "recovery_days_threshold": 5,
-        "volume_spike_threshold": 2.0
+        "volume_spike_threshold": 1.7
       }
     },
     "confidence_levels": {
@@ -1206,14 +1206,23 @@
     "enabled": true,
     "min_impact_score_for_alert": 60,
     "min_distress_score_for_alert": 35,
-    "min_impact_score_for_signal": 75,
-    "min_distress_score_for_signal": 60,
+    "min_impact_score_for_signal": 70,
+    "min_distress_score_for_signal": 55,
     "duplicate_alert_suppression_hours": 6,
     "agent_enabled": true,
     "agent_timeout_seconds": 8,
     "fallback_to_deterministic": true,
     "agent_endpoint": "",
     "agent_api_key": ""
+  },
+  "dashboard_readiness": {
+    "enabled": true,
+    "window_days": 7,
+    "min_total_signals": 5,
+    "min_categories_with_signals": 3,
+    "min_event_to_signal_rate_pct": 2.0,
+    "min_analysis_to_signal_rate_pct": 8.0,
+    "required_consecutive_passes": 2
   },
 
   "stock_analysis": {

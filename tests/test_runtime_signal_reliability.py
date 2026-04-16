@@ -97,6 +97,23 @@ class _FakeSignalGenerator:
     def filter_signals(signals, min_confidence=0.7):
         return signals
 
+    @staticmethod
+    def generate_signals_with_diagnostics(analyses):
+        signals = _FakeSignalGenerator.generate_signals_batch(analyses)
+        diagnostics = {}
+        for signal in signals:
+            key = (
+                signal.get("ticker", ""),
+                signal.get("event_date", signal.get("breach_date", "")),
+                signal.get("event_category", ""),
+            )
+            diagnostics[key] = {
+                "decision": "RULE_PASSED",
+                "reason": "rule_passed",
+                "confidence": signal.get("confidence", ""),
+            }
+        return signals, diagnostics
+
 
 class RuntimeSignalReliabilityTests(unittest.TestCase):
     def test_triage_keyed_fetch_returns_only_requested_rows(self):
@@ -145,6 +162,11 @@ class RuntimeSignalReliabilityTests(unittest.TestCase):
         self.assertEqual(summary["signals_after_triage_gate"], 0)
         self.assertEqual(summary["signals_saved"], 0)
         self.assertEqual(summary["signals_generated"], 0)
+        dropoff = summary.get("dropoff_breakdown", {})
+        self.assertEqual(dropoff.get("watches_considered"), 1)
+        self.assertEqual(dropoff.get("rule_passed_candidates"), 1)
+        self.assertEqual(dropoff.get("triage_rejected"), 1)
+        self.assertEqual(summary.get("gate_rejections_by_reason", {}).get("triage_threshold_failed"), 1)
 
     def test_signal_passes_when_triage_impact_and_distress_are_present(self):
         app = CatastropheAnalyzerApp.__new__(CatastropheAnalyzerApp)
@@ -175,6 +197,9 @@ class RuntimeSignalReliabilityTests(unittest.TestCase):
         self.assertEqual(summary["signals_after_triage_gate"], 1)
         self.assertEqual(summary["signals_saved"], 1)
         self.assertEqual(summary["signals_generated"], 1)
+        category_summary = summary.get("category_gate_summary", {}).get("cybersecurity", {})
+        self.assertEqual(category_summary.get("signals_saved"), 1)
+        self.assertEqual(category_summary.get("signals_after_triage_gate"), 1)
 
 
 if __name__ == "__main__":

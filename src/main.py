@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 import json
 import io
 import contextlib
+from collections import defaultdict
 from email.utils import parsedate_to_datetime
 from typing import Dict, List, Optional
 
@@ -1505,8 +1506,48 @@ class CatastropheAnalyzerApp:
         """
         watch_cfg = self.settings.get("event_watch", self.settings.get("breach_watch", {}))
         max_days = int(watch_cfg.get("max_days", 7))
+        dropoff_breakdown: Dict[str, int] = {
+            "active_watches_total": 0,
+            "skipped_already_signaled": 0,
+            "skipped_invalid_watch": 0,
+            "watches_considered": 0,
+            "analyses_requested": 0,
+            "analyses_returned": 0,
+            "analysis_errors": 0,
+            "rule_rejected": 0,
+            "rule_passed_candidates": 0,
+            "confidence_rejected": 0,
+            "triage_rejected": 0,
+            "duplicate_signal_skipped": 0,
+            "signals_saved": 0,
+        }
+        category_gate_summary: Dict[str, Dict[str, int]] = {}
+        gate_rejections_by_reason: Dict[str, int] = defaultdict(int)
+
+        def _bucket_for_category(category: str) -> Dict[str, int]:
+            key = (category or "uncategorized").strip() or "uncategorized"
+            if key not in category_gate_summary:
+                category_gate_summary[key] = {
+                    "watches_considered": 0,
+                    "rule_passed_candidates": 0,
+                    "signals_after_confidence_gate": 0,
+                    "signals_after_triage_gate": 0,
+                    "signals_saved": 0,
+                    "rule_rejected": 0,
+                    "confidence_rejected": 0,
+                    "triage_rejected": 0,
+                }
+            return category_gate_summary[key]
+
+        def _track_reason(reason: str) -> None:
+            normalized = (reason or "unknown").strip()
+            if not normalized:
+                normalized = "unknown"
+            reason_key = normalized.split(":", 1)[0]
+            gate_rejections_by_reason[reason_key] += 1
 
         active_watches = self.db.get_active_watches(max_days=max_days)
+        dropoff_breakdown["active_watches_total"] = len(active_watches)
         if not active_watches:
             return {
                 "watches_checked": 0,
@@ -1516,6 +1557,9 @@ class CatastropheAnalyzerApp:
                 "signals_after_triage_gate": 0,
                 "signals_saved": 0,
                 "new_signals": [],
+                "dropoff_breakdown": dropoff_breakdown,
+                "gate_rejections_by_reason": {},
+                "category_gate_summary": category_gate_summary,
             }
 
         # Don't spam with repeated signals
@@ -1545,17 +1589,23 @@ class CatastropheAnalyzerApp:
         watch_context_by_key = {}
         for w in active_watches:
             status = (w.get("status") or "").upper()
+            category = w.get("event_category", "")
             if status == "SIGNAL_CREATED":
                 # Already signaled; still update timestamp but don't re-signal.
+                dropoff_breakdown["skipped_already_signaled"] += 1
                 self.db.mark_watch_last_checked(w.get("ticker", ""), w.get("event_date", w.get("breach_date", "")))
                 continue
 
             ticker = w.get("ticker", "")
             event_date = w.get("event_date", w.get("breach_date", ""))
-            event_category = w.get("event_category", "")
+            event_category = category
             if not ticker or not event_date:
+                dropoff_breakdown["skipped_invalid_watch"] += 1
                 continue
 
+            dropoff_breakdown["watches_considered"] += 1
+            category_bucket = _bucket_for_category(event_category)
+            category_bucket["watches_considered"] += 1
             watches_to_check.append(w)
             watch_context_by_key[(ticker, event_date, event_category)] = {
                 "company": w.get("company", ""),
@@ -1573,6 +1623,7 @@ class CatastropheAnalyzerApp:
                     "event_category": event_category,
                 }
             )
+        dropoff_breakdown["analyses_requested"] = len(analyses_requests)
 
         if not analyses_requests:
             return {
@@ -1583,9 +1634,13 @@ class CatastropheAnalyzerApp:
                 "signals_after_triage_gate": 0,
                 "signals_saved": 0,
                 "new_signals": [],
+                "dropoff_breakdown": dropoff_breakdown,
+                "gate_rejections_by_reason": dict(gate_rejections_by_reason),
+                "category_gate_summary": category_gate_summary,
             }
 
         analyses = self.stock_analyzer.batch_analyze(analyses_requests)
+        dropoff_breakdown["analyses_returned"] = len(analyses)
 
         # Load triage context early so distress/impact scores can feed into
         # signal confidence (not just persistence gates).
@@ -1616,6 +1671,8 @@ class CatastropheAnalyzerApp:
                 analysis.get("event_date", analysis.get("breach_date", "")),
                 analysis.get("event_category", ""),
             )
+            if "error" in analysis:
+                dropoff_breakdown["analysis_errors"] += 1
             t_ctx = triage_context_by_key.get(a_key, {})
             w_ctx = watch_context_by_key.get(a_key, {})
             if "distress_score" not in analysis or not analysis["distress_score"]:
@@ -1626,6 +1683,16 @@ class CatastropheAnalyzerApp:
                 analysis["impact_score"] = t_ctx.get("impact_score") or 0
 
         signals, signal_diagnostics = self.signal_generator.generate_signals_with_diagnostics(analyses)
+        for event_key, diagnostic in signal_diagnostics.items():
+            if diagnostic.get("decision") != "RULE_REJECTED":
+                continue
+            dropoff_breakdown["rule_rejected"] += 1
+            _track_reason(diagnostic.get("reason", "rule_rejected"))
+            _bucket_for_category(event_key[2])["rule_rejected"] += 1
+        dropoff_breakdown["rule_passed_candidates"] = len(signals)
+        for signal in signals:
+            signal_category = signal.get("event_category", "")
+            _bucket_for_category(signal_category)["rule_passed_candidates"] += 1
         ranked_signals = self.signal_generator.rank_signals(signals)
 
         min_conf = self.signal_generator.signal_config.get('min_confidence_for_signal', 0.4)
@@ -1651,12 +1718,17 @@ class CatastropheAnalyzerApp:
                 )
                 if event_key in kept_keys:
                     continue
+                dropoff_breakdown["confidence_rejected"] += 1
                 signal_diagnostics[event_key] = {
                     "decision": "CONFIDENCE_REJECTED",
                     "reason": f"confidence_below_floor:{signal.get('confidence', 0)}<{min_conf}",
                     "confidence": signal.get("confidence", ""),
                 }
+                _track_reason(signal_diagnostics[event_key]["reason"])
+                _bucket_for_category(event_key[2])["confidence_rejected"] += 1
         signals_after_confidence_gate = len(ranked_signals)
+        for signal in ranked_signals:
+            _bucket_for_category(signal.get("event_category", ""))["signals_after_confidence_gate"] += 1
 
         def _score_to_int(value: object) -> int:
             try:
@@ -1736,16 +1808,22 @@ class CatastropheAnalyzerApp:
                     ),
                     "confidence": signal.get("confidence", ""),
                 }
+                dropoff_breakdown["triage_rejected"] += 1
+                _track_reason(signal_diagnostics[event_key]["reason"])
+                _bucket_for_category(event_key[2])["triage_rejected"] += 1
                 continue
             signals_after_triage_gate += 1
             signal["triage_impact_score_used"] = impact_score
             signal["triage_distress_score_used"] = distress_score
+            _bucket_for_category(event_key[2])["signals_after_triage_gate"] += 1
             if s_key in existing_signal_keys:
                 signal_diagnostics[event_key] = {
                     "decision": "DUPLICATE_SIGNAL_SKIPPED",
                     "reason": "existing_signal_key",
                     "confidence": signal.get("confidence", ""),
                 }
+                dropoff_breakdown["duplicate_signal_skipped"] += 1
+                _track_reason(signal_diagnostics[event_key]["reason"])
                 continue
             if self.db.add_signal(signal):
                 saved_signals += 1
@@ -1760,6 +1838,7 @@ class CatastropheAnalyzerApp:
                     signal.get("ticker", ""),
                     signal.get("event_date", signal.get("breach_date", "")),
                 )
+                _bucket_for_category(event_key[2])["signals_saved"] += 1
 
         # Save analysis metrics after all signal gates for final decision visibility.
         for analysis in analyses:
@@ -1801,6 +1880,36 @@ class CatastropheAnalyzerApp:
             except ValueError:
                 continue
 
+        dropoff_breakdown["signals_saved"] = saved_signals
+
+        def _pct(num: int, den: int) -> float:
+            if den <= 0:
+                return 0.0
+            return round((num / den) * 100.0, 1)
+
+        dropoff_rates = {
+            "watch_to_rule_pass_rate_pct": _pct(
+                dropoff_breakdown["rule_passed_candidates"],
+                dropoff_breakdown["watches_considered"],
+            ),
+            "rule_to_confidence_rate_pct": _pct(
+                signals_after_confidence_gate,
+                dropoff_breakdown["rule_passed_candidates"],
+            ),
+            "confidence_to_triage_rate_pct": _pct(
+                signals_after_triage_gate,
+                signals_after_confidence_gate,
+            ),
+            "triage_to_saved_rate_pct": _pct(
+                saved_signals,
+                signals_after_triage_gate,
+            ),
+            "watch_to_saved_rate_pct": _pct(
+                saved_signals,
+                dropoff_breakdown["watches_considered"],
+            ),
+        }
+
         return {
             "watches_checked": len(watches_to_check),
             "signals_generated": signals_after_triage_gate,
@@ -1809,6 +1918,10 @@ class CatastropheAnalyzerApp:
             "signals_after_triage_gate": signals_after_triage_gate,
             "signals_saved": saved_signals,
             "new_signals": new_signals,
+            "dropoff_breakdown": dropoff_breakdown,
+            "dropoff_rates": dropoff_rates,
+            "gate_rejections_by_reason": dict(sorted(gate_rejections_by_reason.items())),
+            "category_gate_summary": category_gate_summary,
         }
 
     def run_one_cycle(self, quiet: bool = False) -> Dict:
@@ -1835,6 +1948,10 @@ class CatastropheAnalyzerApp:
             "signals_after_triage_gate": update_summary.get("signals_after_triage_gate", 0),
             "signals_saved": update_summary.get("signals_saved", 0),
             "new_signals": update_summary.get("new_signals", []),
+            "dropoff_breakdown": update_summary.get("dropoff_breakdown", {}),
+            "dropoff_rates": update_summary.get("dropoff_rates", {}),
+            "gate_rejections_by_reason": update_summary.get("gate_rejections_by_reason", {}),
+            "category_gate_summary": update_summary.get("category_gate_summary", {}),
         }
 
     def scan_events(self) -> None:

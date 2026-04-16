@@ -81,6 +81,15 @@ def _require_non_negative_number(section: Dict[str, Any], key: str, section_name
     return numeric
 
 
+def _optional_dict(settings: Dict[str, Any], key: str) -> Dict[str, Any]:
+    value = settings.get(key, {})
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise SettingsValidationError(f"Invalid settings section '{key}': expected object")
+    return value
+
+
 def _enabled_categories(event_categories: Dict[str, Any]) -> List[str]:
     enabled = []
     for name, cfg in event_categories.items():
@@ -196,6 +205,29 @@ def validate_runtime_settings(settings: Dict[str, Any]) -> None:
                     "min_avg_volume_for_signal",
                     f"signals.by_category.{category}",
                 )
+
+    dashboard_readiness = _optional_dict(settings, "dashboard_readiness")
+    if dashboard_readiness:
+        if dashboard_readiness.get("window_days") is not None:
+            _require_positive_number(
+                dashboard_readiness,
+                "window_days",
+                "dashboard_readiness",
+            )
+        if dashboard_readiness.get("required_consecutive_passes") is not None:
+            _require_positive_number(
+                dashboard_readiness,
+                "required_consecutive_passes",
+                "dashboard_readiness",
+            )
+        for key in (
+            "min_total_signals",
+            "min_categories_with_signals",
+            "min_event_to_signal_rate_pct",
+            "min_analysis_to_signal_rate_pct",
+        ):
+            if dashboard_readiness.get(key) is not None:
+                _require_non_negative_number(dashboard_readiness, key, "dashboard_readiness")
 
 
 def load_and_validate_runtime_settings(config_path: str) -> Dict[str, Any]:

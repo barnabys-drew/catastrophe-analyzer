@@ -80,6 +80,17 @@ class RuntimeDeliveryGuardrailTests(unittest.TestCase):
         def __init__(self, repo_root: str):
             self.repo_root = repo_root
             self.db = RuntimeDeliveryGuardrailTests._FakeDb()
+            self.settings = {
+                "dashboard_readiness": {
+                    "enabled": True,
+                    "window_days": 7,
+                    "min_total_signals": 1,
+                    "min_categories_with_signals": 1,
+                    "min_event_to_signal_rate_pct": 0.0,
+                    "min_analysis_to_signal_rate_pct": 0.0,
+                    "required_consecutive_passes": 1,
+                }
+            }
 
         def run_one_cycle(self, quiet=False):
             return {
@@ -88,6 +99,10 @@ class RuntimeDeliveryGuardrailTests(unittest.TestCase):
                     {"event_key": "evt-failed", "ticker": "BBB"},
                 ],
                 "new_signals": [{"ticker": "AAA"}],
+                "dropoff_breakdown": {"watches_considered": 2, "signals_saved": 1},
+                "dropoff_rates": {"watch_to_saved_rate_pct": 50.0},
+                "gate_rejections_by_reason": {"triage_threshold_failed": 1},
+                "category_gate_summary": {"cybersecurity": {"signals_saved": 1}},
             }
 
     class _FakeAlerts:
@@ -122,6 +137,13 @@ class RuntimeDeliveryGuardrailTests(unittest.TestCase):
             self.assertEqual(metrics.get("high_value_events_detected"), 2)
             self.assertEqual(metrics.get("high_value_events_delivered"), 1)
             self.assertEqual(metrics.get("high_value_events_marked_sent"), 1)
+            self.assertIn("dashboard_readiness", metrics)
+            self.assertIn("dropoff_breakdown", metrics)
+
+            snapshot_path = Path(tmp) / "data" / "signal_quality_weekly_snapshot.json"
+            readiness_path = Path(tmp) / "data" / "dashboard_readiness_state.json"
+            self.assertTrue(snapshot_path.exists())
+            self.assertTrue(readiness_path.exists())
 
 
 class ScraperRetryTests(unittest.TestCase):

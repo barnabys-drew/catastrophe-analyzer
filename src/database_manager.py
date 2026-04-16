@@ -41,6 +41,10 @@ class DatabaseManager:
         "recovery_days",
         "current_rsi",
         "volume_spike_at_event",
+        "avg_volume_20d",
+        "signal_decision",
+        "signal_decision_reason",
+        "signal_confidence_snapshot",
         "analysis_date",
     ]
 
@@ -280,6 +284,10 @@ class DatabaseManager:
             "volume_spike_at_event": row.get("volume_spike_at_event")
             or row.get("volume_spike_at_breach")
             or "",
+            "avg_volume_20d": row.get("avg_volume_20d", ""),
+            "signal_decision": row.get("signal_decision", ""),
+            "signal_decision_reason": row.get("signal_decision_reason", ""),
+            "signal_confidence_snapshot": row.get("signal_confidence_snapshot", ""),
             "analysis_date": row.get("analysis_date") or datetime.now().isoformat(),
         }
 
@@ -570,6 +578,30 @@ class DatabaseManager:
             if row.get("event_key") not in key_set:
                 continue
             row["alert_state"] = "SENT"
+            row["last_alerted_at"] = now_iso
+            row["last_seen_at"] = now_iso
+            updated += 1
+        if updated:
+            self._write_csv(self.triage_file, fieldnames or self.TRIAGE_FIELDS, rows)
+        return updated
+
+    def mark_triage_alert_attempted(self, event_keys: List[str]) -> int:
+        """
+        Stamp last_alerted_at for attempted deliveries without changing alert_state.
+        """
+        if not event_keys:
+            return 0
+        key_set = {k.strip() for k in event_keys if k and k.strip()}
+        if not key_set:
+            return 0
+        fieldnames, rows = self._read_csv(self.triage_file)
+        if not rows:
+            return 0
+        now_iso = datetime.now().isoformat()
+        updated = 0
+        for row in rows:
+            if row.get("event_key") not in key_set:
+                continue
             row["last_alerted_at"] = now_iso
             row["last_seen_at"] = now_iso
             updated += 1

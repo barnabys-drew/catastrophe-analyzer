@@ -415,7 +415,13 @@ class StockAnalyzer:
         dates = history['dates']
         volumes = history['volumes']
 
-        # Find event date index (approximate - use date closest to event)
+        _error_base = {
+            'ticker': ticker,
+            'event_date': event_date,
+            'breach_date': event_date,
+            'event_category': event_category or '',
+        }
+
         event_idx = None
         try:
             event_datetime = datetime.strptime(event_date, '%Y-%m-%d')
@@ -425,28 +431,31 @@ class StockAnalyzer:
                     event_idx = i
                     break
         except ValueError:
-            event_idx = len(prices) // 3  # Default to 1/3 through data
+            return {**_error_base, 'error': 'Unparseable event_date'}
 
         if event_idx is None:
-            event_idx = len(prices) // 3
+            return {**_error_base, 'error': 'Event date is after all available price data'}
 
-        # Get price before event
-        pre_event_price = prices[max(0, event_idx - 5)]
-        event_anchor_price = prices[event_idx] if event_idx < len(prices) else prices[-1]
-        post_event_prices = prices[event_idx:min(event_idx + 30, len(prices))]
+        min_post_bars = 3
+        if event_idx >= len(prices) - min_post_bars:
+            return {**_error_base, 'error': 'Not enough post-event price data'}
+
+        if event_idx == 0:
+            return {**_error_base, 'error': 'No pre-event price data (event on first available bar)'}
+
+        pre_event_price = prices[event_idx - 1]
+        event_anchor_price = prices[event_idx]
+        post_event_analysis_days = int(self._stock_cfg.get('post_event_analysis_days', 10))
+        post_event_prices = prices[event_idx:min(event_idx + post_event_analysis_days, len(prices))]
 
         if not post_event_prices:
-            return {
-                'ticker': ticker,
-                'event_date': event_date,
-                'breach_date': event_date,  # Legacy compatibility
-                'event_category': event_category or '',
-                'error': 'No data after event date'
-            }
+            return {**_error_base, 'error': 'No data after event date'}
 
-        # Calculate metrics
         min_price_after = min(post_event_prices)
-        max_drop_pct = ((pre_event_price - min_price_after) / pre_event_price) * 100
+        max_drop_pct = (
+            ((pre_event_price - min_price_after) / pre_event_price) * 100
+            if pre_event_price > 0 else 0.0
+        )
 
         # 48-hour post-event dislocation (approx. 2 trading days after event anchor).
         post_event_window_days = 2
@@ -477,6 +486,12 @@ class StockAnalyzer:
 
         # Volume spike at event
         event_volume_spike = volume_spikes[event_idx] if event_idx < len(volume_spikes) else 1.0
+        trailing_volume_window = volumes[-20:] if len(volumes) >= 20 else volumes
+        avg_volume_20d = (
+            (sum(trailing_volume_window) / len(trailing_volume_window))
+            if trailing_volume_window
+            else 0.0
+        )
 
         return {
             'ticker': ticker,
@@ -500,6 +515,7 @@ class StockAnalyzer:
             'price_below_ma20': (prices[-1] < ma20[-1]) if ma20[-1] else None,
             'volume_spike_at_event': float(event_volume_spike),
             'volume_spike_at_breach': float(event_volume_spike),  # Legacy compatibility
+            'avg_volume_20d': float(avg_volume_20d),
             'analysis_date': datetime.now().isoformat()
         }
 

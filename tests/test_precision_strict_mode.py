@@ -180,6 +180,53 @@ class SignalGeneratorStrictTests(unittest.TestCase):
             signal = generator.generate_buy_signal(analysis)
             self.assertIsNotNone(signal, "Category-specific thresholds should allow signal")
 
+    def test_liquidity_filter_rejects_and_reports_reason(self):
+        SignalGenerator = _load_real_class("signal_generator.py", "SignalGenerator")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cfg_path = Path(tmpdir) / "settings.json"
+            cfg_path.write_text(
+                json.dumps(
+                    {
+                        "signals": {
+                            "rsi_oversold_threshold": 28,
+                            "price_drop_threshold": 15,
+                            "require_drop_within_48h": True,
+                            "drop_within_48h_threshold": 2.0,
+                            "volume_spike_threshold": 2.0,
+                            "recovery_days_threshold": 5,
+                            "min_price_for_signal": 2.5,
+                            "min_avg_volume_for_signal": 500000,
+                            "confidence_levels": {"high": 0.85, "medium": 0.65, "low": 0.4},
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            generator = SignalGenerator(config_path=str(cfg_path))
+            analyses = [
+                {
+                    "ticker": "THIN",
+                    "event_date": "2026-03-25",
+                    "event_category": "cybersecurity",
+                    "current_price": 6.0,
+                    "avg_volume_20d": 120000,
+                    "pre_event_price": 10.0,
+                    "min_price_post_event": 7.5,
+                    "max_drop_pct": 20.0,
+                    "drop_48h_pct": 3.0,
+                    "recovery_days": None,
+                    "event_rsi": 24.0,
+                    "rsi_oversold": True,
+                    "price_below_ma20": True,
+                    "volume_spike_at_event": 2.8,
+                }
+            ]
+            signals, diagnostics = generator.generate_signals_with_diagnostics(analyses)
+            self.assertEqual(signals, [])
+            diag = diagnostics.get(("THIN", "2026-03-25", "cybersecurity"), {})
+            self.assertEqual(diag.get("decision"), "RULE_REJECTED")
+            self.assertIn("liquidity_volume_floor_failed", diag.get("reason", ""))
+
 
 class StockAnalyzerEventTimingTests(unittest.TestCase):
     def test_event_rsi_is_used_for_oversold_flag(self):
@@ -241,6 +288,22 @@ class MainSignalTriageGateTests(unittest.TestCase):
 
         def filter_signals(self, signals, min_confidence=0.0):
             return signals
+
+        def generate_signals_with_diagnostics(self, analyses):
+            signals = self.generate_signals_batch(analyses)
+            diagnostics = {}
+            for s in signals:
+                key = (
+                    s.get("ticker", ""),
+                    s.get("event_date", s.get("breach_date", "")),
+                    s.get("event_category", ""),
+                )
+                diagnostics[key] = {
+                    "decision": "RULE_PASSED",
+                    "reason": "rule_passed",
+                    "confidence": s.get("confidence", ""),
+                }
+            return signals, diagnostics
 
     class _FakeStockAnalyzer:
         def batch_analyze(self, requests, event_date=None, breach_date=None):

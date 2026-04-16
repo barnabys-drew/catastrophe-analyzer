@@ -35,6 +35,8 @@ def _install_main_import_stubs() -> None:
                 pass
 
         setattr(mod, class_name, _Stub)
+        if module_name == "signal_generator":
+            setattr(mod, "compute_signal_rank_score", lambda signal: 0.0)
         sys.modules[module_name] = mod
 
 
@@ -140,6 +142,24 @@ class ClassificationRegressionTests(unittest.TestCase):
         self.assertEqual(subtype, "Guidance Raise")
         self.assertEqual(severity, "High")
 
+    def test_sanctions_subtype_ofac_designation(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="OFAC adds ChipMaker to SDN list after export control review",
+            summary="Treasury Department designates entity under sanctions program.",
+            event_category="geopolitical_sanctions_exposure",
+        )
+        self.assertEqual(subtype, "OFAC Designation")
+        self.assertEqual(severity, "High")
+
+    def test_negative_earnings_subtype_guidance_cut(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="RetailCo issues profit warning and cuts guidance for full year",
+            summary="Lowered outlook reflects weaker than expected consumer demand.",
+            event_category="negative_earnings_catalyst",
+        )
+        self.assertEqual(subtype, "Profit / Revenue Warning")
+        self.assertEqual(severity, "High")
+
     def test_cybersecurity_distress_recovery_offsets(self):
         high_risk = self.app._financial_distress_assessment(
             title="Ransomware attack causes operations disrupted at Acme",
@@ -218,6 +238,32 @@ class ClassificationRegressionTests(unittest.TestCase):
         )
         self.assertGreater(neutral["score"], bullish["score"])
 
+    def test_sanctions_distress_waiver_offsets(self):
+        severe = self.app._financial_distress_assessment(
+            title="OFAC designates TechCo on entity list after sanctions violation",
+            summary="Asset freeze imposed and export ban in effect.",
+            event_category="geopolitical_sanctions_exposure",
+        )
+        mitigated = self.app._financial_distress_assessment(
+            title="TechCo receives license granted after sanctions review",
+            summary="Sanctions lifted and entity delisted from entity list.",
+            event_category="geopolitical_sanctions_exposure",
+        )
+        self.assertGreater(severe["score"], mitigated["score"])
+
+    def test_negative_earnings_distress_vs_recovery(self):
+        severe = self.app._financial_distress_assessment(
+            title="IndustrialCo issues profit warning after guidance cut and revenue miss",
+            summary="Lowered guidance reflects weaker than expected demand and margin compression.",
+            event_category="negative_earnings_catalyst",
+        )
+        softer = self.app._financial_distress_assessment(
+            title="IndustrialCo reports one-time charge but reaffirmed guidance",
+            summary="Non-recurring items drove shortfall; expects recovery in next quarter.",
+            event_category="negative_earnings_catalyst",
+        )
+        self.assertGreater(severe["score"], softer["score"])
+
 
 class ImpactTriageRegressionTests(unittest.TestCase):
     def setUp(self):
@@ -285,6 +331,18 @@ class ImpactTriageRegressionTests(unittest.TestCase):
                 "summary": "Margin expansion and above-consensus results announced.",
                 "distress_score": 45,
             },
+            {
+                "event_category": "geopolitical_sanctions_exposure",
+                "title": "OFAC adds manufacturer to entity list after export ban review",
+                "summary": "Asset freeze and sanctions violation penalties expected.",
+                "distress_score": 70,
+            },
+            {
+                "event_category": "negative_earnings_catalyst",
+                "title": "Retailer issues profit warning after guidance cut",
+                "summary": "Revenue warning reflects negative preannouncement and margin compression.",
+                "distress_score": 65,
+            },
         ]
 
         for article in articles:
@@ -310,6 +368,8 @@ class ConfigParityRegressionTests(unittest.TestCase):
             "ma_corporate_action",
             "leadership_scandal",
             "positive_earnings_catalyst",
+            "geopolitical_sanctions_exposure",
+            "negative_earnings_catalyst",
         ]
         categories = cfg.get("event_categories", {})
         gates = cfg.get("distress_model", {}).get("min_score_for_watch_by_category", {})

@@ -419,6 +419,66 @@
         "better-than-expected results",
         "outlook raised"
       ]
+    },
+    "geopolitical_sanctions_exposure": {
+      "enabled": true,
+      "keywords": [
+        "sanctions",
+        "sanctioned",
+        "ofac",
+        "entity list",
+        "export control",
+        "export ban",
+        "export restriction",
+        "trade blacklist",
+        "blocked persons",
+        "sdn list",
+        "trade sanctions",
+        "embargo",
+        "secondary sanctions",
+        "sanctions violation",
+        "sanctions evasion",
+        "sanctions compliance",
+        "delisted from entity list",
+        "country exit",
+        "forced divestiture",
+        "asset freeze",
+        "itar",
+        "ear violation",
+        "bis order",
+        "sanctions penalty",
+        "trade restriction"
+      ]
+    },
+    "negative_earnings_catalyst": {
+      "enabled": true,
+      "keywords": [
+        "earnings miss",
+        "missed estimates",
+        "revenue miss",
+        "revenue shortfall",
+        "below expectations",
+        "guidance cut",
+        "lowered guidance",
+        "lowered outlook",
+        "profit warning",
+        "revenue warning",
+        "downward revision",
+        "disappointing results",
+        "weaker than expected",
+        "below consensus",
+        "negative preannouncement",
+        "earnings shortfall",
+        "sales miss",
+        "margin compression",
+        "operating loss",
+        "wider loss",
+        "missed forecast",
+        "lowered forecast",
+        "guidance reduction",
+        "revised lower",
+        "withdrew guidance"
+      ]
     }
   },
   "news_sources": {
@@ -916,6 +976,57 @@
       "event_category": "positive_earnings_catalyst",
       "update_interval_hours": 4,
       "max_results": 55
+    },
+
+    "google_news_sanctions_ofac_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(sanctions+OR+%22entity+list%22+OR+%22export+control%22+OR+OFAC+OR+%22trade+blacklist%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "geopolitical_sanctions_exposure",
+      "update_interval_hours": 4,
+      "max_results": 60
+    },
+    "google_news_sanctions_penalty_divestiture_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22sanctions+violation%22+OR+%22sanctions+penalty%22+OR+%22forced+divestiture%22+OR+%22asset+freeze%22+OR+embargo)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "geopolitical_sanctions_exposure",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_bis_entity_list_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22Bureau+of+Industry%22+OR+%22BIS+entity+list%22+OR+%22export+ban%22+OR+%22trade+restriction%22+OR+%22secondary+sanctions%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "geopolitical_sanctions_exposure",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+    "google_news_treasury_sanctions_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22Treasury+Department%22+OR+%22SDN+list%22+OR+%22blocked+persons%22+OR+ITAR+OR+%22EAR+violation%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "geopolitical_sanctions_exposure",
+      "update_interval_hours": 6,
+      "max_results": 45
+    },
+
+    "google_news_earnings_miss_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22earnings+miss%22+OR+%22missed+estimates%22+OR+%22guidance+cut%22+OR+%22profit+warning%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "negative_earnings_catalyst",
+      "update_interval_hours": 4,
+      "max_results": 65
+    },
+    "google_news_revenue_shortfall_outlook_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22revenue+shortfall%22+OR+%22lowered+outlook%22+OR+%22negative+preannouncement%22+OR+%22revenue+warning%22+OR+%22guidance+reduction%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "negative_earnings_catalyst",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_disappointing_results_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22disappointing+results%22+OR+%22below+consensus%22+OR+%22weaker+than+expected%22+OR+%22wider+loss%22+OR+%22lowered+forecast%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "negative_earnings_catalyst",
+      "update_interval_hours": 4,
+      "max_results": 55
     }
   },
 
@@ -923,6 +1034,8 @@
     "timeout": 10,
     "max_results_per_source": 50,
     "hours_back": 24,
+    "max_article_age_hours": 24,
+    "drop_unparseable_published": true,
     "retry_on_failure": true,
     "max_retries": 3,
     "http_user_agent": "CatastropheAnalyzer/1.0 (+https://github.com/barnabys-drew/catastrophe-analyzer)"
@@ -964,7 +1077,10 @@
     "drop_within_48h_threshold": 1.0,
     "recovery_days_threshold": 5,
     "volume_spike_threshold": 2.0,
+    "min_price_for_signal": 2.5,
+    "min_avg_volume_for_signal": 300000,
     "min_confidence_for_signal": 0.7,
+    "min_catalyst_score_for_signal": 30,
     "by_category": {
       "cybersecurity": {
         "rsi_oversold_threshold": 28,
@@ -1045,6 +1161,22 @@
         "drop_within_48h_threshold": 0.5,
         "recovery_days_threshold": 3,
         "volume_spike_threshold": 1.6
+      },
+      "geopolitical_sanctions_exposure": {
+        "rsi_oversold_threshold": 28,
+        "price_drop_threshold": 16,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.8,
+        "recovery_days_threshold": 6,
+        "volume_spike_threshold": 2.5
+      },
+      "negative_earnings_catalyst": {
+        "rsi_oversold_threshold": 30,
+        "price_drop_threshold": 8,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 6,
+        "recovery_days_threshold": 5,
+        "volume_spike_threshold": 2.0
       }
     },
     "confidence_levels": {
@@ -1065,7 +1197,9 @@
       "dilutive_financing": 54,
       "ma_corporate_action": 52,
       "leadership_scandal": 53,
-      "positive_earnings_catalyst": 45
+      "positive_earnings_catalyst": 45,
+      "geopolitical_sanctions_exposure": 55,
+      "negative_earnings_catalyst": 50
     }
   },
   "triage": {
@@ -1074,6 +1208,7 @@
     "min_distress_score_for_alert": 35,
     "min_impact_score_for_signal": 75,
     "min_distress_score_for_signal": 60,
+    "duplicate_alert_suppression_hours": 6,
     "agent_enabled": true,
     "agent_timeout_seconds": 8,
     "fallback_to_deterministic": true,

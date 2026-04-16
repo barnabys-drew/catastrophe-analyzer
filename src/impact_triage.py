@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
+from text_match import keyword_in_text
+
 try:
     import requests
 except ImportError:  # pragma: no cover - requests exists in project deps
@@ -112,10 +114,21 @@ class ImpactTriage:
             ("raised guidance", 8, "Guidance raises can still be high-impact catalysts"),
             ("beat estimates", 6, "Earnings surprises can materially move expectations"),
             ("record revenue", 6, "Record revenue often shifts valuation narrative"),
+            ("ofac", 10, "OFAC designations can freeze assets and block transactions"),
+            ("entity list", 9, "Entity-list addition severs trade and supply relationships"),
+            ("export ban", 9, "Export bans can eliminate revenue channels overnight"),
+            ("sanctions violation", 10, "Sanctions-violation language implies penalties and enforcement"),
+            ("asset freeze", 9, "Asset freezes directly impair cash availability"),
+            ("forced divestiture", 8, "Forced divestitures can destroy embedded value"),
+            ("profit warning", 9, "Profit warnings often trigger rapid repricing"),
+            ("guidance cut", 8, "Guidance cuts compress forward earnings expectations"),
+            ("earnings miss", 7, "Earnings misses can trigger analyst downgrades"),
+            ("negative preannouncement", 9, "Negative preannouncements front-run larger misses"),
+            ("revenue warning", 8, "Revenue warnings signal fundamental demand weakness"),
         ]
 
         for marker, weight, reason in material_markers:
-            if marker in content:
+            if keyword_in_text(marker, content):
                 score += weight
                 reasons.append(reason)
 
@@ -127,7 +140,7 @@ class ImpactTriage:
             ("preliminary", 4, "Preliminary disclosures are often revised"),
         ]
         for marker, weight, reason in dampeners:
-            if marker in content:
+            if keyword_in_text(marker, content):
                 score -= weight
                 reasons.append(reason)
 

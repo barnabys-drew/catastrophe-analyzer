@@ -39,6 +39,8 @@ python3 monitor.py --once --quiet
 
 ### 5) Run Docker from repo
 
+Optional: `cp .env.example .env` and set `TIINGO_API_TOKEN` (and any overrides) so Compose picks them up automatically; or keep using `--env-file` as in `README.md`.
+
 ```bash
 docker compose up -d --build
 docker logs -f catastrophe-analyzer

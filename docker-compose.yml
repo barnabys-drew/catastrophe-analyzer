@@ -22,6 +22,9 @@ services:
       # Alert preview toggles for local testing:
       # - CATASTROPHE_LOCAL_ALERT_PREVIEW=1
       # - CATASTROPHE_ALERTS_LOCAL_ONLY=1
+    extra_hosts:
+      # Linux/WSL2 Docker Engine: lets the container reach Ollama on the host via host.docker.internal
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./config:/app/config
       - ./data:/app/data

@@ -1492,7 +1492,7 @@
     "agent_validation": {
       "enabled": true,
       "fail_closed": true,
-      "timeout_seconds": 8,
+      "timeout_seconds": 30,
       "endpoint": "",
       "api_key": "",
       "provider": "generic_http",

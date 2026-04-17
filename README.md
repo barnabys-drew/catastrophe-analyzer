@@ -287,6 +287,16 @@ Model/provider env samples (including local Ollama) are in:
 
 - `docs/AGENT_VALIDATION_MODEL_PROFILES.md`
 
+**Local Ollama (Docker):** ensure `ollama serve` is running and `ollama pull <model>` (see `profiles/agent-validation/ollama-local.env.example`), then:
+
+```bash
+docker compose --env-file .env.agent up -d --build
+```
+
+From inside the container, the host API is reached at `http://host.docker.internal:11434/v1/chat/completions` (`docker-compose.yml` sets `extra_hosts` for Linux/WSL2).
+
+**Anthropic:** this codebase posts to an OpenAI-compatible `/v1/chat/completions` URL only — use OpenRouter/LiteLLM/etc. (`profiles/agent-validation/anthropic-claude.env.example`).
+
 ## Keep expanding after initial depth
 
 The intended path is:

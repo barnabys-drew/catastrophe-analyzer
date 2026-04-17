@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 
+import sys
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = REPO_ROOT / "data"
 HEARTBEAT_PATH = DATA_DIR / "runtime_heartbeat.json"
@@ -25,6 +27,16 @@ STATS_LOG_PATH = DATA_DIR / "calibration_stats.jsonl"
 TRIAGE_PATH = DATA_DIR / "event_triage.csv"
 SIGNALS_PATH = DATA_DIR / "buy_signals.csv"
 WATCHLIST_PATH = DATA_DIR / "event_watchlist.csv"
+OUTCOMES_PATH = DATA_DIR / "signal_outcomes.csv"
+
+SRC_DIR = REPO_ROOT / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+try:
+    from outcome_tracker import summarize_outcomes  # type: ignore
+except ImportError:  # pragma: no cover - outcome_tracker ships with repo
+    summarize_outcomes = None  # type: ignore[assignment]
 
 
 def _now_utc() -> datetime:
@@ -211,6 +223,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Capture and summarize calibration stats.")
     parser.add_argument("--days", type=int, default=14, help="Window for summary metrics (default: 14)")
     parser.add_argument("--no-record", action="store_true", help="Do not append a new stats snapshot")
+    parser.add_argument(
+        "--outcome-horizon",
+        type=int,
+        default=5,
+        help="Horizon in trading days for signal outcome win-rate summary (default: 5)",
+    )
     args = parser.parse_args()
 
     snapshot = _build_snapshot(days=args.days)
@@ -263,6 +281,33 @@ def main() -> None:
         print(f"- avg_saved_per_cycle: {log_summary['avg_saved_per_cycle']:.2f}")
     print("")
     print(f"Stats log: {STATS_LOG_PATH}")
+
+    if summarize_outcomes is not None and OUTCOMES_PATH.exists():
+        try:
+            outcome_summary = summarize_outcomes(str(OUTCOMES_PATH), horizon=args.outcome_horizon)
+        except Exception as exc:  # pragma: no cover - diagnostic path
+            outcome_summary = {"samples": 0, "error": str(exc)}
+        print("")
+        print(f"Signal outcomes (T+{args.outcome_horizon} close, win = return >= 0%):")
+        print(f"- samples: {outcome_summary.get('samples', 0)}")
+        by_cat = outcome_summary.get("by_category", {}) or {}
+        if by_cat:
+            print("- by_category:")
+            for name, stats in sorted(by_cat.items()):
+                print(
+                    f"    {name}: {stats['samples']} signals, "
+                    f"win_rate={stats['win_rate']*100:.1f}%, "
+                    f"mean_return={stats['mean_return_pct']:.2f}%"
+                )
+        by_conf = outcome_summary.get("by_confidence", {}) or {}
+        if by_conf:
+            print("- by_confidence:")
+            for name, stats in sorted(by_conf.items()):
+                print(
+                    f"    {name}: {stats['samples']} signals, "
+                    f"win_rate={stats['win_rate']*100:.1f}%, "
+                    f"mean_return={stats['mean_return_pct']:.2f}%"
+                )
 
 
 if __name__ == "__main__":

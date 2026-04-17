@@ -133,11 +133,34 @@ class SignalGenerator:
             "dilutive_financing",
             "geopolitical_sanctions_exposure",
             "negative_earnings_catalyst",
+            "short_seller_report",
+            "credit_rating_action",
+            "going_concern_auditor_change",
+            "guidance_cut_preannouncement",
+            "securities_class_action",
+            "labor_action",
         }:
             return "partial_reversion"
-        if category in {"positive_earnings_catalyst", "ma_corporate_action"}:
+        if category in {
+            "positive_earnings_catalyst",
+            "ma_corporate_action",
+            "activist_13d_filing",
+        }:
             return "momentum_extension"
         return "full_reversion"
+
+    @staticmethod
+    def _short_sell_categories() -> set:
+        """
+        Categories where the dominant signal is downside continuation rather than reversion.
+        Buy-side rules still evaluate normally; these categories also produce a short-sell candidate
+        when technical conditions confirm further weakness.
+        """
+        return {
+            "short_seller_report",
+            "going_concern_auditor_change",
+            "fraud_accounting_enforcement",
+        }
 
     def _get_default_config(self) -> Dict:
         """Get default configuration"""
@@ -235,6 +258,44 @@ class SignalGenerator:
         if has_explicit_catalyst and catalyst_avg < min_catalyst:
             return None, "min_catalyst_score_failed"
 
+        # Earnings-proximity guardrail: do not open non-earnings long positions
+        # that will straddle the next earnings print.
+        earnings_days_block = int(
+            self.signal_config.get('earnings_proximity_block_days', 3)
+        )
+        days_to_earnings = analysis.get('days_to_next_earnings')
+        category_lower = str(event_category or '').strip().lower()
+        earnings_categories = {
+            "positive_earnings_catalyst",
+            "negative_earnings_catalyst",
+            "guidance_cut_preannouncement",
+        }
+        if (
+            earnings_days_block > 0
+            and isinstance(days_to_earnings, (int, float))
+            and 0 <= days_to_earnings < earnings_days_block
+            and category_lower not in earnings_categories
+        ):
+            return None, (
+                f"earnings_proximity_block_failed:days_to_earnings={int(days_to_earnings)}"
+            )
+
+        # Sector-residual drop filter: reject candidates whose drop is mostly a
+        # market-wide move rather than name-specific repricing. `sector_drop_pct`
+        # and `residual_drop_pct` are supplied upstream when available; if the
+        # fields are missing, the filter is skipped.
+        residual_cfg = self.signal_config.get('min_residual_drop_pct_vs_sector')
+        residual_drop = analysis.get('residual_drop_pct')
+        if residual_cfg is not None and isinstance(residual_drop, (int, float)):
+            try:
+                min_residual = float(residual_cfg)
+            except (TypeError, ValueError):
+                min_residual = 0.0
+            if float(residual_drop) < min_residual:
+                return None, (
+                    f"sector_residual_drop_failed:{residual_drop:.2f}<{min_residual:.2f}"
+                )
+
         confidence_score = self._calculate_confidence(
             analysis,
             rsi_threshold=rsi_threshold,
@@ -267,8 +328,67 @@ class SignalGenerator:
             'suggested_entry': self._calculate_entry_price(analysis),
             'suggested_stop_loss': self._calculate_stop_loss(analysis),
             'risk_reward': self._calculate_risk_reward(analysis),
+            'atr': analysis.get('event_atr', analysis.get('atr', 0.0)),
+            'days_to_next_earnings': analysis.get('days_to_next_earnings'),
+            'residual_drop_pct': analysis.get('residual_drop_pct'),
+            'float_shares': analysis.get('float_shares'),
+            'short_interest_pct': analysis.get('short_interest_pct'),
         }
+        short_sell = self._maybe_short_sell_signal(analysis, event_category)
+        if short_sell is not None:
+            signal['short_sell_candidate'] = short_sell
         return signal, "rule_passed"
+
+    def _maybe_short_sell_signal(
+        self,
+        analysis: Dict,
+        event_category: str,
+    ) -> Optional[Dict]:
+        """
+        For categories where downside continuation dominates, attach a parallel
+        short-sell candidate (entry / stop / target) derived from the existing
+        analysis fields. This is advisory output; buy-side rules still evaluate
+        normally. Returns None when the category is not eligible.
+        """
+        if str(event_category or '').strip().lower() not in self._short_sell_categories():
+            return None
+
+        current_price = self._to_float(analysis.get('current_price'), 0.0)
+        pre_event_price = self._to_float(
+            analysis.get('pre_event_price', analysis.get('pre_breach_price')),
+            current_price,
+        )
+        min_price = self._to_float(
+            analysis.get('min_price_post_event', analysis.get('min_price_post_breach', current_price)),
+            current_price,
+        )
+        atr = self._to_float(
+            analysis.get('event_atr', analysis.get('atr', 0.0)),
+            0.0,
+        )
+        if current_price <= 0:
+            return None
+
+        atr_stop_multiplier = float(self.signal_config.get('atr_stop_multiplier', 1.5))
+        # Short entry: current price; stop above the pre-event price plus an ATR
+        # buffer so the stop isn't triggered by short-cover noise. Target: a
+        # continuation leg sized to a multiple of the post-event drawdown.
+        entry = current_price
+        stop = max(pre_event_price, current_price) + max(atr * atr_stop_multiplier, current_price * 0.02)
+        continuation_mult = float(self.signal_config.get('short_sell_continuation_multiplier', 0.5))
+        target = max(0.0, min_price - (pre_event_price - min_price) * continuation_mult)
+        risk = stop - entry
+        reward = entry - target
+        ratio = reward / risk if risk > 0 else 0.0
+        return {
+            'signal_type': 'SHORT_SELL_CANDIDATE',
+            'entry_price': entry,
+            'stop_loss': stop,
+            'target_price': target,
+            'risk_pct': (risk / entry * 100.0) if entry > 0 else 0.0,
+            'reward_pct': (reward / entry * 100.0) if entry > 0 else 0.0,
+            'risk_reward_ratio': ratio,
+        }
 
     @staticmethod
     def _to_float(value: Any, default: float = 0.0) -> float:
@@ -425,17 +545,32 @@ class SignalGenerator:
 
     def _calculate_stop_loss(self, analysis: Dict) -> float:
         """
-        Suggest stop loss price (below the minimum)
+        Suggest stop loss price.
 
-        Args:
-            analysis: Stock analysis result
+        Two placements are computed and the tighter of the two is taken so the
+        stop is never wider than the percent floor even when ATR is noisy:
+        - percent floor: `min_price * stop_loss_pct_floor_multiplier` (default 0.97)
+        - ATR floor: `min_price - atr_stop_multiplier * event_atr` (default 1.5x)
 
-        Returns:
-            float: Suggested stop loss price
+        The stop never drops below zero.
         """
-        min_price = analysis.get('min_price_post_event', analysis.get('min_price_post_breach', 0))
-        # Stop loss 3% below minimum
-        return min_price * 0.97
+        min_price = float(
+            analysis.get('min_price_post_event', analysis.get('min_price_post_breach', 0)) or 0.0
+        )
+        if min_price <= 0:
+            return 0.0
+
+        pct_mult = float(self.signal_config.get('stop_loss_pct_floor_multiplier', 0.97))
+        pct_stop = min_price * pct_mult
+
+        atr_mult = float(self.signal_config.get('atr_stop_multiplier', 1.5))
+        atr = float(analysis.get('event_atr', analysis.get('atr', 0.0)) or 0.0)
+        atr_stop = min_price - atr_mult * atr if atr > 0 else pct_stop
+
+        # Take the tighter (higher) of the two to bound downside without letting
+        # a very noisy ATR pull the stop well under the recent low.
+        stop = max(pct_stop, atr_stop)
+        return max(0.0, float(stop))
 
     def _calculate_risk_reward(self, analysis: Dict) -> Dict:
         """

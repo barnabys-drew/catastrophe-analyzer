@@ -367,6 +367,34 @@ class StockAnalyzer:
                 ma.append(sum(prices[i-period+1:i+1]) / period)
         return ma
 
+    def calculate_atr(self, prices: List[float], period: int = 14) -> List[float]:
+        """
+        Approximate ATR from close-to-close moves.
+
+        The canonical ATR uses true range (max(high-low, |high-prev_close|, |low-prev_close|)).
+        The mock and some live paths here only expose closes, so we approximate
+        with a rolling mean of absolute close-to-close changes. This is
+        conservative (typically < true ATR) but stable and category-independent,
+        which is what the stop placement needs.
+        """
+        if not prices or len(prices) < 2:
+            return []
+        period = max(1, int(period))
+        moves: List[float] = [0.0]
+        for i in range(1, len(prices)):
+            prev = float(prices[i - 1]) if prices[i - 1] else 0.0
+            curr = float(prices[i]) if prices[i] else 0.0
+            moves.append(abs(curr - prev))
+
+        out: List[float] = [0.0] * len(prices)
+        window: List[float] = []
+        for i, move in enumerate(moves):
+            window.append(move)
+            if len(window) > period:
+                window.pop(0)
+            out[i] = sum(window) / float(len(window)) if window else 0.0
+        return out
+
     def calculate_volume_spike(self, volumes: List[float], period: int = 20) -> List[float]:
         """
         Calculate volume spike ratio (current volume / average volume)
@@ -479,6 +507,14 @@ class StockAnalyzer:
         rsi = self.calculate_rsi(prices)
         ma20 = self.calculate_moving_average(prices, 20)
         volume_spikes = self.calculate_volume_spike(volumes)
+        atr_period = int(self._stock_cfg.get('atr_period', 14))
+        atr_series = self.calculate_atr(prices, atr_period)
+        current_atr = float(atr_series[-1]) if atr_series else 0.0
+        event_atr = (
+            float(atr_series[event_idx])
+            if atr_series and event_idx < len(atr_series)
+            else current_atr
+        )
 
         # Use event-window RSI for event-driven signal gating; keep current RSI for display/diagnostics.
         current_rsi = rsi[-1] if rsi else 50
@@ -516,6 +552,9 @@ class StockAnalyzer:
             'volume_spike_at_event': float(event_volume_spike),
             'volume_spike_at_breach': float(event_volume_spike),  # Legacy compatibility
             'avg_volume_20d': float(avg_volume_20d),
+            'atr': float(current_atr),
+            'event_atr': float(event_atr),
+            'atr_period': int(atr_period),
             'analysis_date': datetime.now().isoformat()
         }
 

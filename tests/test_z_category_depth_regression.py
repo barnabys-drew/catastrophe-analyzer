@@ -264,6 +264,93 @@ class ClassificationRegressionTests(unittest.TestCase):
         )
         self.assertGreater(severe["score"], softer["score"])
 
+    # ---- Wave 1 / Wave 2 / Wave 3 regression tests ----
+
+    def test_short_seller_report_subtype(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="Hindenburg Research publishes short report alleging fabricated revenue",
+            summary="Activist short piece alleges channel stuffing and undisclosed related party transactions.",
+            event_category="short_seller_report",
+        )
+        self.assertEqual(subtype, "Hindenburg Short Report")
+        self.assertEqual(severity, "High")
+
+    def test_short_seller_report_distress_vs_rebuttal(self):
+        severe = self.app._financial_distress_assessment(
+            title="Hindenburg Research alleges fabricated revenue and channel stuffing",
+            summary="Activist short report claims undisclosed related party transactions.",
+            event_category="short_seller_report",
+        )
+        mitigated = self.app._financial_distress_assessment(
+            title="Company denies short seller report and announces independent review",
+            summary="Rebuttal issued after Hindenburg allegations; independent review to proceed.",
+            event_category="short_seller_report",
+        )
+        self.assertGreater(severe["score"], mitigated["score"])
+
+    def test_credit_rating_subtype_fallen_angel(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="S&P downgrades issuer to junk; cut to junk triggers fallen angel status",
+            summary="Speculative grade rating assigned after default risk elevated.",
+            event_category="credit_rating_action",
+        )
+        self.assertEqual(subtype, "Fallen Angel Downgrade")
+        self.assertEqual(severity, "High")
+
+    def test_going_concern_subtype_substantial_doubt(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="Auditor cites substantial doubt about going concern",
+            summary="10-K filing includes going concern warning from auditor.",
+            event_category="going_concern_auditor_change",
+        )
+        self.assertEqual(subtype, "Going Concern Warning")
+        self.assertEqual(severity, "High")
+
+    def test_guidance_cut_preannouncement_subtype_withdrawal(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="Company withdraws guidance and suspends full-year outlook",
+            summary="Business update filing includes guidance withdrawal and reset expectations.",
+            event_category="guidance_cut_preannouncement",
+        )
+        self.assertEqual(subtype, "Guidance Withdrawal")
+        self.assertEqual(severity, "High")
+
+    def test_activist_13d_subtype_proxy_fight(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="Elliott Management launches proxy fight at TargetCo",
+            summary="Activist campaign includes schedule 13D filing and director nominations.",
+            event_category="activist_13d_filing",
+        )
+        self.assertEqual(subtype, "Proxy Contest")
+        self.assertEqual(severity, "High")
+
+    def test_labor_action_subtype_prolonged_strike(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="Union declares prolonged strike and work stoppage at three plants",
+            summary="Prolonged strike extends across multiple facilities with indefinite strike vote.",
+            event_category="labor_action",
+        )
+        self.assertEqual(subtype, "Prolonged Strike")
+        self.assertEqual(severity, "High")
+
+    def test_securities_class_action_subtype_dismissal_denied(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="Judge denies motion to dismiss in securities class action lawsuit",
+            summary="Motion to dismiss denied; lead plaintiff deadline set.",
+            event_category="securities_class_action",
+        )
+        self.assertEqual(subtype, "Dismissal Denied")
+        self.assertEqual(severity, "High")
+
+    def test_insider_trading_cluster_subtype(self):
+        subtype, severity = self.app._classify_event_subtype_and_severity(
+            title="Cluster of insider sales: C-suite selling accelerates before results",
+            summary="Multiple officers sell shares in a concentrated cluster of insider sales.",
+            event_category="insider_trading_cluster",
+        )
+        self.assertEqual(subtype, "Insider Selling Cluster")
+        self.assertEqual(severity, "High")
+
 
 class ImpactTriageRegressionTests(unittest.TestCase):
     def setUp(self):
@@ -343,6 +430,42 @@ class ImpactTriageRegressionTests(unittest.TestCase):
                 "summary": "Revenue warning reflects negative preannouncement and margin compression.",
                 "distress_score": 65,
             },
+            {
+                "event_category": "short_seller_report",
+                "title": "Hindenburg Research publishes short report on issuer",
+                "summary": "Activist short piece alleges fabricated revenue and channel stuffing.",
+                "distress_score": 70,
+            },
+            {
+                "event_category": "credit_rating_action",
+                "title": "Moody's downgrades issuer; cut to junk and negative outlook",
+                "summary": "Fallen angel downgrade cites default risk elevated; speculative grade assigned.",
+                "distress_score": 65,
+            },
+            {
+                "event_category": "going_concern_auditor_change",
+                "title": "Auditor flags substantial doubt about going concern",
+                "summary": "Non-reliance on previously issued financials disclosed under item 4.02.",
+                "distress_score": 72,
+            },
+            {
+                "event_category": "guidance_cut_preannouncement",
+                "title": "Company withdraws guidance and suspends full-year outlook",
+                "summary": "Business update preannounces worse-than-expected quarter; reset expectations.",
+                "distress_score": 62,
+            },
+            {
+                "event_category": "labor_action",
+                "title": "Nationwide strike expands; work stoppage enters third week",
+                "summary": "Prolonged strike and lockout extend disruption; UAW strike widens.",
+                "distress_score": 60,
+            },
+            {
+                "event_category": "securities_class_action",
+                "title": "Court denies motion to dismiss in securities fraud lawsuit",
+                "summary": "Class certification granted; lead plaintiff deadline set.",
+                "distress_score": 55,
+            },
         ]
 
         for article in articles:
@@ -370,6 +493,14 @@ class ConfigParityRegressionTests(unittest.TestCase):
             "positive_earnings_catalyst",
             "geopolitical_sanctions_exposure",
             "negative_earnings_catalyst",
+            "short_seller_report",
+            "credit_rating_action",
+            "going_concern_auditor_change",
+            "guidance_cut_preannouncement",
+            "activist_13d_filing",
+            "labor_action",
+            "securities_class_action",
+            "insider_trading_cluster",
         ]
         categories = cfg.get("event_categories", {})
         gates = cfg.get("distress_model", {}).get("min_score_for_watch_by_category", {})

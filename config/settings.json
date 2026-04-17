@@ -479,6 +479,258 @@
         "revised lower",
         "withdrew guidance"
       ]
+    },
+    "short_seller_report": {
+      "enabled": true,
+      "keywords": [
+        "short report",
+        "short-seller report",
+        "short seller report",
+        "activist short",
+        "activist short report",
+        "hindenburg research",
+        "muddy waters",
+        "kerrisdale capital",
+        "grizzly research",
+        "citron research",
+        "spruce point",
+        "wolfpack research",
+        "iceberg research",
+        "blue orca",
+        "viceroy research",
+        "bonitas research",
+        "hindenburg",
+        "alleged fraud",
+        "undisclosed related party",
+        "channel stuffing",
+        "fabricated revenue",
+        "going zero",
+        "short position",
+        "short thesis"
+      ]
+    },
+    "credit_rating_action": {
+      "enabled": true,
+      "keywords": [
+        "credit rating downgrade",
+        "downgraded by s&p",
+        "downgraded by moody",
+        "downgraded by fitch",
+        "s&p downgrades",
+        "moody's downgrades",
+        "moodys downgrades",
+        "fitch downgrades",
+        "s&p global ratings",
+        "moody's investors service",
+        "fitch ratings",
+        "cut to junk",
+        "cut to ccc",
+        "cut to b-",
+        "cut to bb",
+        "downgraded to b",
+        "downgraded to ccc",
+        "placed on negative watch",
+        "negative credit watch",
+        "placed on review for downgrade",
+        "outlook revised to negative",
+        "outlook changed to negative",
+        "credit rating cut",
+        "rating action",
+        "speculative grade",
+        "fallen angel",
+        "downgrade to junk",
+        "default risk elevated"
+      ]
+    },
+    "going_concern_auditor_change": {
+      "enabled": true,
+      "keywords": [
+        "going concern",
+        "substantial doubt",
+        "substantial doubt about its ability to continue",
+        "going concern disclosure",
+        "going concern warning",
+        "going concern opinion",
+        "going concern qualification",
+        "auditor resignation",
+        "auditor resigns",
+        "auditor dismissed",
+        "dismissed its auditor",
+        "change in auditor",
+        "change in accountant",
+        "dismissal of accountants",
+        "8-k item 4.01",
+        "item 4.01",
+        "material weakness",
+        "material weaknesses",
+        "internal control weakness",
+        "internal controls weakness",
+        "restatement of financial statements",
+        "restated financial statements",
+        "non-reliance on previously issued",
+        "item 4.02",
+        "late filing",
+        "nt 10-k",
+        "nt 10-q",
+        "delayed filing",
+        "late 10-k",
+        "late 10-q"
+      ]
+    },
+    "guidance_cut_preannouncement": {
+      "enabled": true,
+      "keywords": [
+        "preannounces",
+        "pre-announcement",
+        "business update",
+        "preliminary results",
+        "preliminary estimate",
+        "preliminary q",
+        "preliminary quarter",
+        "preliminary revenue",
+        "preliminary earnings",
+        "withdraws guidance",
+        "withdrew guidance",
+        "withdraws prior guidance",
+        "withdraw outlook",
+        "suspends guidance",
+        "suspended guidance",
+        "updates outlook",
+        "updated outlook",
+        "revises guidance",
+        "revised guidance lower",
+        "cuts full-year guidance",
+        "cuts fy guidance",
+        "cuts full year outlook",
+        "lowers full-year guidance",
+        "lowers guidance",
+        "lowers outlook",
+        "below prior guidance",
+        "falls short of prior guidance",
+        "reset expectations"
+      ]
+    },
+    "activist_13d_filing": {
+      "enabled": true,
+      "keywords": [
+        "13d filing",
+        "files 13d",
+        "filed 13d",
+        "schedule 13d",
+        "schedule 13d/a",
+        "13g filing",
+        "13d/g",
+        "crossed 5%",
+        "accumulates stake",
+        "activist stake",
+        "activist investor discloses",
+        "activist campaign",
+        "proxy fight",
+        "proxy contest",
+        "board nomination",
+        "nominates directors",
+        "nominate directors",
+        "urges review of strategic alternatives",
+        "urges board",
+        "engagement with board",
+        "nelson peltz",
+        "bill ackman",
+        "carl icahn",
+        "elliott management",
+        "starboard value",
+        "pershing square",
+        "trian fund",
+        "engaged capital",
+        "jana partners"
+      ]
+    },
+    "labor_action": {
+      "enabled": true,
+      "keywords": [
+        "strike authorization",
+        "authorization to strike",
+        "work stoppage",
+        "walkout",
+        "walk off the job",
+        "union strike",
+        "nationwide strike",
+        "prolonged strike",
+        "union walks out",
+        "uaw strike",
+        "teamsters strike",
+        "iatse strike",
+        "actors strike",
+        "writers strike",
+        "pilots strike",
+        "nurses strike",
+        "port strike",
+        "longshore strike",
+        "picket line",
+        "lockout",
+        "union rejects contract",
+        "contract rejected",
+        "strike expands",
+        "labor dispute escalates",
+        "extends strike",
+        "indefinite strike",
+        "sympathy strike",
+        "labor action"
+      ]
+    },
+    "securities_class_action": {
+      "enabled": true,
+      "keywords": [
+        "securities class action",
+        "class action lawsuit",
+        "class-action complaint",
+        "lead plaintiff deadline",
+        "investor alert",
+        "shareholder alert",
+        "shareholder investigation",
+        "class action filed against",
+        "investors who purchased",
+        "class action complaint",
+        "class period",
+        "defendants violated the securities",
+        "motion to dismiss denied",
+        "certified as a class",
+        "class certification",
+        "securities fraud lawsuit",
+        "rosen law firm",
+        "schall law firm",
+        "pomerantz",
+        "bragar eagel",
+        "robbins geller",
+        "gainey mckenna",
+        "levi korsinsky",
+        "bronstein gewirtz"
+      ]
+    },
+    "insider_trading_cluster": {
+      "enabled": true,
+      "keywords": [
+        "form 4 filing",
+        "insider selling",
+        "insiders sold",
+        "cluster of insider sales",
+        "cluster of insider buys",
+        "insider buying",
+        "c-suite selling",
+        "executives sell shares",
+        "officer sells shares",
+        "director sells shares",
+        "ceo sold shares",
+        "cfo sold shares",
+        "insider purchases",
+        "insider trading activity",
+        "10b5-1 plan",
+        "10b5-1 trading plan",
+        "rule 10b5-1",
+        "disposition of shares",
+        "10% owner",
+        "sec form 4",
+        "insider transactions"
+      ]
     }
   },
   "news_sources": {
@@ -1027,6 +1279,189 @@
       "event_category": "negative_earnings_catalyst",
       "update_interval_hours": 4,
       "max_results": 55
+    },
+
+    "hindenburg_research_rss": {
+      "enabled": true,
+      "url": "https://hindenburgresearch.com/feed/",
+      "event_category": "short_seller_report",
+      "update_interval_hours": 6,
+      "max_results": 30
+    },
+    "muddy_waters_research_rss": {
+      "enabled": true,
+      "url": "https://www.muddywatersresearch.com/feed/",
+      "event_category": "short_seller_report",
+      "update_interval_hours": 6,
+      "max_results": 30
+    },
+    "kerrisdale_research_rss": {
+      "enabled": true,
+      "url": "https://www.kerrisdalecap.com/feed/",
+      "event_category": "short_seller_report",
+      "update_interval_hours": 8,
+      "max_results": 25
+    },
+    "google_news_short_seller_report_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22short+report%22+OR+%22short-seller+report%22+OR+%22activist+short%22+OR+Hindenburg+OR+%22Muddy+Waters%22+OR+Kerrisdale+OR+%22Citron+Research%22+OR+%22Spruce+Point%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "short_seller_report",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+    "google_news_short_thesis_alleged_fraud_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22short+thesis%22+OR+%22alleged+fraud%22+OR+%22channel+stuffing%22+OR+%22undisclosed+related+party%22+OR+%22fabricated+revenue%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "short_seller_report",
+      "update_interval_hours": 4,
+      "max_results": 45
+    },
+
+    "google_news_credit_rating_downgrade_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22credit+rating+downgrade%22+OR+%22S%26P+downgrades%22+OR+%22Moody%27s+downgrades%22+OR+%22Fitch+downgrades%22+OR+%22cut+to+junk%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "credit_rating_action",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_credit_watch_outlook_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22placed+on+negative+watch%22+OR+%22negative+credit+watch%22+OR+%22outlook+revised+to+negative%22+OR+%22placed+on+review+for+downgrade%22+OR+%22fallen+angel%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "credit_rating_action",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+    "google_news_rating_speculative_grade_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22speculative+grade%22+OR+%22cut+to+CCC%22+OR+%22downgrade+to+junk%22+OR+%22default+risk+elevated%22+OR+%22rating+action%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "credit_rating_action",
+      "update_interval_hours": 6,
+      "max_results": 45
+    },
+
+    "google_news_going_concern_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22going+concern%22+OR+%22substantial+doubt%22+OR+%22going+concern+disclosure%22+OR+%22going+concern+warning%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "going_concern_auditor_change",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_auditor_change_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22auditor+resignation%22+OR+%22auditor+resigns%22+OR+%22change+in+auditor%22+OR+%22dismissed+its+auditor%22+OR+%22item+4.01%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "going_concern_auditor_change",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+    "google_news_material_weakness_restatement_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22material+weakness%22+OR+%22non-reliance+on+previously+issued%22+OR+%22item+4.02%22+OR+%22restatement+of+financial+statements%22+OR+%22late+filing%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "going_concern_auditor_change",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+
+    "google_news_guidance_cut_preannouncement_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22preannounces%22+OR+%22pre-announcement%22+OR+%22business+update%22+OR+%22preliminary+results%22+OR+%22withdraws+guidance%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "guidance_cut_preannouncement",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_guidance_withdraw_reset_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22suspends+guidance%22+OR+%22reset+expectations%22+OR+%22cuts+full-year+guidance%22+OR+%22lowers+full-year+guidance%22+OR+%22revises+guidance+lower%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "guidance_cut_preannouncement",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+
+    "sec_13d_filings_rss": {
+      "enabled": true,
+      "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=SC+13D&company=&dateb=&owner=include&count=40&output=atom",
+      "event_category": "activist_13d_filing",
+      "update_interval_hours": 4,
+      "max_results": 40
+    },
+    "sec_13d_amendments_rss": {
+      "enabled": true,
+      "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=SC+13D%2FA&company=&dateb=&owner=include&count=40&output=atom",
+      "event_category": "activist_13d_filing",
+      "update_interval_hours": 4,
+      "max_results": 40
+    },
+    "google_news_activist_13d_proxy_fight_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%2213D+filing%22+OR+%22files+proxy%22+OR+%22activist+stake%22+OR+%22proxy+fight%22+OR+%22board+nomination%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "activist_13d_filing",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+    "google_news_activist_campaign_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22activist+investor+discloses%22+OR+%22activist+campaign%22+OR+%22urges+strategic+alternatives%22+OR+Elliott+OR+Starboard+OR+%22Pershing+Square%22+OR+%22Trian+Fund%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "activist_13d_filing",
+      "update_interval_hours": 4,
+      "max_results": 45
+    },
+
+    "google_news_labor_strike_walkout_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22strike+authorization%22+OR+%22work+stoppage%22+OR+%22walkout%22+OR+%22union+strike%22+OR+%22prolonged+strike%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "labor_action",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+    "google_news_labor_action_dispute_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22lockout%22+OR+%22picket+line%22+OR+%22union+rejects+contract%22+OR+%22strike+expands%22+OR+%22extends+strike%22+OR+%22indefinite+strike%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "labor_action",
+      "update_interval_hours": 4,
+      "max_results": 45
+    },
+
+    "stanford_securities_class_action_rss": {
+      "enabled": true,
+      "url": "https://securities.stanford.edu/rss-feed-filings.html",
+      "event_category": "securities_class_action",
+      "update_interval_hours": 12,
+      "max_results": 35
+    },
+    "google_news_securities_class_action_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22securities+class+action%22+OR+%22class+action+lawsuit%22+OR+%22lead+plaintiff+deadline%22+OR+%22investor+alert%22+OR+%22shareholder+alert%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "securities_class_action",
+      "update_interval_hours": 4,
+      "max_results": 55
+    },
+    "google_news_class_action_filing_firms_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22Rosen+Law+Firm%22+OR+%22Schall+Law+Firm%22+OR+Pomerantz+OR+%22Bragar+Eagel%22+OR+%22Robbins+Geller%22+OR+%22Levi+Korsinsky%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "securities_class_action",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+
+    "sec_form4_filings_rss": {
+      "enabled": true,
+      "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&company=&dateb=&owner=include&count=40&output=atom",
+      "event_category": "insider_trading_cluster",
+      "update_interval_hours": 4,
+      "max_results": 40
+    },
+    "google_news_insider_cluster_sales_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22cluster+of+insider+sales%22+OR+%22cluster+of+insider+buys%22+OR+%22c-suite+selling%22+OR+%22insiders+sold%22+OR+%22insider+purchases%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "insider_trading_cluster",
+      "update_interval_hours": 4,
+      "max_results": 50
+    },
+    "google_news_form4_10b5_recent": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=(%22Form+4+filing%22+OR+%22SEC+Form+4%22+OR+%22insider+transactions%22+OR+%2210b5-1+plan%22+OR+%22rule+10b5-1%22)+when:1d&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "insider_trading_cluster",
+      "update_interval_hours": 6,
+      "max_results": 45
     }
   },
 
@@ -1177,6 +1612,71 @@
         "drop_within_48h_threshold": 1.2,
         "recovery_days_threshold": 5,
         "volume_spike_threshold": 1.7
+      },
+      "short_seller_report": {
+        "rsi_oversold_threshold": 25,
+        "price_drop_threshold": 18,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 5.0,
+        "recovery_days_threshold": 7,
+        "volume_spike_threshold": 3.0,
+        "min_confidence_for_signal": 0.80
+      },
+      "credit_rating_action": {
+        "rsi_oversold_threshold": 27,
+        "price_drop_threshold": 8,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.0,
+        "recovery_days_threshold": 5,
+        "volume_spike_threshold": 1.7
+      },
+      "going_concern_auditor_change": {
+        "rsi_oversold_threshold": 26,
+        "price_drop_threshold": 15,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 2.0,
+        "recovery_days_threshold": 7,
+        "volume_spike_threshold": 2.2
+      },
+      "guidance_cut_preannouncement": {
+        "rsi_oversold_threshold": 30,
+        "price_drop_threshold": 8,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.5,
+        "recovery_days_threshold": 5,
+        "volume_spike_threshold": 1.8
+      },
+      "activist_13d_filing": {
+        "rsi_oversold_threshold": 33,
+        "price_drop_threshold": 5,
+        "require_drop_within_48h": false,
+        "drop_within_48h_threshold": 0.5,
+        "recovery_days_threshold": 4,
+        "volume_spike_threshold": 1.6
+      },
+      "labor_action": {
+        "rsi_oversold_threshold": 29,
+        "price_drop_threshold": 8,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.0,
+        "recovery_days_threshold": 5,
+        "volume_spike_threshold": 1.7
+      },
+      "securities_class_action": {
+        "rsi_oversold_threshold": 28,
+        "price_drop_threshold": 10,
+        "require_drop_within_48h": true,
+        "drop_within_48h_threshold": 1.0,
+        "recovery_days_threshold": 6,
+        "volume_spike_threshold": 1.7
+      },
+      "insider_trading_cluster": {
+        "rsi_oversold_threshold": 29,
+        "price_drop_threshold": 8,
+        "require_drop_within_48h": false,
+        "drop_within_48h_threshold": 0.8,
+        "recovery_days_threshold": 5,
+        "volume_spike_threshold": 1.6
       }
     },
     "confidence_levels": {
@@ -1199,7 +1699,15 @@
       "leadership_scandal": 53,
       "positive_earnings_catalyst": 45,
       "geopolitical_sanctions_exposure": 55,
-      "negative_earnings_catalyst": 50
+      "negative_earnings_catalyst": 50,
+      "short_seller_report": 60,
+      "credit_rating_action": 52,
+      "going_concern_auditor_change": 62,
+      "guidance_cut_preannouncement": 50,
+      "activist_13d_filing": 40,
+      "labor_action": 50,
+      "securities_class_action": 48,
+      "insider_trading_cluster": 42
     }
   },
   "triage": {
@@ -1214,6 +1722,44 @@
     "fallback_to_deterministic": true,
     "agent_endpoint": "",
     "agent_api_key": ""
+  },
+  "llm_budget": {
+    "enabled": true,
+    "dry_run": true,
+    "per_call_max_input_tokens": 4000,
+    "per_call_max_output_tokens": 800,
+    "per_cycle_max_calls": 5,
+    "daily_usd_cap": 1.00,
+    "monthly_usd_cap": 15.00,
+    "per_category_daily_max_calls": 20,
+    "min_distress_score_for_llm": 40,
+    "cache_file": "../data/llm_call_cache.json",
+    "cache_ttl_days": 30,
+    "ledger_csv": "../data/llm_usage.csv",
+    "circuit_breaker_cooldown_seconds": 600,
+    "alert_threshold_pct_of_cap": 80,
+    "providers": {
+      "anthropic": {
+        "input_usd_per_1k": 0.003,
+        "output_usd_per_1k": 0.015
+      },
+      "openai": {
+        "input_usd_per_1k": 0.003,
+        "output_usd_per_1k": 0.012
+      },
+      "openrouter": {
+        "input_usd_per_1k": 0.003,
+        "output_usd_per_1k": 0.012
+      },
+      "ollama": {
+        "input_usd_per_1k": 0.0,
+        "output_usd_per_1k": 0.0
+      },
+      "generic_http": {
+        "input_usd_per_1k": 0.003,
+        "output_usd_per_1k": 0.012
+      }
+    }
   },
   "dashboard_readiness": {
     "enabled": true,

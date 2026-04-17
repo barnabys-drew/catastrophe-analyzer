@@ -456,6 +456,287 @@ class CatastropheAnalyzerApp:
                 if keyword_in_text(marker, content):
                     score -= weight
                     reasons.append(reason)
+        elif event_category == "short_seller_report":
+            weighted_markers = [
+                ("hindenburg", 30, "Named activist-short publisher signals heavy documented thesis"),
+                ("muddy waters", 28, "Named activist-short publisher signals heavy documented thesis"),
+                ("kerrisdale", 24, "Named activist-short publisher signals documented thesis"),
+                ("citron research", 20, "Named short-seller publication often drives acute drawdowns"),
+                ("spruce point", 20, "Named short-seller publication often drives acute drawdowns"),
+                ("grizzly research", 18, "Named short-seller publication often drives acute drawdowns"),
+                ("wolfpack research", 18, "Named short-seller publication often drives acute drawdowns"),
+                ("viceroy research", 18, "Named short-seller publication often drives acute drawdowns"),
+                ("bonitas research", 18, "Named short-seller publication often drives acute drawdowns"),
+                ("iceberg research", 18, "Named short-seller publication often drives acute drawdowns"),
+                ("blue orca", 18, "Named short-seller publication often drives acute drawdowns"),
+                ("activist short", 22, "Activist short framing implies deliberate investigation"),
+                ("alleged fraud", 22, "Alleged-fraud framing increases tail risk narrative"),
+                ("channel stuffing", 18, "Channel-stuffing allegations threaten reported growth"),
+                ("undisclosed related party", 20, "Undisclosed related-party claims threaten reporting trust"),
+                ("fabricated revenue", 24, "Fabricated-revenue claims imply severe financial fraud"),
+                ("short thesis", 14, "Short-thesis publication increases short-interest momentum"),
+                ("going zero", 14, "Terminal-value framing amplifies downside narrative"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if keyword_in_text(marker, content):
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("company denies", 10, "Company denial can blunt short-report momentum"),
+                ("rebuttal", 10, "Formal rebuttal can soften short-report impact"),
+                ("independent review", 8, "Independent review response can steady confidence"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if keyword_in_text(marker, content):
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "credit_rating_action":
+            weighted_markers = [
+                ("cut to junk", 28, "Junk downgrade forces index/insurance-mandated selling"),
+                ("downgrade to junk", 28, "Junk downgrade forces index/insurance-mandated selling"),
+                ("fallen angel", 26, "Fallen-angel status triggers structural selling"),
+                ("cut to ccc", 28, "CCC-tier rating implies near-term default risk"),
+                ("speculative grade", 18, "Speculative-grade language implies heightened default risk"),
+                ("credit rating downgrade", 22, "Downgrade materially raises refinancing costs"),
+                ("credit rating cut", 22, "Rating cut materially raises refinancing costs"),
+                ("rating action", 14, "Rating action language implies formal review outcome"),
+                ("placed on negative watch", 16, "Negative watch signals elevated downgrade probability"),
+                ("negative credit watch", 16, "Negative watch signals elevated downgrade probability"),
+                ("placed on review for downgrade", 16, "Review-for-downgrade increases imminent cut probability"),
+                ("outlook revised to negative", 14, "Negative outlook prefigures potential downgrade"),
+                ("outlook changed to negative", 14, "Negative outlook prefigures potential downgrade"),
+                ("default risk elevated", 18, "Elevated-default-risk framing implies imminent pressure"),
+                ("s&p downgrades", 20, "Major agency action drives institutional repricing"),
+                ("moody's downgrades", 20, "Major agency action drives institutional repricing"),
+                ("fitch downgrades", 20, "Major agency action drives institutional repricing"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if keyword_in_text(marker, content):
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("upgraded", 14, "Upgrade language inverts the downgrade narrative"),
+                ("outlook revised to positive", 10, "Positive outlook change reduces downgrade probability"),
+                ("outlook stable", 6, "Stable outlook reduces acute downgrade pressure"),
+                ("affirmed", 8, "Affirmation reduces active downgrade risk"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if keyword_in_text(marker, content):
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "going_concern_auditor_change":
+            weighted_markers = [
+                ("substantial doubt", 28, "Substantial-doubt language is a primary distress marker"),
+                ("going concern", 26, "Going-concern disclosure signals solvency pressure"),
+                ("going concern qualification", 28, "Qualified opinion elevates default risk profile"),
+                ("going concern opinion", 26, "Auditor going-concern opinion intensifies distress narrative"),
+                ("auditor resignation", 24, "Auditor resignations often trigger credibility shocks"),
+                ("auditor resigns", 24, "Auditor resignations often trigger credibility shocks"),
+                ("auditor dismissed", 20, "Auditor dismissal raises reporting credibility questions"),
+                ("change in auditor", 18, "Auditor change often precedes disclosure concerns"),
+                ("change in accountant", 18, "Accountant change often precedes disclosure concerns"),
+                ("dismissal of accountants", 18, "Dismissal-of-accountants language can front-run restatement"),
+                ("item 4.01", 16, "Form 8-K Item 4.01 triggers auditor-change disclosure"),
+                ("item 4.02", 22, "Form 8-K Item 4.02 indicates non-reliance on prior financials"),
+                ("non-reliance on previously issued", 24, "Non-reliance filings routinely precede restatements"),
+                ("restatement of financial statements", 22, "Financial restatements reset earnings trust"),
+                ("restated financial statements", 22, "Financial restatements reset earnings trust"),
+                ("material weakness", 20, "Material-weakness disclosure signals control failure risk"),
+                ("internal control weakness", 18, "Internal-control weakness widens restatement risk"),
+                ("late filing", 14, "Late filings often precede restatement disclosures"),
+                ("nt 10-k", 14, "Form NT 10-K signals material delay in annual reporting"),
+                ("nt 10-q", 12, "Form NT 10-Q signals material delay in quarterly reporting"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if keyword_in_text(marker, content):
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("refinancing completed", 10, "Completed refinancing can ease near-term maturity pressure"),
+                ("going concern removed", 16, "Going-concern removal reverses the primary distress signal"),
+                ("reinstated audit opinion", 12, "Reinstated audit opinion restores reporting credibility"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if keyword_in_text(marker, content):
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "guidance_cut_preannouncement":
+            weighted_markers = [
+                ("preannounces", 20, "Preannouncements typically front-run larger earnings moves"),
+                ("pre-announcement", 20, "Preannouncements typically front-run larger earnings moves"),
+                ("business update", 14, "Business-update filings often contain unscheduled guidance changes"),
+                ("preliminary results", 18, "Preliminary-results releases usually reset expectations"),
+                ("preliminary estimate", 16, "Preliminary-estimate language implies pending formal cut"),
+                ("withdraws guidance", 26, "Guidance withdrawal increases forward uncertainty"),
+                ("withdrew guidance", 26, "Guidance withdrawal increases forward uncertainty"),
+                ("suspends guidance", 24, "Suspended guidance implies management visibility breakdown"),
+                ("suspended guidance", 24, "Suspended guidance implies management visibility breakdown"),
+                ("cuts full-year guidance", 24, "Full-year cuts compress valuation multiples"),
+                ("cuts fy guidance", 22, "Full-year cuts compress valuation multiples"),
+                ("lowers full-year guidance", 22, "Full-year cuts compress valuation multiples"),
+                ("lowers guidance", 20, "Guidance cuts shift forward earnings expectations"),
+                ("revises guidance lower", 18, "Downward revisions signal management concern"),
+                ("revised guidance lower", 18, "Downward revisions signal management concern"),
+                ("below prior guidance", 16, "Under-shooting prior guidance implies execution shortfall"),
+                ("falls short of prior guidance", 18, "Falling short of prior guidance signals miss risk"),
+                ("reset expectations", 14, "Reset-expectations language often precedes full guide-down"),
+                ("updates outlook", 10, "Outlook-update language may carry guide-down content"),
+                ("updated outlook", 10, "Outlook-update language may carry guide-down content"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if keyword_in_text(marker, content):
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("raises guidance", 18, "Raised guidance inverts the preannouncement narrative"),
+                ("reaffirmed guidance", 14, "Reaffirmed guidance reduces forward uncertainty"),
+                ("better-than-expected", 12, "Positive preannouncement framing softens narrative"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if keyword_in_text(marker, content):
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "activist_13d_filing":
+            weighted_markers = [
+                ("13d filing", 16, "13D filings disclose >5% activist ownership positions"),
+                ("files 13d", 16, "13D filings disclose >5% activist ownership positions"),
+                ("schedule 13d", 14, "Schedule 13D implies active intent to engage management"),
+                ("schedule 13d/a", 16, "Amended 13D often escalates activist engagement"),
+                ("crossed 5%", 14, "Crossing 5% triggers reporting and signals accumulation"),
+                ("accumulates stake", 14, "Accumulation language reflects activist positioning"),
+                ("activist stake", 16, "Activist-stake framing implies strategic engagement"),
+                ("activist campaign", 18, "Active campaigns typically drive re-rating volatility"),
+                ("activist investor discloses", 16, "Activist disclosures often precede catalyst activity"),
+                ("proxy fight", 22, "Proxy fights escalate governance and strategic uncertainty"),
+                ("proxy contest", 22, "Proxy contests increase near-term volatility"),
+                ("nominates directors", 18, "Director nominations can reshape board composition"),
+                ("nominate directors", 18, "Director nominations can reshape board composition"),
+                ("board nomination", 16, "Board nominations front-run governance battles"),
+                ("urges review of strategic alternatives", 20, "Strategic-alternatives calls often trigger rumor premium"),
+                ("elliott management", 18, "Named activist firms typically drive re-rating activity"),
+                ("starboard value", 16, "Named activist firms typically drive re-rating activity"),
+                ("pershing square", 16, "Named activist firms typically drive re-rating activity"),
+                ("trian fund", 16, "Named activist firms typically drive re-rating activity"),
+                ("jana partners", 14, "Named activist firms typically drive re-rating activity"),
+                ("engaged capital", 12, "Named activist firms drive engagement narrative"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if keyword_in_text(marker, content):
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("settlement reached", 10, "Activist settlements can de-risk near-term governance fight"),
+                ("cooperation agreement", 10, "Cooperation agreements reduce proxy-contest risk"),
+                ("withdraw nomination", 12, "Withdrawn nominations reduce near-term governance volatility"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if keyword_in_text(marker, content):
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "labor_action":
+            weighted_markers = [
+                ("work stoppage", 20, "Work stoppages directly cut near-term production"),
+                ("walkout", 20, "Walkouts directly cut near-term production"),
+                ("strike authorization", 14, "Strike authorization prefigures possible action"),
+                ("authorization to strike", 14, "Strike authorization prefigures possible action"),
+                ("union strike", 20, "Union strikes halt operations and revenue"),
+                ("nationwide strike", 24, "Nationwide strikes amplify revenue and margin risk"),
+                ("prolonged strike", 22, "Prolonged stoppages pressure margins and revenue"),
+                ("indefinite strike", 22, "Indefinite strikes pressure margins and revenue"),
+                ("strike expands", 18, "Expanding strikes imply escalation and broader impact"),
+                ("extends strike", 16, "Extended strikes pressure near-term production"),
+                ("lockout", 18, "Lockouts halt operations and can drag on resolution"),
+                ("union rejects contract", 14, "Contract rejection increases stoppage probability"),
+                ("contract rejected", 14, "Contract rejection increases stoppage probability"),
+                ("union walks out", 20, "Active walkouts cut near-term production"),
+                ("port strike", 22, "Port strikes impair supply chains broadly"),
+                ("longshore strike", 22, "Longshore strikes halt cargo movement"),
+                ("uaw strike", 22, "Auto-sector stoppages materially impact production"),
+                ("teamsters strike", 18, "Teamsters stoppages threaten logistics"),
+                ("labor dispute escalates", 14, "Escalating disputes increase stoppage probability"),
+                ("labor action", 12, "Labor-action framing implies active dispute"),
+                ("pickets line", 8, "Picket-line activity visibly halts operations"),
+                ("picket line", 8, "Picket-line activity visibly halts operations"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if keyword_in_text(marker, content):
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("strike ends", 18, "Strike resolution reduces ongoing disruption"),
+                ("tentative agreement", 16, "Tentative agreements prefigure resolution"),
+                ("ratifies contract", 14, "Ratified contracts remove stoppage overhang"),
+                ("ratified contract", 14, "Ratified contracts remove stoppage overhang"),
+                ("returns to work", 14, "Return-to-work signals disruption resolution"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if keyword_in_text(marker, content):
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "securities_class_action":
+            weighted_markers = [
+                ("securities class action", 18, "Securities class actions add legal cost and settlement risk"),
+                ("class action lawsuit", 14, "Class actions add legal cost and settlement risk"),
+                ("class-action complaint", 14, "Class actions add legal cost and settlement risk"),
+                ("class action complaint", 14, "Class actions add legal cost and settlement risk"),
+                ("class action filed against", 16, "Active class-action filings increase legal overhang"),
+                ("class period", 10, "Class-period references indicate active filing"),
+                ("investors who purchased", 10, "Investor-recruitment language indicates active case"),
+                ("lead plaintiff deadline", 12, "Lead-plaintiff deadlines indicate active case activity"),
+                ("motion to dismiss denied", 18, "Denied dismissal significantly increases litigation risk"),
+                ("certified as a class", 14, "Certified class amplifies exposure and settlement pressure"),
+                ("class certification", 14, "Class certification amplifies exposure and settlement pressure"),
+                ("securities fraud lawsuit", 20, "Fraud lawsuits add serious enforcement-adjacent risk"),
+                ("investor alert", 8, "Investor-alert firm activity often indicates active filing"),
+                ("shareholder alert", 8, "Shareholder-alert firm activity often indicates active filing"),
+                ("shareholder investigation", 10, "Shareholder investigations often precede filings"),
+                ("defendants violated the securities", 14, "Alleged violations increase legal exposure"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if keyword_in_text(marker, content):
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("motion to dismiss granted", 16, "Granted dismissals reduce active litigation exposure"),
+                ("settled for", 10, "Settlements cap further exposure (though still a cost)"),
+                ("dismissed with prejudice", 16, "Prejudicial dismissal ends exposure on that claim"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if keyword_in_text(marker, content):
+                    score -= weight
+                    reasons.append(reason)
+        elif event_category == "insider_trading_cluster":
+            weighted_markers = [
+                ("cluster of insider sales", 22, "Selling clusters often precede bad news"),
+                ("c-suite selling", 20, "C-suite selling implies informed sell signal"),
+                ("executives sell shares", 16, "Executive selling signals weakened confidence"),
+                ("officer sells shares", 14, "Officer selling implies informed sell signal"),
+                ("insiders sold", 14, "Active insider selling pressures price and sentiment"),
+                ("insider selling", 14, "Active insider selling pressures price and sentiment"),
+                ("ceo sold shares", 18, "CEO selling signals weakened confidence"),
+                ("cfo sold shares", 20, "CFO selling signals reporting-context concern"),
+                ("disposition of shares", 10, "Disposition filings indicate insider sales"),
+                ("form 4 filing", 8, "Form 4 filings disclose insider transactions"),
+                ("sec form 4", 8, "Form 4 filings disclose insider transactions"),
+                ("10% owner", 8, "10% owner sales imply informed positioning"),
+                ("cluster of insider buys", 12, "Buying clusters imply insider confidence (upside)"),
+                ("insider buying", 10, "Insider buying can signal undervaluation"),
+                ("insider purchases", 10, "Insider buying can signal undervaluation"),
+            ]
+            for marker, weight, reason in weighted_markers:
+                if keyword_in_text(marker, content):
+                    score += weight
+                    reasons.append(reason)
+            positive_offsets = [
+                ("10b5-1 plan", 14, "Pre-arranged 10b5-1 sales dampen informed-trading narrative"),
+                ("rule 10b5-1", 14, "Pre-arranged 10b5-1 sales dampen informed-trading narrative"),
+                ("10b5-1 trading plan", 14, "Pre-arranged 10b5-1 sales dampen informed-trading narrative"),
+                ("scheduled sale", 10, "Scheduled sales dampen informed-trading narrative"),
+            ]
+            for marker, weight, reason in positive_offsets:
+                if keyword_in_text(marker, content):
+                    score -= weight
+                    reasons.append(reason)
 
         score = max(0, min(100, score))
         if score >= 70:
@@ -486,6 +767,14 @@ class CatastropheAnalyzerApp:
             "positive_earnings_catalyst",
             "geopolitical_sanctions_exposure",
             "negative_earnings_catalyst",
+            "short_seller_report",
+            "credit_rating_action",
+            "going_concern_auditor_change",
+            "guidance_cut_preannouncement",
+            "activist_13d_filing",
+            "labor_action",
+            "securities_class_action",
+            "insider_trading_cluster",
         ]
 
     def _active_event_categories(self) -> List[str]:
@@ -1127,6 +1416,251 @@ class CatastropheAnalyzerApp:
                     "asset freeze",
                     "forced divestiture",
                     "sanctions penalty",
+                )
+            ):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "short_seller_report":
+            event_subtype = "Short Seller Report"
+            if "hindenburg" in content:
+                event_subtype = "Hindenburg Short Report"
+            elif "muddy waters" in content:
+                event_subtype = "Muddy Waters Short Report"
+            elif "kerrisdale" in content:
+                event_subtype = "Kerrisdale Short Report"
+            elif "citron research" in content:
+                event_subtype = "Citron Short Report"
+            elif "spruce point" in content:
+                event_subtype = "Spruce Point Short Report"
+            elif "grizzly research" in content:
+                event_subtype = "Grizzly Short Report"
+            elif "activist short" in content:
+                event_subtype = "Activist Short Publication"
+            elif "fabricated revenue" in content or "channel stuffing" in content:
+                event_subtype = "Alleged Accounting Fraud"
+            elif "undisclosed related party" in content:
+                event_subtype = "Alleged Governance Issue"
+
+            severity = "Medium"
+            high_markers = [
+                "hindenburg",
+                "muddy waters",
+                "fabricated revenue",
+                "activist short",
+                "alleged fraud",
+            ]
+            if any(keyword_in_text(marker, content) for marker in high_markers):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "credit_rating_action":
+            event_subtype = "Credit Rating Action"
+            if "cut to junk" in content or "downgrade to junk" in content or "fallen angel" in content:
+                event_subtype = "Fallen Angel Downgrade"
+            elif "cut to ccc" in content or "cut to b-" in content:
+                event_subtype = "Deep Junk Downgrade"
+            elif "s&p downgrades" in content or "moody's downgrades" in content or "moodys downgrades" in content or "fitch downgrades" in content:
+                event_subtype = "Major Agency Downgrade"
+            elif "credit rating downgrade" in content or "credit rating cut" in content:
+                event_subtype = "Credit Rating Downgrade"
+            elif "placed on negative watch" in content or "negative credit watch" in content or "placed on review for downgrade" in content:
+                event_subtype = "Negative Credit Watch"
+            elif "outlook revised to negative" in content or "outlook changed to negative" in content:
+                event_subtype = "Negative Outlook Revision"
+
+            severity = "Medium"
+            if any(
+                marker in content
+                for marker in (
+                    "cut to junk",
+                    "downgrade to junk",
+                    "fallen angel",
+                    "cut to ccc",
+                    "default risk elevated",
+                    "speculative grade",
+                )
+            ):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "going_concern_auditor_change":
+            event_subtype = "Going Concern / Auditor Event"
+            if "going concern qualification" in content or "going concern opinion" in content:
+                event_subtype = "Going Concern Opinion"
+            elif "substantial doubt" in content or "going concern" in content:
+                event_subtype = "Going Concern Warning"
+            elif "auditor resignation" in content or "auditor resigns" in content:
+                event_subtype = "Auditor Resignation"
+            elif "auditor dismissed" in content or "dismissal of accountants" in content or "item 4.01" in content:
+                event_subtype = "Auditor Dismissal (Item 4.01)"
+            elif "change in auditor" in content or "change in accountant" in content:
+                event_subtype = "Auditor Change"
+            elif "non-reliance on previously issued" in content or "item 4.02" in content:
+                event_subtype = "Non-Reliance Notice (Item 4.02)"
+            elif "restatement of financial statements" in content or "restated financial statements" in content:
+                event_subtype = "Financial Statement Restatement"
+            elif "material weakness" in content or "internal control weakness" in content:
+                event_subtype = "Material Weakness Disclosure"
+            elif "late filing" in content or "nt 10-k" in content or "nt 10-q" in content:
+                event_subtype = "Late Filing (NT 10-K/Q)"
+
+            severity = "Medium"
+            high_markers = [
+                "substantial doubt",
+                "going concern",
+                "auditor resignation",
+                "non-reliance on previously issued",
+                "restatement of financial statements",
+                "item 4.02",
+            ]
+            if any(keyword_in_text(marker, content) for marker in high_markers):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "guidance_cut_preannouncement":
+            event_subtype = "Guidance Update / Preannouncement"
+            if "withdraws guidance" in content or "withdrew guidance" in content:
+                event_subtype = "Guidance Withdrawal"
+            elif "suspends guidance" in content or "suspended guidance" in content:
+                event_subtype = "Guidance Suspension"
+            elif "cuts full-year guidance" in content or "lowers full-year guidance" in content or "cuts fy guidance" in content:
+                event_subtype = "Full-Year Guidance Cut"
+            elif "lowers guidance" in content or "revises guidance lower" in content or "revised guidance lower" in content:
+                event_subtype = "Guidance Reduction"
+            elif "preannounces" in content or "pre-announcement" in content or "preliminary results" in content:
+                event_subtype = "Negative Preannouncement"
+            elif "business update" in content:
+                event_subtype = "Business Update Filing"
+
+            severity = "Medium"
+            high_markers = [
+                "withdraws guidance",
+                "withdrew guidance",
+                "suspends guidance",
+                "cuts full-year guidance",
+                "lowers full-year guidance",
+                "negative preannouncement",
+            ]
+            if any(keyword_in_text(marker, content) for marker in high_markers):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "activist_13d_filing":
+            event_subtype = "Activist Ownership Event"
+            if "proxy fight" in content or "proxy contest" in content:
+                event_subtype = "Proxy Contest"
+            elif "nominates directors" in content or "nominate directors" in content or "board nomination" in content:
+                event_subtype = "Director Nomination"
+            elif "urges review of strategic alternatives" in content or "urges board" in content:
+                event_subtype = "Strategic Alternatives Push"
+            elif "schedule 13d/a" in content or "13d/g" in content:
+                event_subtype = "13D Amendment"
+            elif "schedule 13d" in content or "13d filing" in content or "files 13d" in content:
+                event_subtype = "13D Filing"
+            elif "activist stake" in content or "activist investor discloses" in content or "accumulates stake" in content:
+                event_subtype = "Activist Stake Disclosure"
+            elif "activist campaign" in content:
+                event_subtype = "Activist Campaign"
+
+            severity = "Medium"
+            if any(
+                marker in content
+                for marker in (
+                    "proxy fight",
+                    "proxy contest",
+                    "urges review of strategic alternatives",
+                    "activist campaign",
+                )
+            ):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "labor_action":
+            event_subtype = "Labor Action"
+            if "nationwide strike" in content or "prolonged strike" in content or "indefinite strike" in content:
+                event_subtype = "Prolonged Strike"
+            elif "strike expands" in content or "extends strike" in content:
+                event_subtype = "Strike Expansion"
+            elif "work stoppage" in content or "walkout" in content or "union walks out" in content:
+                event_subtype = "Work Stoppage"
+            elif "lockout" in content:
+                event_subtype = "Lockout"
+            elif "strike authorization" in content or "authorization to strike" in content:
+                event_subtype = "Strike Authorization"
+            elif "union rejects contract" in content or "contract rejected" in content:
+                event_subtype = "Contract Rejection"
+            elif "port strike" in content or "longshore strike" in content:
+                event_subtype = "Port/Longshore Strike"
+            elif "uaw strike" in content:
+                event_subtype = "UAW Strike"
+            elif "teamsters strike" in content:
+                event_subtype = "Teamsters Strike"
+
+            severity = "Medium"
+            high_markers = [
+                "nationwide strike",
+                "prolonged strike",
+                "indefinite strike",
+                "work stoppage",
+                "lockout",
+                "port strike",
+            ]
+            if any(keyword_in_text(marker, content) for marker in high_markers):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "securities_class_action":
+            event_subtype = "Securities Class Action Event"
+            if "motion to dismiss denied" in content:
+                event_subtype = "Dismissal Denied"
+            elif "class certification" in content or "certified as a class" in content:
+                event_subtype = "Class Certified"
+            elif "securities fraud lawsuit" in content:
+                event_subtype = "Securities Fraud Lawsuit"
+            elif "class action filed against" in content or "class-action complaint" in content or "class action complaint" in content:
+                event_subtype = "Class Action Filed"
+            elif "lead plaintiff deadline" in content:
+                event_subtype = "Lead Plaintiff Deadline"
+            elif "shareholder investigation" in content or "investor alert" in content or "shareholder alert" in content:
+                event_subtype = "Shareholder Investigation"
+
+            severity = "Medium"
+            if any(
+                marker in content
+                for marker in (
+                    "motion to dismiss denied",
+                    "class certification",
+                    "certified as a class",
+                    "securities fraud lawsuit",
+                )
+            ):
+                severity = "High"
+            return event_subtype, severity
+
+        if event_category == "insider_trading_cluster":
+            event_subtype = "Insider Transaction Event"
+            if "cluster of insider sales" in content or "c-suite selling" in content:
+                event_subtype = "Insider Selling Cluster"
+            elif "cluster of insider buys" in content or "insider buying" in content or "insider purchases" in content:
+                event_subtype = "Insider Buying Cluster"
+            elif "cfo sold shares" in content:
+                event_subtype = "CFO Share Sale"
+            elif "ceo sold shares" in content:
+                event_subtype = "CEO Share Sale"
+            elif "officer sells shares" in content or "director sells shares" in content:
+                event_subtype = "Insider Share Sale"
+            elif "10b5-1 plan" in content or "rule 10b5-1" in content or "10b5-1 trading plan" in content:
+                event_subtype = "Rule 10b5-1 Transaction"
+            elif "form 4 filing" in content or "sec form 4" in content or "insider transactions" in content:
+                event_subtype = "Form 4 Filing"
+
+            severity = "Medium"
+            if any(
+                marker in content
+                for marker in (
+                    "cluster of insider sales",
+                    "c-suite selling",
                 )
             ):
                 severity = "High"

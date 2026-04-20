@@ -121,6 +121,17 @@ class EntityExtractor:
         "recall", "recalled", "bulletin", "eruric", "urgent", "urgently", "yahoo", "msn",
         "retailer", "retailers", "rice", "risk", "safety", "sold", "technical",
         "trader", "trio", "warning",
+        # Common generic words that Yahoo Finance search returns tickers for but are never
+        # standalone company identifiers in catastrophe-event headlines.
+        "assets", "automotive", "brands", "business", "caring", "cloud", "connect",
+        "county", "credit", "data", "design", "digital", "distribution", "driven",
+        "eastern", "enable", "equity", "finance", "growth", "industrial", "infrastructure",
+        "innovation", "insurance", "island", "journal", "league", "logistics",
+        "manufacturing", "metals", "mining", "motion", "networks", "northern",
+        "operations", "pacific", "payments", "personal", "platform", "records",
+        "remote", "sharing", "social", "solutions", "southern", "sports", "strategy",
+        "supply", "systems", "transportation", "travel", "ventures", "vision",
+        "western", "county", "states", "senior", "social", "second",
     })
     _LOWERCASE_GLUE_WORDS = frozenset({"and", "of", "the", "for", "at", "&"})
     _RECALL_SINGLE_WORD_ALLOWLIST = frozenset(
@@ -400,13 +411,23 @@ class EntityExtractor:
         try:
             with open(self._cache_file, "r") as f:
                 data = json.load(f)
+            skipped = 0
             for k, v in data.items():
                 if v and v != "UNKNOWN":
                     if self._us_listed_only and not self._is_us_primary_symbol(str(v)):
                         continue
                     key = k.lower()
+                    # Reject single-word generic entries that poison entity extraction.
+                    parts = self._tokenize_name(key)
+                    if len(parts) == 1:
+                        w = parts[0]
+                        if w in self._GENERIC_SINGLE_WORD_ENTITIES or w in self._ENTITY_BLOCKLIST:
+                            skipped += 1
+                            continue
                     self._lookup_cache[key] = v
                     self.company_to_ticker[key] = v
+            if skipped:
+                print(f"[entity_extractor] Skipped {skipped} generic single-word cache entries on load.", flush=True)
             self.ticker_to_company = {v: k for k, v in self.company_to_ticker.items()}
         except (FileNotFoundError, json.JSONDecodeError):
             pass
@@ -1036,10 +1057,17 @@ class EntityExtractor:
 
         # Dynamic lookup: full public company set via Yahoo Finance
         if self._use_dynamic_lookup and requests:
-            # Precision-first guard: avoid short one-word dynamic guesses.
+            # Precision-first guard: block generic/short single-word lookups that produce
+            # poisoned cache entries (e.g. "supply" → TSCO, "energy" → BE).
             single = self._tokenize_name(normalized_name)
-            if len(single) == 1 and len(single[0]) < 6:
-                return None
+            if len(single) == 1:
+                w = single[0]
+                if (
+                    len(w) < 7
+                    or w in self._GENERIC_SINGLE_WORD_ENTITIES
+                    or w in self._ENTITY_BLOCKLIST
+                ):
+                    return None
             ticker = self._dynamic_lookup_company(company_name)
             if ticker and (not self._us_listed_only or self._is_us_primary_symbol(ticker)):
                 if self._cache_lookups:

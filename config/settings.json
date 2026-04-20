@@ -3009,7 +3009,11 @@
     "analysis_window_days": 90,
     "use_mock_data": false,
     "data_source": "tiingo",
-    "tiingo_token_env": "TIINGO_API_TOKEN"
+    "tiingo_token_env": "TIINGO_API_TOKEN",
+    "tiingo_rate_limit_per_hour": 450,
+    "tiingo_price_cache_file": "../data/tiingo_price_cache.json",
+    "tiingo_price_cache_ttl_hours": 6,
+    "tiingo_tradable_cache_file": "../data/tiingo_tradable_cache.json"
   },
   "monitoring_schedule": {
     "scan_interval_minutes": 15,

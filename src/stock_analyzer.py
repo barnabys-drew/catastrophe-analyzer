@@ -7,6 +7,10 @@ from typing import List, Dict, Optional, Any
 from datetime import datetime, timedelta, date
 import os
 import re
+import time
+import json
+from collections import deque
+from pathlib import Path
 
 import requests
 
@@ -27,8 +31,31 @@ class StockAnalyzer:
         """
         self.use_mock = use_mock
         self._stock_cfg: Dict[str, Any] = dict(stock_analysis_config or {})
-        # Cache tradable checks so repeated watch cycles do not re-query bad symbols.
+
+        # In-memory tradable cache; persisted to disk so container restarts don't re-probe.
         self._tradable_cache: Dict[str, bool] = {}
+
+        # Tiingo rate limiter: sliding window of UTC epoch timestamps.
+        self._tiingo_rate_limit_per_hour: int = int(
+            self._stock_cfg.get("tiingo_rate_limit_per_hour", 450)
+        )
+        self._tiingo_call_log: deque = deque()
+
+        # Disk-backed price cache: key → {"ts": isoformat, "rows": [...]}
+        self._tiingo_price_cache_ttl_hours: int = int(
+            self._stock_cfg.get("tiingo_price_cache_ttl_hours", 6)
+        )
+        self._tiingo_price_cache: Dict[str, Dict] = {}
+
+        _here = Path(__file__).parent
+        _price_rel = str(self._stock_cfg.get("tiingo_price_cache_file", "") or "").strip()
+        self._tiingo_price_cache_file: Optional[Path] = (
+            (_here / ".." / _price_rel).resolve() if _price_rel else None
+        )
+        _tradable_rel = str(self._stock_cfg.get("tiingo_tradable_cache_file", "") or "").strip()
+        self._tradable_cache_path: Optional[Path] = (
+            (_here / ".." / _tradable_rel).resolve() if _tradable_rel else None
+        )
 
         cfg_source = (self._stock_cfg.get("data_source") or "yfinance").strip().lower()
         token_env = (self._stock_cfg.get("tiingo_token_env") or "TIINGO_API_TOKEN").strip()
@@ -59,6 +86,61 @@ class StockAnalyzer:
                 except ImportError:
                     print("Warning: yfinance not installed. Falling back to mock data.")
                     self.use_mock = True
+
+            self._load_tiingo_caches()
+
+    def _load_tiingo_caches(self) -> None:
+        if self._tiingo_price_cache_file and self._tiingo_price_cache_file.exists():
+            try:
+                with open(self._tiingo_price_cache_file) as f:
+                    self._tiingo_price_cache = json.load(f)
+            except Exception:
+                self._tiingo_price_cache = {}
+        if self._tradable_cache_path and self._tradable_cache_path.exists():
+            try:
+                with open(self._tradable_cache_path) as f:
+                    loaded = json.load(f)
+                    if isinstance(loaded, dict):
+                        self._tradable_cache.update(loaded)
+            except Exception:
+                pass
+
+    def _save_tiingo_price_cache(self) -> None:
+        if not self._tiingo_price_cache_file:
+            return
+        try:
+            self._tiingo_price_cache_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._tiingo_price_cache_file, "w") as f:
+                json.dump(self._tiingo_price_cache, f)
+        except Exception:
+            pass
+
+    def _save_tradable_cache(self) -> None:
+        if not self._tradable_cache_path:
+            return
+        try:
+            self._tradable_cache_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self._tradable_cache_path, "w") as f:
+                json.dump(self._tradable_cache, f)
+        except Exception:
+            pass
+
+    def _tiingo_throttle(self) -> None:
+        """Block until within the configured hourly Tiingo rate limit."""
+        now = time.time()
+        window_start = now - 3600.0
+        while self._tiingo_call_log and self._tiingo_call_log[0] < window_start:
+            self._tiingo_call_log.popleft()
+        if len(self._tiingo_call_log) >= self._tiingo_rate_limit_per_hour:
+            wait = (self._tiingo_call_log[0] + 3600.0) - now + 2.0
+            if wait > 0:
+                print(
+                    f"[tiingo] rate limit ({self._tiingo_rate_limit_per_hour}/hr reached), "
+                    f"sleeping {wait:.0f}s",
+                    flush=True,
+                )
+                time.sleep(wait)
+        self._tiingo_call_log.append(time.time())
 
     @staticmethod
     def _is_supported_symbol_format(ticker: str) -> bool:
@@ -106,6 +188,7 @@ class StockAnalyzer:
             rows = self._tiingo_fetch_daily(symbol, start_d, end_d)
             is_tradable = bool(rows)
             self._tradable_cache[symbol] = is_tradable
+            self._save_tradable_cache()
             return is_tradable
 
         try:
@@ -114,9 +197,11 @@ class StockAnalyzer:
             probe = stock.history(period="5d")
             is_tradable = not probe.empty
             self._tradable_cache[symbol] = is_tradable
+            self._save_tradable_cache()
             return is_tradable
         except Exception:
             self._tradable_cache[symbol] = False
+            self._save_tradable_cache()
             return False
 
     def _get_mock_price_history(self, ticker: str, days: int = 60) -> Dict:
@@ -212,20 +297,44 @@ class StockAnalyzer:
         """Return Tiingo EOD rows (sorted ascending by date) or None on transport/API failure."""
         if not self._tiingo_token:
             return None
+
+        cache_key = f"{symbol}|{start_d.isoformat()}|{end_d.isoformat()}"
+        cached = self._tiingo_price_cache.get(cache_key)
+        if cached:
+            try:
+                age = datetime.now() - datetime.fromisoformat(cached["ts"])
+                if age < timedelta(hours=self._tiingo_price_cache_ttl_hours):
+                    return cached["rows"]
+            except Exception:
+                pass
+
+        self._tiingo_throttle()
+
         url = f"https://api.tiingo.com/tiingo/daily/{symbol}/prices"
         params = {"startDate": start_d.isoformat(), "endDate": end_d.isoformat()}
         headers = {"Authorization": f"Token {self._tiingo_token}"}
         try:
             r = requests.get(url, params=params, headers=headers, timeout=30)
             if r.status_code == 404:
-                return []
-            if r.status_code != 200:
+                rows: List[Dict[str, Any]] = []
+            elif r.status_code == 429:
+                print(f"[tiingo] 429 server-side rate limit for {symbol}", flush=True)
+                return None
+            elif r.status_code != 200:
                 print(f"Tiingo API HTTP {r.status_code} for {symbol}: {r.text[:240]}")
                 return None
-            data = r.json()
-            if not isinstance(data, list):
-                return None
-            return sorted(data, key=lambda row: str(row.get("date", "")))
+            else:
+                data = r.json()
+                if not isinstance(data, list):
+                    return None
+                rows = sorted(data, key=lambda row: str(row.get("date", "")))
+
+            self._tiingo_price_cache[cache_key] = {
+                "ts": datetime.now().isoformat(),
+                "rows": rows,
+            }
+            self._save_tiingo_price_cache()
+            return rows
         except Exception as exc:
             print(f"Tiingo request failed for {symbol}: {exc}")
             return None

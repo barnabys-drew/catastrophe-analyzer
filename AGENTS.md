@@ -12,6 +12,7 @@ Goal: detect material company events, map them to tickers, evaluate likely finan
 2. `docs/EVENT_CATEGORIES_AND_IMPACT.md`
 3. `ARCHITECTURE.md`
 4. `docs/AGENT_AND_DEV_WORKFLOW_NOTES.md`
+5. `docs/OBSERVABILITY_EXPORT_CONTRACT.md`
 
 ## Current product direction
 

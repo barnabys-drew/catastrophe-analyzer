@@ -121,6 +121,9 @@ class EntityExtractor:
         "recall", "recalled", "bulletin", "eruric", "urgent", "urgently", "yahoo", "msn",
         "retailer", "retailers", "rice", "risk", "safety", "sold", "technical",
         "trader", "trio", "warning",
+        # Hardware/memory technology acronyms — Yahoo Finance resolves these to ETF tickers
+        # (e.g. DRAM ETF) but they appear in recall/cyber headlines as generic tech terms.
+        "dram", "sram", "nand", "nvme", "flash",
         # Common generic words that Yahoo Finance search returns tickers for but are never
         # standalone company identifiers in catastrophe-event headlines.
         "assets", "automotive", "brands", "business", "caring", "cloud", "connect",

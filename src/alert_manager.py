@@ -687,12 +687,26 @@ class AlertManager:
             category_line = f"  Category: {event_category}\n" if event_category else ""
             subtype_line = f"  Subtype: {event_subtype}\n" if event_subtype else ""
             issue_line = f"  Issue: {issue_summary}\n" if issue_summary else ""
+            max_drop = s.get("max_drop_pct")
+            drop_48h = s.get("drop_48h_pct")
+            vol_spike = s.get("volume_spike_at_event", s.get("volume_spike"))
+            try:
+                drop_line = (
+                    f"  Drop:  {float(max_drop):.1f}% max"
+                    + (f"  |  {float(drop_48h):.1f}% in 48h" if drop_48h not in (None, "") else "")
+                    + (f"  |  {float(vol_spike):.1f}x vol" if vol_spike not in (None, "") else "")
+                    + "\n"
+                )
+            except (TypeError, ValueError):
+                drop_line = ""
+
             body_lines.append(
                 f"- {s.get('ticker')} | {s.get('confidence_level')} | event_date={event_date}\n"
                 f"  Account: {account_policy['account_type']} / {account_policy['account_label']}\n"
                 f"  Route: {account_policy['route_key']}\n"
                 f"{category_line}"
                 f"{subtype_line}"
+                f"{drop_line}"
                 f"{issue_line}"
                 f"\n"
                 f"  Entry: {s.get('suggested_entry')}\n"

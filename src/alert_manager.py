@@ -43,6 +43,16 @@ class AlertManager:
             except json.JSONDecodeError:
                 self.config = {}
 
+        # Per-(ticker, category) notification cooldown state
+        cooldown_cfg = (self.config or {}).get("notification_cooldown") or {}
+        self._cooldown_hours: float = max(0.0, float(cooldown_cfg.get("cooldown_hours", 4)))
+        state_file_rel = (cooldown_cfg.get("state_file") or "data/alert_cooldown_state.json").strip()
+        self._cooldown_state_path = (
+            state_file_rel if os.path.isabs(state_file_rel)
+            else os.path.join(repo_root, state_file_rel)
+        )
+        self._cooldown_state: Dict[str, float] = self._load_cooldown_state()
+
         # Env overrides for local dev (no phone / no ntfy round-trip).
         env_preview = os.environ.get("CATASTROPHE_LOCAL_ALERT_PREVIEW", "").strip().lower()
         if env_preview in ("1", "true", "yes"):
@@ -53,6 +63,41 @@ class AlertManager:
             self.config.setdefault("local_alert_preview", {})
             self.config["local_alert_preview"]["enabled"] = True
             self.config["local_alert_preview"]["disable_ntfy_http"] = True
+
+    def _load_cooldown_state(self) -> Dict[str, float]:
+        try:
+            with open(self._cooldown_state_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return {}
+
+    def _save_cooldown_state(self) -> None:
+        try:
+            os.makedirs(os.path.dirname(self._cooldown_state_path), exist_ok=True)
+            with open(self._cooldown_state_path, "w", encoding="utf-8") as f:
+                json.dump(self._cooldown_state, f)
+        except OSError:
+            pass
+
+    def _cooldown_key(self, ticker: str, category: str) -> str:
+        return f"{ticker.upper().strip()}:{(category or '').strip()}"
+
+    def _is_on_cooldown(self, ticker: str, category: str) -> bool:
+        if self._cooldown_hours <= 0:
+            return False
+        key = self._cooldown_key(ticker, category)
+        last_sent = self._cooldown_state.get(key)
+        if last_sent is None:
+            return False
+        return (time.time() - float(last_sent)) < self._cooldown_hours * 3600
+
+    def _record_sent(self, ticker: str, category: str) -> None:
+        key = self._cooldown_key(ticker, category)
+        self._cooldown_state[key] = time.time()
+        # Prune entries older than 2x cooldown to keep file small
+        cutoff = time.time() - self._cooldown_hours * 3600 * 2
+        self._cooldown_state = {k: v for k, v in self._cooldown_state.items() if float(v) >= cutoff}
+        self._save_cooldown_state()
 
     @staticmethod
     def _delivery_result(
@@ -643,6 +688,10 @@ class AlertManager:
         signals = self._dedupe_one_company_per_ticker(signals)
         signals = self._order_signals_for_alerts(signals)
         signals = self._filter_buy_signals_for_mode(signals)
+        signals = [
+            s for s in signals
+            if not self._is_on_cooldown(s.get("ticker", ""), s.get("event_category", ""))
+        ]
         if not signals:
             return {
                 "kind": "buy_signals",
@@ -755,6 +804,9 @@ class AlertManager:
             )
 
         delivered = any(bool(r.get("success")) for r in delivery_results)
+        if delivered:
+            for s in signals:
+                self._record_sent(s.get("ticker", ""), s.get("event_category", ""))
         failed = [r for r in delivery_results if r.get("attempted") and not r.get("success")]
         if failed:
             logger.warning("Buy-signal alert partial failures: %s", failed)
@@ -781,6 +833,10 @@ class AlertManager:
             }
         events = self._dedupe_one_company_per_ticker(events)
         events = self._filter_high_value_events_for_mode(events)
+        events = [
+            e for e in events
+            if not self._is_on_cooldown(e.get("ticker", ""), e.get("event_category", ""))
+        ]
         if not events:
             return {
                 "kind": "high_value_events",
@@ -864,6 +920,8 @@ class AlertManager:
                 )
 
             delivered = any(bool(r.get("success")) for r in results_for_event)
+            if delivered:
+                self._record_sent(ticker, category)
             if not delivered:
                 logger.warning(
                     "High-value event had no successful channel (%s): %s",

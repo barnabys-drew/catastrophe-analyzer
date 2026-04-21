@@ -5,6 +5,10 @@
     "disable_ntfy_http": false,
     "include_extracted_urls_section": true
   },
+  "notification_cooldown": {
+    "cooldown_hours": 4,
+    "state_file": "data/alert_cooldown_state.json"
+  },
   "alert_channels": {
     "email": {
       "enabled": true,

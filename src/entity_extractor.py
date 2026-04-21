@@ -41,6 +41,7 @@ class EntityExtractor:
             "ollama",
         }
     )
+    _ANTHROPIC_PROVIDERS = frozenset({"anthropic"})
     _CATEGORY_SEMANTIC_RULES = {
         "cybersecurity": (
             "- Approve only if the company is the victim/operator impacted by the incident.\n"
@@ -1777,7 +1778,9 @@ class EntityExtractor:
                 "validation_confidence": 0.0,
                 "validation_engine": "agent_unavailable",
             }
-        if not self._agent_validation_endpoint:
+        provider = (self._agent_validation_provider or "generic_http").strip().lower()
+        needs_endpoint = provider not in self._ANTHROPIC_PROVIDERS
+        if needs_endpoint and not self._agent_validation_endpoint:
             status = "rejected" if self._agent_validation_fail_closed else "approved"
             return {
                 "validation_status": status,
@@ -1809,8 +1812,9 @@ class EntityExtractor:
             headers["Authorization"] = f"Bearer {self._agent_validation_api_key}"
 
         try:
-            provider = (self._agent_validation_provider or "generic_http").strip().lower()
-            if provider in self._OPENAI_COMPATIBLE_PROVIDERS:
+            if provider in self._ANTHROPIC_PROVIDERS:
+                data = self._call_anthropic_validation(payload=payload)
+            elif provider in self._OPENAI_COMPATIBLE_PROVIDERS:
                 data = self._call_openai_compatible_validation(payload=payload, headers=headers)
             else:
                 resp = requests.post(
@@ -1898,6 +1902,60 @@ class EntityExtractor:
         parsed = self._parse_json_object(raw)
         if not isinstance(parsed, dict):
             raise ValueError("openai-compatible response missing JSON verdict")
+        return parsed
+
+    def _call_anthropic_validation(self, payload: Dict) -> Dict:
+        """
+        Validate entity candidate using Claude Haiku via Anthropic SDK.
+        Uses prompt caching on the system prompt to minimize cost across repeated calls.
+        """
+        try:
+            import anthropic as _anthropic
+        except ImportError:
+            raise RuntimeError("anthropic package not installed; add it to requirements.txt")
+
+        api_key = self._agent_validation_api_key or os.getenv("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            raise RuntimeError("ANTHROPIC_API_KEY not set")
+
+        client = _anthropic.Anthropic(api_key=api_key)
+        model = self._agent_validation_model or "claude-haiku-4-5-20251001"
+
+        system_prompt = (
+            "You validate entity-to-ticker relevance for investment event triage. "
+            "Return ONLY valid JSON with exactly these keys: "
+            "approved (bool), confidence (0.0-1.0), reason (string), "
+            "normalized_company_name (string, optional)."
+        )
+
+        category_rules = payload.get("category_semantic_rules_markdown", "")
+        user_prompt = (
+            f"Event category: {payload.get('event_category', '')}\n"
+            f"Category rules:\n{category_rules}\n\n"
+            f"Article title: {payload.get('title', '')}\n"
+            f"Article summary: {str(payload.get('summary', ''))[:600]}\n\n"
+            f"Candidate company: {payload.get('candidate_company', '')}\n"
+            f"Candidate ticker: {payload.get('candidate_ticker', '')}\n\n"
+            "Does this article specifically concern this public company being directly affected "
+            "by the event? Reject homonyms, generic industry nouns, and broad advisories with "
+            "no specific issuer."
+        )
+
+        response = client.messages.create(
+            model=model,
+            max_tokens=256,
+            system=[{"type": "text", "text": system_prompt, "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        raw = response.content[0].text.strip()
+        if raw.startswith("```"):
+            parts = raw.split("```")
+            raw = parts[1] if len(parts) > 1 else raw
+            if raw.startswith("json"):
+                raw = raw[4:]
+        parsed = self._parse_json_object(raw.strip())
+        if not isinstance(parsed, dict):
+            raise ValueError(f"Anthropic response missing JSON verdict: {raw[:120]}")
         return parsed
 
     @staticmethod

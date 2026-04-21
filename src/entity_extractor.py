@@ -124,6 +124,10 @@ class EntityExtractor:
         # Hardware/memory technology acronyms — Yahoo Finance resolves these to ETF tickers
         # (e.g. DRAM ETF) but they appear in recall/cyber headlines as generic tech terms.
         "dram", "sram", "nand", "nvme", "flash",
+        # Industry sector nouns — Yahoo Finance maps these to sector leaders/ETFs but they
+        # appear as generic industry references in FDA advisories and recall headlines.
+        "restaurants", "restaurant", "retail", "retailers", "pharmacy", "pharmacies",
+        "grocery", "grocers", "hospital", "hospitals", "airline", "airlines",
         # Common generic words that Yahoo Finance search returns tickers for but are never
         # standalone company identifiers in catastrophe-event headlines.
         "assets", "automotive", "brands", "business", "caring", "cloud", "connect",

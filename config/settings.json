@@ -1852,13 +1852,6 @@
       "update_interval_hours": 8,
       "max_results": 50
     },
-    "reuters_business_news_rss": {
-      "enabled": true,
-      "url": "https://feeds.reuters.com/reuters/businessNews",
-      "event_category": "fraud_accounting_enforcement",
-      "update_interval_hours": 8,
-      "max_results": 50
-    },
     "marketwatch_top_stories_rss": {
       "enabled": true,
       "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories",
@@ -1915,13 +1908,6 @@
       "update_interval_hours": 4,
       "max_results": 50
     },
-    "restructuringdive_news_rss": {
-      "enabled": true,
-      "url": "https://www.restructuringdive.com/feeds/news/",
-      "event_category": "financial_distress",
-      "update_interval_hours": 8,
-      "max_results": 50
-    },
     "google_news_financial_distress_recent": {
       "enabled": true,
       "url": "https://news.google.com/rss/search?q=(bankruptcy+OR+%22going+concern%22+OR+%22liquidity+crisis%22+OR+%22debt+restructuring%22+OR+%22payment+default%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
@@ -1935,13 +1921,6 @@
       "event_category": "financial_distress",
       "update_interval_hours": 4,
       "max_results": 55
-    },
-    "reuters_markets_news_rss": {
-      "enabled": true,
-      "url": "https://feeds.reuters.com/reuters/marketsNews",
-      "event_category": "dilutive_financing",
-      "update_interval_hours": 8,
-      "max_results": 50
     },
     "google_news_dilutive_financing_recent": {
       "enabled": true,
@@ -2020,7 +1999,6 @@
       "update_interval_hours": 4,
       "max_results": 55
     },
-
     "sec_edgar_8k": {
       "enabled": true,
       "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&dateb=&owner=include&count=100&search_text=&output=atom",
@@ -2028,7 +2006,6 @@
       "update_interval_hours": 2,
       "max_results": 40
     },
-
     "manufacturing_dive_news_rss": {
       "enabled": true,
       "url": "https://www.manufacturingdive.com/feeds/news/",
@@ -2050,14 +2027,6 @@
       "update_interval_hours": 4,
       "max_results": 55
     },
-
-    "abi_bankruptcy_rss": {
-      "enabled": true,
-      "url": "https://www.abi.org/feed",
-      "event_category": "financial_distress",
-      "update_interval_hours": 8,
-      "max_results": 40
-    },
     "google_news_chapter11_bankruptcy_recent": {
       "enabled": true,
       "url": "https://news.google.com/rss/search?q=(%22chapter+11%22+OR+%22chapter+7%22+OR+receivership+OR+%22wind-down%22+OR+%22voluntary+administration%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
@@ -2065,15 +2034,6 @@
       "update_interval_hours": 4,
       "max_results": 55
     },
-
-    "reuters_ma_news_rss": {
-      "enabled": true,
-      "url": "https://feeds.reuters.com/reuters/mergersNews",
-      "event_category": "ma_corporate_action",
-      "update_interval_hours": 6,
-      "max_results": 50
-    },
-
     "fortune_leadership_rss": {
       "enabled": true,
       "url": "https://fortune.com/section/leadership/feed/",
@@ -2088,14 +2048,6 @@
       "update_interval_hours": 4,
       "max_results": 50
     },
-
-    "reuters_company_news_rss": {
-      "enabled": true,
-      "url": "https://feeds.reuters.com/reuters/companyNews",
-      "event_category": "positive_earnings_catalyst",
-      "update_interval_hours": 6,
-      "max_results": 50
-    },
     "google_news_preannouncement_guidance_recent": {
       "enabled": true,
       "url": "https://news.google.com/rss/search?q=(%22preliminary+results%22+OR+%22pre-announcement%22+OR+%22guidance+raise%22+OR+%22raised+its+outlook%22+OR+%22positive+preannouncement%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
@@ -2103,7 +2055,6 @@
       "update_interval_hours": 4,
       "max_results": 55
     },
-
     "google_news_sanctions_ofac_recent": {
       "enabled": true,
       "url": "https://news.google.com/rss/search?q=(sanctions+OR+%22entity+list%22+OR+%22export+control%22+OR+OFAC+OR+%22trade+blacklist%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
@@ -2132,7 +2083,6 @@
       "update_interval_hours": 6,
       "max_results": 45
     },
-
     "google_news_earnings_miss_recent": {
       "enabled": true,
       "url": "https://news.google.com/rss/search?q=(%22earnings+miss%22+OR+%22missed+estimates%22+OR+%22guidance+cut%22+OR+%22profit+warning%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
@@ -2154,17 +2104,9 @@
       "update_interval_hours": 4,
       "max_results": 55
     },
-
     "hindenburg_research_rss": {
       "enabled": true,
       "url": "https://hindenburgresearch.com/feed/",
-      "event_category": "short_seller_report",
-      "update_interval_hours": 6,
-      "max_results": 30
-    },
-    "muddy_waters_research_rss": {
-      "enabled": true,
-      "url": "https://www.muddywatersresearch.com/feed/",
       "event_category": "short_seller_report",
       "update_interval_hours": 6,
       "max_results": 30
@@ -2190,7 +2132,6 @@
       "update_interval_hours": 4,
       "max_results": 45
     },
-
     "google_news_credit_rating_downgrade_recent": {
       "enabled": true,
       "url": "https://news.google.com/rss/search?q=(%22credit+rating+downgrade%22+OR+%22S%26P+downgrades%22+OR+%22Moody%27s+downgrades%22+OR+%22Fitch+downgrades%22+OR+%22cut+to+junk%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
@@ -2212,7 +2153,6 @@
       "update_interval_hours": 6,
       "max_results": 45
     },
-
     "google_news_going_concern_recent": {
       "enabled": true,
       "url": "https://news.google.com/rss/search?q=(%22going+concern%22+OR+%22substantial+doubt%22+OR+%22going+concern+disclosure%22+OR+%22going+concern+warning%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
@@ -2234,7 +2174,6 @@
       "update_interval_hours": 4,
       "max_results": 50
     },
-
     "google_news_guidance_cut_preannouncement_recent": {
       "enabled": true,
       "url": "https://news.google.com/rss/search?q=(%22preannounces%22+OR+%22pre-announcement%22+OR+%22business+update%22+OR+%22preliminary+results%22+OR+%22withdraws+guidance%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
@@ -2249,7 +2188,6 @@
       "update_interval_hours": 4,
       "max_results": 50
     },
-
     "sec_13d_filings_rss": {
       "enabled": true,
       "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=SC+13D&company=&dateb=&owner=include&count=40&output=atom",
@@ -2278,7 +2216,6 @@
       "update_interval_hours": 4,
       "max_results": 45
     },
-
     "google_news_labor_strike_walkout_recent": {
       "enabled": true,
       "url": "https://news.google.com/rss/search?q=(%22strike+authorization%22+OR+%22work+stoppage%22+OR+%22walkout%22+OR+%22union+strike%22+OR+%22prolonged+strike%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
@@ -2292,14 +2229,6 @@
       "event_category": "labor_action",
       "update_interval_hours": 4,
       "max_results": 45
-    },
-
-    "stanford_securities_class_action_rss": {
-      "enabled": true,
-      "url": "https://securities.stanford.edu/rss-feed-filings.html",
-      "event_category": "securities_class_action",
-      "update_interval_hours": 12,
-      "max_results": 35
     },
     "google_news_securities_class_action_recent": {
       "enabled": true,
@@ -2315,7 +2244,6 @@
       "update_interval_hours": 4,
       "max_results": 50
     },
-
     "sec_form4_filings_rss": {
       "enabled": true,
       "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&company=&dateb=&owner=include&count=40&output=atom",
@@ -2632,7 +2560,6 @@
       "max_results": 50
     }
   },
-
   "scraping": {
     "timeout": 10,
     "max_results_per_source": 100,
@@ -2641,9 +2568,8 @@
     "drop_unparseable_published": true,
     "retry_on_failure": true,
     "max_retries": 3,
-    "http_user_agent": "CatastropheAnalyzer/1.0 (+https://github.com/barnabys-drew/catastrophe-analyzer)"
+    "http_user_agent": "CatastropheAnalyzer/1.0 drewtheguitarguy@gmail.com (+https://github.com/barnabys-drew/catastrophe-analyzer)"
   },
-
   "entity_extraction": {
     "case_sensitive": false,
     "min_company_name_length": 2,
@@ -2672,7 +2598,6 @@
       "rubric_file": "docs/ENTITY_VALIDATION_RUBRIC.md"
     }
   },
-
   "signals": {
     "rsi_oversold_threshold": 28,
     "price_drop_threshold": 15,
@@ -2788,7 +2713,7 @@
         "drop_within_48h_threshold": 5.0,
         "recovery_days_threshold": 7,
         "volume_spike_threshold": 3.0,
-        "min_confidence_for_signal": 0.80
+        "min_confidence_for_signal": 0.8
       },
       "credit_rating_action": {
         "rsi_oversold_threshold": 27,
@@ -2960,8 +2885,8 @@
     "per_call_max_input_tokens": 4000,
     "per_call_max_output_tokens": 800,
     "per_cycle_max_calls": 5,
-    "daily_usd_cap": 1.00,
-    "monthly_usd_cap": 15.00,
+    "daily_usd_cap": 1.0,
+    "monthly_usd_cap": 15.0,
     "per_category_daily_max_calls": 20,
     "min_distress_score_for_llm": 40,
     "cache_file": "../data/llm_call_cache.json",
@@ -3001,7 +2926,6 @@
     "min_analysis_to_signal_rate_pct": 8.0,
     "required_consecutive_passes": 2
   },
-
   "stock_analysis": {
     "rsi_period": 14,
     "moving_average_period": 20,
@@ -3030,14 +2954,12 @@
     "pre_days": 30,
     "post_days": 30
   },
-
   "backtesting": {
     "enabled": true,
     "min_signal_confidence": "MEDIUM",
     "transaction_cost_percent": 0.1,
     "slippage_percent": 0.05
   },
-
   "database": {
     "type": "csv",
     "directory": "../data",

@@ -1113,8 +1113,14 @@ class EntityExtractor:
         """
         resolved_event_category = event_category or article.get("event_category")
 
-        # Combine title and summary for searching
-        full_text = article.get('title', '') + ' ' + article.get('summary', '')
+        # Combine title, RSS summary, and full article body (when available).
+        # body is populated by NewsScraper.enrich_articles_with_body() for articles
+        # whose RSS snippets are too short to contain a company name.
+        full_text = " ".join(filter(None, [
+            article.get("title", ""),
+            article.get("summary", ""),
+            article.get("body", ""),
+        ]))
 
         # Extract company mentions
         companies = self.extract_company_mentions(full_text, event_category=resolved_event_category)

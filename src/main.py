@@ -1859,6 +1859,15 @@ class CatastropheAnalyzerApp:
             }
 
         recent_articles = self.news_scraper.filter_recent_articles(raw_articles, hours_back)
+
+        body_cfg = self.settings.get("scraping", {}).get("body_fetch", {})
+        if body_cfg.get("enabled", True):
+            self.news_scraper.enrich_articles_with_body(
+                recent_articles,
+                max_fetches=int(body_cfg.get("max_fetches_per_cycle", 30)),
+                fetch_delay_seconds=float(body_cfg.get("fetch_delay_seconds", 0.5)),
+            )
+
         entities = self.entity_extractor.batch_extract(recent_articles)
 
         times_pre_days = int(self.settings.get("price_series", {}).get("pre_days", 30))

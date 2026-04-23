@@ -2568,7 +2568,14 @@
     "drop_unparseable_published": true,
     "retry_on_failure": true,
     "max_retries": 3,
-    "http_user_agent": "CatastropheAnalyzer/1.0 drewtheguitarguy@gmail.com (+https://github.com/barnabys-drew/catastrophe-analyzer)"
+    "http_user_agent": "CatastropheAnalyzer/1.0 drewtheguitarguy@gmail.com (+https://github.com/barnabys-drew/catastrophe-analyzer)",
+    "body_fetch": {
+      "enabled": true,
+      "max_fetches_per_cycle": 30,
+      "fetch_delay_seconds": 0.5,
+      "timeout_seconds": 8,
+      "max_chars": 3000
+    }
   },
   "entity_extraction": {
     "case_sensitive": false,

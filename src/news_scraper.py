@@ -385,6 +385,104 @@ class NewsScraper:
 
         return recent
 
+    # ------------------------------------------------------------------
+    # Full-article body enrichment
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _needs_body_fetch(article: Dict) -> bool:
+        """
+        True when RSS content is likely too thin for entity extraction:
+        - Google News URL (always a redirect with a truncated snippet)
+        - Summary under 250 chars (company name probably not present)
+        - Government/regulatory source (SEC, FDA, DOJ, CPSC use structured one-liners)
+        """
+        url = article.get("link", "") or ""
+        summary = article.get("summary", "") or ""
+        source = (article.get("source", "") or "").lower()
+        if "news.google.com" in url:
+            return True
+        if len(summary.strip()) < 250:
+            return True
+        gov_prefixes = ("sec_", "fda_", "doj_", "cpsc_", "usda_", "justice_")
+        if any(source.startswith(p) for p in gov_prefixes):
+            return True
+        return False
+
+    def fetch_article_body(self, url: str, timeout: int = 8, max_chars: int = 3000) -> str:
+        """
+        Fetch and extract plain text from a news article URL.
+        Follows redirects (handles Google News redirect URLs).
+        Returns up to max_chars of text, or empty string on any failure.
+        Never raises.
+        """
+        try:
+            import requests as _requests
+            from bs4 import BeautifulSoup
+        except ImportError:
+            return ""
+
+        try:
+            resp = _requests.get(
+                url,
+                headers={
+                    "User-Agent": self._feed_request_headers.get("User-Agent", ""),
+                    "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+                },
+                timeout=timeout,
+                allow_redirects=True,
+            )
+            if resp.status_code != 200:
+                return ""
+            soup = BeautifulSoup(resp.content, "html.parser")
+            for tag in soup(["script", "style", "nav", "footer", "header", "aside", "noscript"]):
+                tag.decompose()
+            container = soup.find("article") or soup.find("main") or soup.find("body")
+            if not container:
+                return ""
+            text = container.get_text(separator=" ", strip=True)
+            # Collapse runs of whitespace
+            import re as _re
+            text = _re.sub(r"\s{2,}", " ", text)
+            return text[:max_chars].strip()
+        except Exception:
+            return ""
+
+    def enrich_articles_with_body(
+        self,
+        articles: List[Dict],
+        max_fetches: int = 30,
+        fetch_delay_seconds: float = 0.5,
+    ) -> List[Dict]:
+        """
+        Selectively fetch full article bodies for articles whose RSS content is
+        likely too thin to contain a company name for entity extraction.
+        Adds a 'body' key to qualifying article dicts in-place.
+
+        max_fetches caps total HTTP requests per cycle to avoid latency blow-up.
+        fetch_delay_seconds inserts a polite pause between requests.
+        """
+        fetched = 0
+        for article in articles:
+            if fetched >= max_fetches:
+                break
+            if article.get("body"):
+                continue
+            if not self._needs_body_fetch(article):
+                continue
+            url = article.get("link", "")
+            if not url:
+                continue
+            body = self.fetch_article_body(url)
+            if body:
+                article["body"] = body
+                fetched += 1
+                if fetch_delay_seconds > 0 and fetched < max_fetches:
+                    time.sleep(fetch_delay_seconds)
+        if fetched:
+            print(f"[body_fetch] enriched {fetched}/{len(articles)} articles with full article text")
+        return articles
+
     def search_by_company(self, articles: List[Dict], company_name: str) -> List[Dict]:
         """
         Find articles mentioning a specific company

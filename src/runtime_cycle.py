@@ -8,6 +8,7 @@ import os
 from datetime import datetime, timezone
 from typing import Dict
 from runtime_health import write_runtime_heartbeat
+import outcome_tracker
 
 logger = logging.getLogger(__name__)
 
@@ -320,6 +321,27 @@ def run_cycle_with_alerts(app, alerts, quiet: bool = False) -> Dict:
     summary["quality_snapshot"] = quality_snapshot
     summary["dashboard_readiness_state"] = readiness_state
     logger.info("runtime_cycle_metrics=%s", json.dumps(runtime_metrics, sort_keys=True))
+
+    # Paper trading: compute realized returns for any signals that now have enough price history
+    try:
+        signals_csv = os.path.join(app.repo_root, "data", "buy_signals.csv")
+        outcomes_csv = os.path.join(app.repo_root, "data", "signal_outcomes.csv")
+        new_outcomes = outcome_tracker.update_outcomes_from_files(
+            signals_csv=signals_csv,
+            outcomes_csv=outcomes_csv,
+            price_history_fn=app.stock_analyzer.get_price_history,
+            history_days=45,
+        )
+        if new_outcomes and not quiet:
+            for oc in new_outcomes:
+                r5 = oc.returns_pct.get(5)
+                r5_str = f"{r5:+.2f}%" if r5 is not None else "n/a"
+                hit = "TARGET" if oc.hit_target else ("STOP" if oc.hit_stop else "expired")
+                print(f"  [paper_trade] {oc.ticker} {oc.event_category}  T+5={r5_str}  [{hit}]")
+        runtime_metrics["paper_trade_outcomes_recorded"] = len(new_outcomes)
+    except Exception as _exc:
+        logger.warning("outcome_tracker_error: %s", _exc)
+        runtime_metrics["paper_trade_outcomes_recorded"] = 0
 
     write_runtime_heartbeat(
         repo_root=app.repo_root,

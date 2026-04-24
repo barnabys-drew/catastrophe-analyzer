@@ -4,6 +4,18 @@ Category-driven event signal pipeline for public equities. Ingests company news,
 
 This is a decision-support tool, not automated execution.
 
+## Trading approach
+
+Catastrophe Analyzer targets **event-driven short positions** on individual equities — a different strategy from the macro ETF swing trades in trump-macro and econ-monitor.
+
+The edge here is identifying company-specific distress events (recall, fraud, clinical failure, financial distress) before the full price impact is reflected. These events tend to reprice stocks over days to weeks, not hours, because institutional investors need time to act and retail often dismisses headlines.
+
+**Why this is different from macro swings:**
+- Macro ETF trades: directional, hours to 2 days, liquid, lower volatility
+- Event-driven single-stock shorts: larger moves, slower to develop, higher risk, requires sizing discipline
+
+Paper trading for this system is a future feature pending enough buy signal volume to calibrate thresholds.
+
 ## Active event categories
 
 `cybersecurity` · `clinical_regulatory_binary` · `product_safety_recall` · `fraud_accounting_enforcement` · `supply_chain_disruption` · `financial_distress` · `dilutive_financing` · `ma_corporate_action` · `leadership_scandal` · `positive_earnings_catalyst`

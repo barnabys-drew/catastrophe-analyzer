@@ -15,6 +15,58 @@ from pathlib import Path
 import requests
 
 
+class _IBKRStockFeed:
+    """Lazy ib_insync connection for historical daily bar fetches."""
+
+    def __init__(self, host: str, port: int, client_id: int):
+        self._host = host
+        self._port = port
+        self._client_id = client_id
+        self._ib = None
+
+    def _connect(self):
+        from ib_insync import IB, util
+        util.startLoop()
+        if self._ib is None:
+            self._ib = IB()
+        if not self._ib.isConnected():
+            self._ib.connect(self._host, self._port, clientId=self._client_id, timeout=15)
+
+    def fetch_daily_bars(self, symbol: str, calendar_days: int):
+        """Fetch calendar_days of daily OHLCV bars. Returns list of BarData or None."""
+        from ib_insync import Stock
+        try:
+            self._connect()
+            contract = Stock(symbol, "SMART", "USD")
+            self._ib.qualifyContracts(contract)
+            bars = self._ib.reqHistoricalData(
+                contract,
+                endDateTime="",
+                durationStr=f"{calendar_days} D",
+                barSizeSetting="1 day",
+                whatToShow="TRADES",
+                useRTH=True,
+                formatDate=1,
+                keepUpToDate=False,
+            )
+            return bars if bars else None
+        except Exception as exc:
+            print(f"[ibkr] fetch_daily_bars {symbol}: {exc}")
+            self._ib = None  # force reconnect on next call
+            return None
+
+    def qualify(self, symbol: str) -> bool:
+        """Return True if IBKR can resolve the contract (tradability check)."""
+        from ib_insync import Stock
+        try:
+            self._connect()
+            contract = Stock(symbol, "SMART", "USD")
+            qualified = self._ib.qualifyContracts(contract)
+            return bool(qualified)
+        except Exception:
+            return False
+
+
 class StockAnalyzer:
     """
     Analyzes stock price movements and technical indicators around breach events
@@ -62,10 +114,18 @@ class StockAnalyzer:
         self._tiingo_token_env = token_env
         self._tiingo_token: str = ""
         self._live_data_source = "yfinance"
+        self._ibkr_feed: Optional[_IBKRStockFeed] = None
         self.yf = None
 
         if not use_mock:
-            if cfg_source == "tiingo":
+            if cfg_source == "ibkr":
+                ibkr_host = os.environ.get("IBKR_HOST") or self._stock_cfg.get("ibkr_host", "ib-gateway")
+                ibkr_port = int(os.environ.get("IBKR_PORT") or self._stock_cfg.get("ibkr_port", 4004))
+                ibkr_client_id = int(os.environ.get("IBKR_CLIENT_ID") or self._stock_cfg.get("ibkr_client_id", 11))
+                self._ibkr_feed = _IBKRStockFeed(ibkr_host, ibkr_port, ibkr_client_id)
+                self._live_data_source = "ibkr"
+                print(f"[stock_analyzer] data_source=ibkr  host={ibkr_host}:{ibkr_port}  clientId={ibkr_client_id}")
+            elif cfg_source == "tiingo":
                 self._tiingo_token = os.environ.get(token_env, "").strip()
                 if self._tiingo_token:
                     self._live_data_source = "tiingo"
@@ -182,6 +242,12 @@ class StockAnalyzer:
             self._tradable_cache[symbol] = True
             return True
 
+        if self._live_data_source == "ibkr":
+            is_tradable = self._ibkr_feed.qualify(symbol)
+            self._tradable_cache[symbol] = is_tradable
+            self._save_tradable_cache()
+            return is_tradable
+
         if self._live_data_source == "tiingo":
             end_d = datetime.now().date()
             start_d = end_d - timedelta(days=14)
@@ -267,6 +333,9 @@ class StockAnalyzer:
         if self.use_mock:
             return self._get_mock_price_history(symbol, days)
 
+        if self._live_data_source == "ibkr":
+            return self._get_ibkr_price_history(symbol, days)
+
         if self._live_data_source == "tiingo":
             return self._get_tiingo_price_history(symbol, days)
 
@@ -292,6 +361,42 @@ class StockAnalyzer:
             self._tradable_cache[symbol] = False
             print(f"Error fetching data for {symbol}: {e}")
             return None
+
+    def _get_ibkr_price_history(self, symbol: str, days: int) -> Optional[Dict[str, Any]]:
+        """Fetch EOD history from IBKR and return in the standard price history format."""
+        calendar_span = max(int(days * 1.75) + 5, days + 20)
+        bars = self._ibkr_feed.fetch_daily_bars(symbol, calendar_span)
+        if not bars:
+            self._tradable_cache[symbol] = False
+            return None
+
+        dates, prices, volumes, highs, lows = [], [], [], [], []
+        for bar in bars:
+            dt = bar.date
+            if hasattr(dt, "strftime"):
+                date_str = dt.strftime("%Y-%m-%d")
+            else:
+                date_str = str(dt)[:10]
+            dates.append(date_str)
+            prices.append(float(bar.close))
+            volumes.append(float(bar.volume))
+            highs.append(float(bar.high))
+            lows.append(float(bar.low))
+
+        if not prices:
+            self._tradable_cache[symbol] = False
+            return None
+
+        return {
+            "ticker": symbol,
+            "prices": prices,
+            "volumes": volumes,
+            "dates": dates,
+            "high": max(highs),
+            "low": min(lows),
+            "close": float(prices[-1]),
+            "volume": float(volumes[-1]),
+        }
 
     def _tiingo_fetch_daily(self, symbol: str, start_d: date, end_d: date) -> Optional[List[Dict[str, Any]]]:
         """Return Tiingo EOD rows (sorted ascending by date) or None on transport/API failure."""

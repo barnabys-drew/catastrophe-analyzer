@@ -16,7 +16,9 @@ services:
       CATASTROPHE_ENTITY_AGENT_MODEL: ${CATASTROPHE_ENTITY_AGENT_MODEL:-}
       CATASTROPHE_ENTITY_VALIDATION_RUBRIC_FILE: ${CATASTROPHE_ENTITY_VALIDATION_RUBRIC_FILE:-docs/ENTITY_VALIDATION_RUBRIC.md}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      TIINGO_API_TOKEN: ${TIINGO_API_TOKEN:-}
+      IBKR_HOST: ${IBKR_HOST:-ib-gateway}
+      IBKR_PORT: ${IBKR_PORT:-4004}
+      IBKR_CLIENT_ID: ${IBKR_CLIENT_ID:-11}
       CATASTROPHE_EMAIL_PASSWORD: ${CATASTROPHE_EMAIL_PASSWORD:-}
       # Override RSS User-Agent (SEC and others); defaults in config/settings.json scraping.http_user_agent
       CATASTROPHE_HTTP_USER_AGENT: ${CATASTROPHE_HTTP_USER_AGENT:-}
@@ -35,8 +37,15 @@ services:
       timeout: 10s
       retries: 3
       start_period: 180s
+    networks:
+      - default
+      - ib-gateway_default
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "5"
+
+networks:
+  ib-gateway_default:
+    external: true

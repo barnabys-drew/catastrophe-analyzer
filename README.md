@@ -64,40 +64,29 @@ RSS ingestion → ticker extraction → distress scoring → price/technical ana
 
 ```bash
 # Docker (recommended, always-on)
-docker compose --env-file .env.agent up -d --build
-docker compose --env-file .env.agent logs -f catastrophe-analyzer
+docker compose up -d --build
+docker logs catastrophe-analyzer -f
 
 # One cycle smoke test
-cd src && python3 monitor.py --once --quiet
+docker exec catastrophe-analyzer python3 src/monitor.py --once --quiet
 
 # Python CLI (dev/debug)
 cd src && python3 main.py
 ```
 
-Copy env profile before first run:
-
-```bash
-# No Ollama (deterministic rules only)
-cp profiles/agent-validation/no-ollama.env.example .env.agent
-
-# With Ollama (LLM entity validation)
-cp profiles/agent-validation/ollama-local.env.example .env.agent
-```
-
 ## Config
 
 `config/settings.json` — categories, sources, thresholds, distress gate  
-`config/alerts_config.json` — ntfy, email, Twilio credentials
+`config/alerts_config.json` — ntfy (`my-catastrophe-alerts-7f3k9q`), email, Twilio credentials
 
 Entity validation mode (no rebuild needed):
 
 ```bash
-# Switch modes in settings.json
-entity_extraction.validation_mode = "agent" | "strict_rules"
-
-# Or override at runtime
-CATASTROPHE_ENTITY_VALIDATION_MODE=strict_rules python3 src/monitor.py --once --quiet
+# Switch to deterministic rules (no API cost)
+CATASTROPHE_ENTITY_VALIDATION_MODE=strict_rules docker exec catastrophe-analyzer python3 src/monitor.py --once --quiet
 ```
+
+Default mode is `agent` (Claude Haiku validates extracted entities before any ticker lookup).
 
 ## Market data
 

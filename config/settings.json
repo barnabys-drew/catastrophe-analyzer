@@ -1481,7 +1481,22 @@
         "dsa revoked",
         "fda shuts down plant",
         "import alert",
-        "import ban"
+        "import ban",
+        "shortage designation removed",
+        "no longer in shortage",
+        "shortage list removed",
+        "removed from shortage",
+        "compounded semaglutide",
+        "compounded tirzepatide",
+        "compounded glp-1",
+        "503b compounding",
+        "503a compounding",
+        "compounding pharmacy ban",
+        "compounders must stop",
+        "telehealth compounding",
+        "shortage exception expires",
+        "shortage exemption ends",
+        "fda ends shortage"
       ]
     },
     "mass_tort_product_liability": {
@@ -1732,6 +1747,20 @@
       "event_category": "clinical_regulatory_binary",
       "update_interval_hours": 8,
       "max_results": 60
+    },
+    "google_news_hims_health": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=%22Hims+%26+Hers%22+OR+%22HIMS%22+stock+OR+patent+OR+GLP-1+OR+semaglutide+OR+compounding+OR+FDA&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "license_revocation_regulatory_ban",
+      "update_interval_hours": 4,
+      "max_results": 30
+    },
+    "google_news_glp1_compounding": {
+      "enabled": true,
+      "url": "https://news.google.com/rss/search?q=%22compounded+semaglutide%22+OR+%22compounded+tirzepatide%22+OR+%22GLP-1+compounding%22+OR+%22semaglutide+shortage%22+OR+%22503B+compounding%22&hl=en-US&gl=US&ceid=US:en",
+      "event_category": "license_revocation_regulatory_ban",
+      "update_interval_hours": 6,
+      "max_results": 30
     },
     "google_news_product_recall_recent": {
       "enabled": true,

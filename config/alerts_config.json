@@ -11,7 +11,7 @@
   },
   "alert_channels": {
     "email": {
-      "enabled": true,
+      "enabled": false,
       "smtp_server": "smtp.gmail.com",
       "smtp_port": 587,
       "email_from": "drewtheguitarguy@gmail.com",
@@ -21,7 +21,7 @@
       "password": ""
     },
     "ntfy": {
-      "enabled": true,
+      "enabled": false,
       "server": "https://ntfy.sh",
       "topic": "my-catastrophe-alerts-7f3k9q",
       "token": "",

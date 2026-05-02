@@ -90,6 +90,9 @@ class NewsScraper:
             self._max_article_age_hours = float(scraping.get("max_article_age_hours", 0))
         except (TypeError, ValueError):
             self._max_article_age_hours = 0.0
+        self._title_blocklist = [
+            p.upper() for p in scraping.get("title_blocklist_patterns", []) if p
+        ]
 
     def _get_default_config(self) -> Dict:
         """Get default configuration"""
@@ -250,6 +253,19 @@ class NewsScraper:
                     content = f"{title} {summary}".lower()
 
                     if any(keyword_in_text(keyword, content) for keyword in keywords):
+                        # Fix 1: drop plaintiff-firm boilerplate alerts by title
+                        raw_title = entry.get('title', '')
+                        title_upper = raw_title.upper()
+                        if self._title_blocklist and any(pat in title_upper for pat in self._title_blocklist):
+                            continue
+
+                        # Fix 2: require at least one high-severity keyword for gated categories
+                        cat_config = self.event_categories.get(event_category, {})
+                        if cat_config.get("high_severity_required"):
+                            sev_kws = [k.lower() for k in cat_config.get("high_severity_keywords", [])]
+                            if sev_kws and not any(keyword_in_text(kw, content) for kw in sev_kws):
+                                continue
+
                         published_iso = self._entry_published_iso(entry)
                         articles.append({
                             'source': source_name,

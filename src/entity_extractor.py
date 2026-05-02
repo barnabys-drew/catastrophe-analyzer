@@ -140,6 +140,7 @@ class EntityExtractor:
         "remote", "sharing", "social", "solutions", "southern", "sports", "strategy",
         "supply", "systems", "transportation", "travel", "ventures", "vision",
         "western", "county", "states", "senior", "social", "second",
+        "nationwide",
     })
     _LOWERCASE_GLUE_WORDS = frozenset({"and", "of", "the", "for", "at", "&"})
     _RECALL_SINGLE_WORD_ALLOWLIST = frozenset(

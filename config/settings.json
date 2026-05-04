@@ -1719,7 +1719,7 @@
       "update_interval_hours": 12
     },
     "google_news_cyber_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22data+breach%22+OR+ransomware+OR+cyberattack+OR+%22security+incident%22+OR+hacked)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "cybersecurity",
       "update_interval_hours": 4,
@@ -1757,7 +1757,7 @@
       "max_results": 30
     },
     "google_news_clinical_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22fda+approval%22+OR+%22complete+response+letter%22+OR+%22clinical+hold%22+OR+%22phase+3%22+OR+%22topline+data%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "clinical_regulatory_binary",
       "update_interval_hours": 4,
@@ -1778,42 +1778,42 @@
       "max_results": 60
     },
     "google_news_hims_health": {
-      "enabled": true,
-      "url": "https://news.google.com/rss/search?q=%22Hims+%26+Hers%22+OR+%22HIMS%22+stock+OR+patent+OR+GLP-1+OR+semaglutide+OR+compounding+OR+FDA&hl=en-US&gl=US&ceid=US:en",
+      "enabled": false,
+      "url": "https://news.google.com/rss/search?q=(%22Hims+%26+Hers%22+OR+HIMS+OR+semaglutide+OR+%22GLP-1+compounding%22+OR+%22503B+compounding%22)+when:7d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "license_revocation_regulatory_ban",
       "update_interval_hours": 4,
       "max_results": 30
     },
     "google_news_glp1_compounding": {
-      "enabled": true,
-      "url": "https://news.google.com/rss/search?q=%22compounded+semaglutide%22+OR+%22compounded+tirzepatide%22+OR+%22GLP-1+compounding%22+OR+%22semaglutide+shortage%22+OR+%22503B+compounding%22&hl=en-US&gl=US&ceid=US:en",
+      "enabled": false,
+      "url": "https://news.google.com/rss/search?q=(%22compounded+semaglutide%22+OR+%22compounded+tirzepatide%22+OR+%22semaglutide+shortage%22+OR+%22503B+pharmacy%22)+when:7d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "license_revocation_regulatory_ban",
       "update_interval_hours": 6,
       "max_results": 30
     },
     "google_news_product_recall_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22product+recall%22+OR+grounding+OR+%22safety+alert%22+OR+%22defective%22+OR+%22warning+letter%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "product_safety_recall",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_product_recall_regulatory_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22class+i+recall%22+OR+%22do+not+use%22+OR+%22stop+sale%22+OR+%22market+withdrawal%22+OR+%22field+safety+notice%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "product_safety_recall",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_transport_grounding_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22airworthiness+directive%22+OR+grounded+OR+grounding+OR+%22safety+defect%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "product_safety_recall",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_contamination_recall_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(contamination+OR+tainted+OR+salmonella+OR+listeria+OR+%22food+recall%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "product_safety_recall",
       "update_interval_hours": 4,
@@ -1862,42 +1862,42 @@
       "max_results": 40
     },
     "google_news_fraud_enforcement_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(SEC+OR+%22securities+fraud%22+OR+restatement+OR+indictment+OR+%22accounting+irregularities%22+OR+%22wells+notice%22+OR+%22material+weakness%22+OR+%22internal+control%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 4,
       "max_results": 60
     },
     "google_news_sec_charges_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22sec+charges%22+OR+%22sec+alleges%22+OR+%22cease+and+desist%22+OR+%22civil+complaint%22+OR+disgorgement+OR+%22administrative+proceeding%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_restatement_audit_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(restatement+OR+%22material+weakness%22+OR+%22going+concern%22+OR+%22auditor+resign%22+OR+%22revenue+recognition%22+OR+%22accounting+error%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_insider_trading_manipulation_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22insider+trading%22+OR+%22market+manipulation%22+OR+spoofing+OR+%22wire+fraud%22+OR+%22securities+fraud%22+OR+indictment)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_fcpa_corruption_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(FCPA+OR+%22foreign+corrupt%22+OR+bribery+OR+%22deferred+prosecution%22+OR+%22non-prosecution%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 6,
       "max_results": 45
     },
     "google_news_exchange_halt_delist_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22trading+halt%22+OR+delisting+OR+%22suspension+of+trading%22+OR+%22regulatory+halt%22+OR+%22finra+bar%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 4,
@@ -1925,7 +1925,7 @@
       "max_results": 50
     },
     "google_news_pcaob_audit_investigation_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(PCAOB+OR+%22audit+committee%22+OR+%22accounting+probe%22+OR+%22internal+investigation%22+OR+%22earnings+restatement%22+OR+%22revised+guidance%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 4,
@@ -1946,112 +1946,112 @@
       "max_results": 50
     },
     "google_news_supply_chain_disruption_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22supply+chain%22+OR+logistics+OR+%22shipping+delay%22+OR+%22port+congestion%22+OR+%22inventory+shortage%22+OR+%22production+halt%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "supply_chain_disruption",
       "update_interval_hours": 4,
       "max_results": 60
     },
     "google_news_semiconductor_component_shortage_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22chip+shortage%22+OR+%22semiconductor+shortage%22+OR+%22component+shortage%22+OR+%22supplier+outage%22+OR+%22factory+shutdown%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "supply_chain_disruption",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_freight_port_strike_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22freight+rates%22+OR+%22container+shortage%22+OR+%22dock+strike%22+OR+%22force+majeure%22+OR+%22supplier+bankruptcy%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "supply_chain_disruption",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_financial_distress_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(bankruptcy+OR+%22going+concern%22+OR+%22liquidity+crisis%22+OR+%22debt+restructuring%22+OR+%22payment+default%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "financial_distress",
       "update_interval_hours": 4,
       "max_results": 60
     },
     "google_news_covenant_default_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22covenant+breach%22+OR+%22covenant+default%22+OR+forbearance+OR+%22missed+interest+payment%22+OR+insolvency)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "financial_distress",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_dilutive_financing_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22secondary+offering%22+OR+%22at-the-market%22+OR+%22registered+direct+offering%22+OR+%22private+placement%22+OR+dilution)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "dilutive_financing",
       "update_interval_hours": 4,
       "max_results": 60
     },
     "google_news_convertible_pipe_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22convertible+notes%22+OR+%22convertible+preferred%22+OR+%22pipe+financing%22+OR+%22warrant+issuance%22+OR+%22equity+line%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "dilutive_financing",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_ma_corporate_action_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(acquisition+OR+%22merger+agreement%22+OR+%22take-private%22+OR+%22tender+offer%22+OR+buyout)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "ma_corporate_action",
       "update_interval_hours": 4,
       "max_results": 65
     },
     "google_news_competing_bid_antitrust_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22hostile+bid%22+OR+%22competing+bid%22+OR+%22doj+sues+to+block%22+OR+%22ftc+sues+to+block%22+OR+divestiture)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "ma_corporate_action",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_deal_close_termination_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22deal+termination%22+OR+%22deal+break%22+OR+%22transaction+closes%22+OR+%22shareholder+approval%22+OR+%22go-shop%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "ma_corporate_action",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_leadership_scandal_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22ceo+resigns%22+OR+%22cfo+resigns%22+OR+%22executive+misconduct%22+OR+%22board+investigation%22+OR+%22ethics+probe%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "leadership_scandal",
       "update_interval_hours": 4,
       "max_results": 60
     },
     "google_news_whistleblower_governance_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22whistleblower+complaint%22+OR+%22compliance+failure%22+OR+%22conflict+of+interest%22+OR+%22code+of+conduct+violation%22+OR+%22leadership+turmoil%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "leadership_scandal",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_executive_departure_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22forced+resignation%22+OR+%22terminated+for+cause%22+OR+%22executive+suspension%22+OR+%22chairman+resigns%22+OR+%22succession+uncertainty%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "leadership_scandal",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_positive_earnings_catalyst_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22raised+guidance%22+OR+%22beat+estimates%22+OR+%22record+revenue%22+OR+%22margin+expansion%22+OR+%22upside+surprise%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "positive_earnings_catalyst",
       "update_interval_hours": 4,
       "max_results": 65
     },
     "google_news_eps_revenue_beat_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22eps+beat%22+OR+%22revenue+beat%22+OR+%22better-than-expected+results%22+OR+%22strong+quarter%22+OR+%22above+consensus%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "positive_earnings_catalyst",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_outlook_raise_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22outlook+raised%22+OR+%22upgraded+forecast%22+OR+%22profit+guidance+raised%22+OR+%22accelerating+growth%22+OR+%22strong+demand%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "positive_earnings_catalyst",
       "update_interval_hours": 4,
@@ -2079,14 +2079,14 @@
       "max_results": 45
     },
     "google_news_trade_policy_supply_chain_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(tariff+OR+%22export+restriction%22+OR+%22import+ban%22+OR+%22trade+war%22+OR+%22sanctions+impact%22+OR+%22trade+policy%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "supply_chain_disruption",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_chapter11_bankruptcy_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22chapter+11%22+OR+%22chapter+7%22+OR+receivership+OR+%22wind-down%22+OR+%22voluntary+administration%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "financial_distress",
       "update_interval_hours": 4,
@@ -2100,63 +2100,63 @@
       "max_results": 40
     },
     "google_news_interim_ceo_leave_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22special+committee%22+OR+%22interim+ceo%22+OR+%22placed+on+leave%22+OR+%22administrative+leave%22+OR+%22put+on+leave%22+OR+%22independent+review%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "leadership_scandal",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_preannouncement_guidance_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22preliminary+results%22+OR+%22pre-announcement%22+OR+%22guidance+raise%22+OR+%22raised+its+outlook%22+OR+%22positive+preannouncement%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "positive_earnings_catalyst",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_sanctions_ofac_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(sanctions+OR+%22entity+list%22+OR+%22export+control%22+OR+OFAC+OR+%22trade+blacklist%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "geopolitical_sanctions_exposure",
       "update_interval_hours": 4,
       "max_results": 60
     },
     "google_news_sanctions_penalty_divestiture_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22sanctions+violation%22+OR+%22sanctions+penalty%22+OR+%22forced+divestiture%22+OR+%22asset+freeze%22+OR+embargo)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "geopolitical_sanctions_exposure",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_bis_entity_list_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22Bureau+of+Industry%22+OR+%22BIS+entity+list%22+OR+%22export+ban%22+OR+%22trade+restriction%22+OR+%22secondary+sanctions%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "geopolitical_sanctions_exposure",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_treasury_sanctions_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22Treasury+Department%22+OR+%22SDN+list%22+OR+%22blocked+persons%22+OR+ITAR+OR+%22EAR+violation%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "geopolitical_sanctions_exposure",
       "update_interval_hours": 6,
       "max_results": 45
     },
     "google_news_earnings_miss_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22earnings+miss%22+OR+%22missed+estimates%22+OR+%22guidance+cut%22+OR+%22profit+warning%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "negative_earnings_catalyst",
       "update_interval_hours": 4,
       "max_results": 65
     },
     "google_news_revenue_shortfall_outlook_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22revenue+shortfall%22+OR+%22lowered+outlook%22+OR+%22negative+preannouncement%22+OR+%22revenue+warning%22+OR+%22guidance+reduction%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "negative_earnings_catalyst",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_disappointing_results_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22disappointing+results%22+OR+%22below+consensus%22+OR+%22weaker+than+expected%22+OR+%22wider+loss%22+OR+%22lowered+forecast%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "negative_earnings_catalyst",
       "update_interval_hours": 4,
@@ -2177,70 +2177,70 @@
       "max_results": 25
     },
     "google_news_short_seller_report_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22short+report%22+OR+%22short-seller+report%22+OR+%22activist+short%22+OR+Hindenburg+OR+%22Muddy+Waters%22+OR+Kerrisdale+OR+%22Citron+Research%22+OR+%22Spruce+Point%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "short_seller_report",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_short_thesis_alleged_fraud_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22short+thesis%22+OR+%22alleged+fraud%22+OR+%22channel+stuffing%22+OR+%22undisclosed+related+party%22+OR+%22fabricated+revenue%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "short_seller_report",
       "update_interval_hours": 4,
       "max_results": 45
     },
     "google_news_credit_rating_downgrade_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22credit+rating+downgrade%22+OR+%22S%26P+downgrades%22+OR+%22Moody%27s+downgrades%22+OR+%22Fitch+downgrades%22+OR+%22cut+to+junk%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "credit_rating_action",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_credit_watch_outlook_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22placed+on+negative+watch%22+OR+%22negative+credit+watch%22+OR+%22outlook+revised+to+negative%22+OR+%22placed+on+review+for+downgrade%22+OR+%22fallen+angel%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "credit_rating_action",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_rating_speculative_grade_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22speculative+grade%22+OR+%22cut+to+CCC%22+OR+%22downgrade+to+junk%22+OR+%22default+risk+elevated%22+OR+%22rating+action%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "credit_rating_action",
       "update_interval_hours": 6,
       "max_results": 45
     },
     "google_news_going_concern_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22going+concern%22+OR+%22substantial+doubt%22+OR+%22going+concern+disclosure%22+OR+%22going+concern+warning%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "going_concern_auditor_change",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_auditor_change_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22auditor+resignation%22+OR+%22auditor+resigns%22+OR+%22change+in+auditor%22+OR+%22dismissed+its+auditor%22+OR+%22item+4.01%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "going_concern_auditor_change",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_material_weakness_restatement_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22material+weakness%22+OR+%22non-reliance+on+previously+issued%22+OR+%22item+4.02%22+OR+%22restatement+of+financial+statements%22+OR+%22late+filing%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "going_concern_auditor_change",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_guidance_cut_preannouncement_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22preannounces%22+OR+%22pre-announcement%22+OR+%22business+update%22+OR+%22preliminary+results%22+OR+%22withdraws+guidance%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "guidance_cut_preannouncement",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_guidance_withdraw_reset_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22suspends+guidance%22+OR+%22reset+expectations%22+OR+%22cuts+full-year+guidance%22+OR+%22lowers+full-year+guidance%22+OR+%22revises+guidance+lower%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "guidance_cut_preannouncement",
       "update_interval_hours": 4,
@@ -2261,42 +2261,42 @@
       "max_results": 40
     },
     "google_news_activist_13d_proxy_fight_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%2213D+filing%22+OR+%22files+proxy%22+OR+%22activist+stake%22+OR+%22proxy+fight%22+OR+%22board+nomination%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "activist_13d_filing",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_activist_campaign_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22activist+investor+discloses%22+OR+%22activist+campaign%22+OR+%22urges+strategic+alternatives%22+OR+Elliott+OR+Starboard+OR+%22Pershing+Square%22+OR+%22Trian+Fund%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "activist_13d_filing",
       "update_interval_hours": 4,
       "max_results": 45
     },
     "google_news_labor_strike_walkout_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22strike+authorization%22+OR+%22work+stoppage%22+OR+%22walkout%22+OR+%22union+strike%22+OR+%22prolonged+strike%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "labor_action",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_labor_action_dispute_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22lockout%22+OR+%22picket+line%22+OR+%22union+rejects+contract%22+OR+%22strike+expands%22+OR+%22extends+strike%22+OR+%22indefinite+strike%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "labor_action",
       "update_interval_hours": 4,
       "max_results": 45
     },
     "google_news_securities_class_action_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22securities+class+action%22+OR+%22class+action+lawsuit%22+OR+%22lead+plaintiff+deadline%22+OR+%22investor+alert%22+OR+%22shareholder+alert%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "securities_class_action",
       "update_interval_hours": 4,
       "max_results": 55
     },
     "google_news_class_action_filing_firms_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22Rosen+Law+Firm%22+OR+%22Schall+Law+Firm%22+OR+Pomerantz+OR+%22Bragar+Eagel%22+OR+%22Robbins+Geller%22+OR+%22Levi+Korsinsky%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "securities_class_action",
       "update_interval_hours": 4,
@@ -2310,14 +2310,14 @@
       "max_results": 40
     },
     "google_news_insider_cluster_sales_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22cluster+of+insider+sales%22+OR+%22cluster+of+insider+buys%22+OR+%22c-suite+selling%22+OR+%22insiders+sold%22+OR+%22insider+purchases%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "insider_trading_cluster",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_form4_10b5_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22Form+4+filing%22+OR+%22SEC+Form+4%22+OR+%22insider+transactions%22+OR+%2210b5-1+plan%22+OR+%22rule+10b5-1%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "insider_trading_cluster",
       "update_interval_hours": 6,
@@ -2352,56 +2352,56 @@
       "max_results": 40
     },
     "google_news_8k_item_1_05_cyber": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=site%3Asec.gov+%22item+1.05%22+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "cybersecurity",
       "update_interval_hours": 4,
       "max_results": 40
     },
     "google_news_8k_item_2_04_debt_trigger": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=site%3Asec.gov+%22item+2.04%22+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "financial_distress",
       "update_interval_hours": 4,
       "max_results": 40
     },
     "google_news_8k_item_2_06_impairment": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=site%3Asec.gov+%22item+2.06%22+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "negative_earnings_catalyst",
       "update_interval_hours": 6,
       "max_results": 40
     },
     "google_news_8k_item_3_01_delisting": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=site%3Asec.gov+%22item+3.01%22+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 4,
       "max_results": 40
     },
     "google_news_8k_item_4_01_auditor_change": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=site%3Asec.gov+%22item+4.01%22+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "going_concern_auditor_change",
       "update_interval_hours": 6,
       "max_results": 40
     },
     "google_news_8k_item_4_02_non_reliance": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=site%3Asec.gov+%22item+4.02%22+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "going_concern_auditor_change",
       "update_interval_hours": 4,
       "max_results": 40
     },
     "google_news_8k_item_5_02_exec_departure": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=site%3Asec.gov+%22item+5.02%22+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "leadership_scandal",
       "update_interval_hours": 6,
       "max_results": 40
     },
     "google_news_8k_item_7_01_regfd": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=site%3Asec.gov+%22item+7.01%22+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "guidance_cut_preannouncement",
       "update_interval_hours": 6,
@@ -2443,49 +2443,49 @@
       "max_results": 100
     },
     "google_news_prnewswire_offerings": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=site%3Aprnewswire.com+(%22offering%22+OR+%22private+placement%22+OR+%22registered+direct%22+OR+%22public+offering%22+OR+%22pricing+of%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "dilutive_financing",
       "update_interval_hours": 4,
       "max_results": 60
     },
     "google_news_businesswire_offerings": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=site%3Abusinesswire.com+(%22offering%22+OR+%22private+placement%22+OR+%22registered+direct%22+OR+%22public+offering%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "dilutive_financing",
       "update_interval_hours": 4,
       "max_results": 60
     },
     "google_news_globenewswire_trials": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=site%3Aglobenewswire.com+(%22topline%22+OR+%22phase+3%22+OR+%22phase+iii%22+OR+%22primary+endpoint%22+OR+%22FDA%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "clinical_regulatory_binary",
       "update_interval_hours": 4,
       "max_results": 70
     },
     "google_news_accesswire_smallcap": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=site%3Aaccesswire.com+(%22bankruptcy%22+OR+%22going+concern%22+OR+%22recall%22+OR+%22investigation%22+OR+%22offering%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "financial_distress",
       "update_interval_hours": 6,
       "max_results": 50
     },
     "google_news_wires_cyber": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(site%3Aprnewswire.com+OR+site%3Abusinesswire.com+OR+site%3Aglobenewswire.com)+(%22data+breach%22+OR+ransomware+OR+%22cybersecurity+incident%22+OR+%22security+incident%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "cybersecurity",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_wires_recall": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(site%3Aprnewswire.com+OR+site%3Abusinesswire.com+OR+site%3Aglobenewswire.com)+(%22voluntary+recall%22+OR+%22product+recall%22+OR+%22safety+alert%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "product_safety_recall",
       "update_interval_hours": 4,
       "max_results": 50
     },
     "google_news_wires_going_concern": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(site%3Aprnewswire.com+OR+site%3Abusinesswire.com+OR+site%3Aglobenewswire.com+OR+site%3Aaccesswire.com)+(%22going+concern%22+OR+%22substantial+doubt%22+OR+%22non-reliance%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "going_concern_auditor_change",
       "update_interval_hours": 6,
@@ -2555,63 +2555,63 @@
       "max_results": 50
     },
     "google_news_reg_sho_threshold": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22regulation+sho%22+OR+%22reg+sho+threshold%22+OR+%22threshold+securities%22+OR+%22failure+to+deliver%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "financial_distress",
       "update_interval_hours": 8,
       "max_results": 40
     },
     "google_news_ptab_ipr": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22PTAB%22+OR+%22inter+partes+review%22+OR+%22patent+invalidated%22+OR+%22claims+unpatentable%22+OR+%22ITC+337%22+OR+%22Markman+ruling%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "negative_earnings_catalyst",
       "update_interval_hours": 8,
       "max_results": 50
     },
     "google_news_courtlistener_securities": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22securities+class+action+filed%22+OR+%22class+action+complaint+filed%22+OR+%22class+action+alert%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "securities_class_action",
       "update_interval_hours": 6,
       "max_results": 60
     },
     "google_news_environmental_incident": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22refinery+fire%22+OR+%22plant+explosion%22+OR+%22chemical+spill%22+OR+%22oil+spill%22+OR+%22train+derailment%22+OR+%22pipeline+rupture%22+OR+%22evacuation+order%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "supply_chain_disruption",
       "update_interval_hours": 6,
       "max_results": 50
     },
     "google_news_license_revocation": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22license+revoked%22+OR+%22license+suspended%22+OR+%22operating+license+revoked%22+OR+%22charter+revoked%22+OR+%22certificate+revoked%22+OR+%22banned+from+operating%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 8,
       "max_results": 40
     },
     "google_news_customer_loss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22loses+major+customer%22+OR+%22loses+key+customer%22+OR+%22contract+terminated%22+OR+%22contract+cancelled%22+OR+%22cuts+ties+with%22+OR+%22ends+relationship+with%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "negative_earnings_catalyst",
       "update_interval_hours": 6,
       "max_results": 50
     },
     "google_news_mass_tort": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22mass+tort%22+OR+%22multidistrict+litigation%22+OR+%22MDL%22+OR+%22bellwether+trial%22+OR+%22product+liability+verdict%22+OR+%22jury+verdict%22+%22million%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "securities_class_action",
       "update_interval_hours": 8,
       "max_results": 50
     },
     "google_news_insurance_catloss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22catastrophe+losses%22+OR+%22cat+losses%22+OR+%22reserve+charge%22+OR+%22hurricane+losses%22+OR+%22wildfire+losses%22+OR+%22insured+losses%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "negative_earnings_catalyst",
       "update_interval_hours": 8,
       "max_results": 40
     },
     "google_news_bank_credit_deterioration": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22non-performing+loans%22+OR+%22loan+loss+provision%22+OR+%22credit+deterioration%22+OR+%22commercial+real+estate+exposure%22+OR+%22CRE+exposure%22+OR+%22deposit+outflows%22+OR+%22deposit+run%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "financial_distress",
       "update_interval_hours": 6,
@@ -2625,7 +2625,7 @@
     "max_article_age_hours": 72,
     "drop_unparseable_published": true,
     "retry_on_failure": true,
-    "max_retries": 3,
+    "max_retries": 1,
     "title_blocklist_patterns": [
       "SHAREHOLDER ALERT",
       "INVESTOR ALERT",

@@ -2616,6 +2616,104 @@
       "event_category": "financial_distress",
       "update_interval_hours": 6,
       "max_results": 50
+    },
+    "securitiesdocket_class_actions": {
+      "enabled": true,
+      "url": "https://www.securitiesdocket.com/category/class-actions/feed",
+      "event_category": "securities_class_action",
+      "update_interval_hours": 2,
+      "max_results": 25
+    },
+    "globenewswire_law_legal": {
+      "enabled": true,
+      "url": "https://www.globenewswire.com/RssFeed/subjectcode/24-Law%20and%20Legal%20Issues/feedTitle/GlobeNewswire-Law",
+      "event_category": "securities_class_action",
+      "update_interval_hours": 2,
+      "max_results": 30
+    },
+    "globenewswire_bankruptcy": {
+      "enabled": true,
+      "url": "https://www.globenewswire.com/RssFeed/subjectcode/5-Bankruptcy/feedTitle/GlobeNewswire-Bankruptcy",
+      "event_category": "financial_distress",
+      "update_interval_hours": 4,
+      "max_results": 25
+    },
+    "bloomberg_markets": {
+      "enabled": true,
+      "url": "https://feeds.bloomberg.com/markets/news.rss",
+      "event_category": "financial_distress",
+      "update_interval_hours": 4,
+      "max_results": 30
+    },
+    "globenewswire_credit_ratings": {
+      "enabled": true,
+      "url": "https://www.globenewswire.com/RssFeed/subjectcode/8-Credit%20Ratings/feedTitle/GlobeNewswire-CreditRatings",
+      "event_category": "credit_rating_action",
+      "update_interval_hours": 4,
+      "max_results": 25
+    },
+    "globenewswire_bond_market": {
+      "enabled": true,
+      "url": "https://www.globenewswire.com/RssFeed/subjectcode/6-Bond%20Market%20News/feedTitle/GlobeNewswire-Bond",
+      "event_category": "dilutive_financing",
+      "update_interval_hours": 4,
+      "max_results": 25
+    },
+    "globenewswire_ma": {
+      "enabled": true,
+      "url": "https://www.globenewswire.com/RssFeed/subjectcode/27-Mergers%20and%20Acquisitions/feedTitle/GlobeNewswire-MA",
+      "event_category": "ma_corporate_action",
+      "update_interval_hours": 4,
+      "max_results": 30
+    },
+    "globenewswire_earnings": {
+      "enabled": true,
+      "url": "https://www.globenewswire.com/RssFeed/subjectcode/13-Earnings%20Releases%20and%20Operating%20Results/feedTitle/GlobeNewswire-Earnings",
+      "event_category": "negative_earnings_catalyst",
+      "update_interval_hours": 2,
+      "max_results": 30
+    },
+    "globenewswire_earnings_preann": {
+      "enabled": true,
+      "url": "https://www.globenewswire.com/RssFeed/subjectcode/13-Earnings%20Releases%20and%20Operating%20Results/feedTitle/GlobeNewswire-Earnings",
+      "event_category": "guidance_cut_preannouncement",
+      "update_interval_hours": 4,
+      "max_results": 25
+    },
+    "nlrb_press_releases": {
+      "enabled": true,
+      "url": "https://www.nlrb.gov/rss/rssPressReleases.xml",
+      "event_category": "labor_action",
+      "update_interval_hours": 24,
+      "max_results": 20
+    },
+    "globenewswire_labor": {
+      "enabled": true,
+      "url": "https://www.globenewswire.com/RssFeed/subjectcode/20-Labor%20Relations%20%26%20Human%20Resources/feedTitle/GlobeNewswire-Labor",
+      "event_category": "labor_action",
+      "update_interval_hours": 8,
+      "max_results": 25
+    },
+    "fda_safety_alerts": {
+      "enabled": true,
+      "url": "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/recalls/rss.xml",
+      "event_category": "license_revocation_regulatory_ban",
+      "update_interval_hours": 6,
+      "max_results": 25
+    },
+    "globenewswire_mgmt_changes": {
+      "enabled": true,
+      "url": "https://www.globenewswire.com/RssFeed/subjectcode/25-Management%20Changes/feedTitle/GlobeNewswire-MgmtChanges",
+      "event_category": "leadership_scandal",
+      "update_interval_hours": 6,
+      "max_results": 25
+    },
+    "sec_edgar_sc13d": {
+      "enabled": true,
+      "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=SC+13D&dateb=&owner=include&count=40&search_text=&output=atom",
+      "event_category": "activist_13d_filing",
+      "update_interval_hours": 6,
+      "max_results": 40
     }
   },
   "scraping": {

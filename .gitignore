@@ -37,3 +37,4 @@ review_sessions/*
 
 # Local backup archives
 backups/
+.env

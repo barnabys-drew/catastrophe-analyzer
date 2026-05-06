@@ -2009,7 +2009,7 @@
       "max_results": 55
     },
     "google_news_deal_close_termination_recent": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://news.google.com/rss/search?q=(%22deal+termination%22+OR+%22deal+break%22+OR+%22transaction+closes%22+OR+%22shareholder+approval%22+OR+%22go-shop%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "ma_corporate_action",
       "update_interval_hours": 4,
@@ -2079,7 +2079,7 @@
       "max_results": 45
     },
     "google_news_trade_policy_supply_chain_recent": {
-      "enabled": false,
+      "enabled": true,
       "url": "https://news.google.com/rss/search?q=(tariff+OR+%22export+restriction%22+OR+%22import+ban%22+OR+%22trade+war%22+OR+%22sanctions+impact%22+OR+%22trade+policy%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "supply_chain_disruption",
       "update_interval_hours": 4,

@@ -33,53 +33,21 @@ jobs:
           sarif_file: semgrep.sarif
         continue-on-error: true
 
-      - name: Export Semgrep results for Spectra
-        run: |
-          semgrep --json src/ > semgrep-results.json || true
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-
-      - name: Install Spectra
-        run: |
-          git clone https://github.com/d0uble3L/spectra.git /tmp/spectra
-          cd /tmp/spectra
-          pip install -e .
-
-      - name: Run Spectra analysis on code findings
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          if [ -s semgrep-results.json ]; then
-            spectra analyze semgrep-results.json \
-              --scanner semgrep \
-              --format markdown \
-              --output code-security-report.md
-          else
-            echo "# Code Security Report\n\n✅ No issues found by Semgrep" > code-security-report.md
-          fi
-
-      - name: Comment on PR with security report
+      - name: Comment on PR with Semgrep report
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            if (fs.existsSync('code-security-report.md')) {
-              const report = fs.readFileSync('code-security-report.md', 'utf8');
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: '## 🔐 Code Security Analysis\n\n' + report
-              });
-            }
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## 🔐 Code Security (Semgrep) Scan Complete\n\nResults uploaded to GitHub Security tab. SARIF file available in artifacts.'
+            });
 
-      - name: Upload code security report
+      - name: Upload Semgrep SARIF report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: code-security-report
-          path: code-security-report.md
+          name: code-security-sarif
+          path: semgrep.sarif

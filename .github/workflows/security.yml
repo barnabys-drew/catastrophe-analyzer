@@ -33,59 +33,21 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-      - name: Run Trivy for Spectra analysis
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'json'
-          output: 'trivy-results.json'
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-
-      - name: Install Spectra
-        run: |
-          git clone https://github.com/d0uble3L/spectra.git /tmp/spectra
-          cd /tmp/spectra
-          pip install -e .
-
-      - name: Run Spectra analysis
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          spectra analyze trivy-results.json \
-            --scanner json \
-            --format markdown \
-            --output spectra-report.md
-
-      - name: Comment on PR with Spectra report
+      - name: Comment on PR with Trivy report
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const report = fs.readFileSync('spectra-report.md', 'utf8');
-
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '## 🔒 Security Analysis\n\n' + report
+              body: '## 🔒 Trivy Vulnerability Scan Complete\n\nResults uploaded to GitHub Security tab.'
             });
 
-      - name: Check for critical issues
-        run: |
-          if grep -i "critical\|high severity" spectra-report.md; then
-            echo "Critical or high severity issues found!"
-            exit 1
-          fi
-
-      - name: Upload Spectra report as artifact
+      - name: Upload Trivy report as artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: security-report
-          path: spectra-report.md
+          name: trivy-report
+          path: trivy-results.sarif

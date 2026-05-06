@@ -57,7 +57,7 @@ class SecEarningsIntegration:
 
             # Fetch Form 4 insider trades
             # Would normally fetch for specific tickers, but for now get from recent 8-K tickers
-            tickers_to_check = set(e.ticker for e in recent_8ks)[:10]  # Limit to top 10
+            tickers_to_check = list(set(e.ticker for e in recent_8ks))[:10]  # Limit to top 10
             for ticker in tickers_to_check:
                 form4s = self.sec_feed.fetch_form4_insider_trades(ticker, use_mock=use_mock)
                 for event in form4s:
@@ -87,7 +87,7 @@ class SecEarningsIntegration:
         signals = []
 
         try:
-            recent_earnings = self.earnings_feed.fetch_recent_earnings(lookback_days=self.lookback_days)
+            recent_earnings = self.earnings_feed.fetch_recent_earnings(days_lookback=self.lookback_days)
             for event in recent_earnings:
                 signal = {
                     "ticker": event.ticker,

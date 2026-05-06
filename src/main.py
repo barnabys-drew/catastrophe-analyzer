@@ -27,6 +27,7 @@ from alert_manager import AlertManager
 from service_runtime import run_service_loop
 from text_match import keyword_in_text
 from config_loader import load_and_validate_runtime_settings, SettingsValidationError
+from sec_earnings_integration import SecEarningsIntegration
 
 
 class CatastropheAnalyzerApp:
@@ -59,6 +60,7 @@ class CatastropheAnalyzerApp:
         self.signal_generator = SignalGenerator(config_path=self.config_path, settings=self.settings)
         self.db = DatabaseManager(data_dir=self.data_dir)
         self.impact_triage = ImpactTriage(config=self.settings)
+        self.sec_earnings_integration = SecEarningsIntegration(config_path=self.config_path)
 
         self.current_articles = []
         self.current_entities = []
@@ -1831,6 +1833,47 @@ class CatastropheAnalyzerApp:
             return None
         return ordered[0]
 
+    def _fetch_sec_earnings_events(self, quiet: bool = False) -> List[Dict]:
+        """Fetch SEC and earnings events and convert to article format for processing."""
+        events = []
+        try:
+            sec_signals = self.sec_earnings_integration.fetch_sec_signals(use_mock=False)
+            for signal in sec_signals:
+                event = {
+                    "title": f"{signal.get('ticker', 'UNKNOWN')}: {signal.get('item_type', 'SEC Filing')}",
+                    "summary": signal.get('item_description', ''),
+                    "link": signal.get('url', ''),
+                    "published": signal.get('filed_date', datetime.now().isoformat()),
+                    "source": "sec",
+                    "candidates": [{"ticker": signal.get("ticker"), "company": "", "validation_status": "approved"}],
+                    "has_publicly_traded": bool(signal.get("ticker")),
+                    "event_category": signal.get('event_category', 'sec_filing'),
+                    "mapped_candidates": [signal.get("ticker")] if signal.get("ticker") else [],
+                }
+                events.append(event)
+
+            earnings_signals = self.sec_earnings_integration.fetch_earnings_signals()
+            for signal in earnings_signals:
+                surprise_pct = signal.get('eps_surprise_pct', 0)
+                distress_indicator = "negative surprise" if surprise_pct < -5 else "positive surprise"
+                event = {
+                    "title": f"{signal.get('ticker', 'UNKNOWN')}: Earnings {distress_indicator.title()}",
+                    "summary": f"EPS surprise: {surprise_pct:.1f}%, Revenue: {signal.get('revenue_surprise_pct', 0):.1f}%",
+                    "link": "",
+                    "published": signal.get('report_date', datetime.now().isoformat()),
+                    "source": "earnings",
+                    "candidates": [{"ticker": signal.get("ticker"), "company": "", "validation_status": "approved"}],
+                    "has_publicly_traded": bool(signal.get("ticker")),
+                    "event_category": "earnings_surprise",
+                    "mapped_candidates": [signal.get("ticker")] if signal.get("ticker") else [],
+                }
+                events.append(event)
+        except Exception as e:
+            if not quiet:
+                print(f"Warning: Failed to fetch SEC/earnings events: {e}")
+
+        return events
+
     def detect_new_events(self, quiet: bool = False) -> Dict:
         """
         Scan recent RSS items and create new event watch entries.
@@ -1844,10 +1887,15 @@ class CatastropheAnalyzerApp:
         if quiet:
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 raw_articles = self.news_scraper.scrape_all_sources()
+                sec_earnings_events = self._fetch_sec_earnings_events(quiet=True)
         else:
             raw_articles = self.news_scraper.scrape_all_sources()
+            sec_earnings_events = self._fetch_sec_earnings_events(quiet=False)
 
-        if not raw_articles:
+        # Merge news articles and SEC/earnings events
+        all_articles = (raw_articles or []) + sec_earnings_events
+
+        if not all_articles:
             return {
                 "articles": 0,
                 "watches_created": 0,
@@ -1858,7 +1906,12 @@ class CatastropheAnalyzerApp:
                 "new_high_value_events": [],
             }
 
-        recent_articles = self.news_scraper.filter_recent_articles(raw_articles, hours_back)
+        # Filter recent articles (SEC/earnings events are auto-recent)
+        news_articles = [a for a in all_articles if a.get("source") not in ["sec", "earnings"]]
+        sec_earnings_articles = [a for a in all_articles if a.get("source") in ["sec", "earnings"]]
+
+        recent_news = self.news_scraper.filter_recent_articles(news_articles, hours_back) if news_articles else []
+        recent_articles = recent_news + sec_earnings_articles
 
         body_cfg = self.settings.get("scraping", {}).get("body_fetch", {})
         if body_cfg.get("enabled", True):

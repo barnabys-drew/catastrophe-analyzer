@@ -1653,67 +1653,67 @@
   },
   "news_sources": {
     "bleeping_computer": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.bleepingcomputer.com/feed/",
       "event_category": "cybersecurity",
       "update_interval_hours": 6
     },
     "krebs_on_security": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://krebsonsecurity.com/feed/",
       "event_category": "cybersecurity",
       "update_interval_hours": 12
     },
     "dark_reading": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.darkreading.com/rss.xml",
       "event_category": "cybersecurity",
       "update_interval_hours": 12
     },
     "techcrunch_security": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://techcrunch.com/category/security/feed/",
       "event_category": "cybersecurity",
       "update_interval_hours": 24
     },
     "arstechnica_security": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://arstechnica.com/security/feed/",
       "event_category": "cybersecurity",
       "update_interval_hours": 12
     },
     "wired_security": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.wired.com/feed/category/security/latest/rss",
       "event_category": "cybersecurity",
       "update_interval_hours": 24
     },
     "the_record": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://therecord.media/feed/",
       "event_category": "cybersecurity",
       "update_interval_hours": 6
     },
     "securityweek": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.securityweek.com/feed/",
       "event_category": "cybersecurity",
       "update_interval_hours": 12
     },
     "helpnet_security": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.helpnetsecurity.com/feed/",
       "event_category": "cybersecurity",
       "update_interval_hours": 12
     },
     "security_affairs": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://securityaffairs.com/feed",
       "event_category": "cybersecurity",
       "update_interval_hours": 12
     },
     "cyberscoop": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.cyberscoop.com/feed/",
       "event_category": "cybersecurity",
       "update_interval_hours": 12
@@ -1726,31 +1726,31 @@
       "max_results": 80
     },
     "fierce_biotech": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.fiercebiotech.com/rss/xml",
       "event_category": "clinical_regulatory_binary",
       "update_interval_hours": 8
     },
     "fierce_pharma": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.fiercepharma.com/rss/xml",
       "event_category": "clinical_regulatory_binary",
       "update_interval_hours": 8
     },
     "biopharmadive": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.biopharmadive.com/feeds/news/",
       "event_category": "clinical_regulatory_binary",
       "update_interval_hours": 8
     },
     "endpoints_news": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://endpts.com/feed/",
       "event_category": "clinical_regulatory_binary",
       "update_interval_hours": 8
     },
     "fda_press_releases": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/press-releases/rss.xml",
       "event_category": "clinical_regulatory_binary",
       "update_interval_hours": 12,
@@ -1764,14 +1764,14 @@
       "max_results": 60
     },
     "stat_biotech": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.statnews.com/category/biotech/feed/",
       "event_category": "clinical_regulatory_binary",
       "update_interval_hours": 8,
       "max_results": 60
     },
     "stat_pharma": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.statnews.com/category/pharma/feed/",
       "event_category": "clinical_regulatory_binary",
       "update_interval_hours": 8,
@@ -1820,42 +1820,42 @@
       "max_results": 50
     },
     "cpsc_recalls_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.cpsc.gov/Newsroom/CPSC-RSS-Feed/Recalls-RSS",
       "event_category": "product_safety_recall",
       "update_interval_hours": 8,
       "max_results": 80
     },
     "cpsc_recalls_children_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.cpsc.gov/Newsroom/CPSC-RSS-Feed/Recalls-RSS/children",
       "event_category": "product_safety_recall",
       "update_interval_hours": 12,
       "max_results": 60
     },
     "fda_recalls_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.recalls.gov/rrfda.aspx",
       "event_category": "product_safety_recall",
       "update_interval_hours": 8,
       "max_results": 80
     },
     "medtechdive_news": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.medtechdive.com/feeds/news/",
       "event_category": "product_safety_recall",
       "update_interval_hours": 8,
       "max_results": 60
     },
     "sec_litigation_releases": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.sec.gov/rss/litigation/lreleases.xml",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 8,
       "max_results": 60
     },
     "sec_press_releases": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.sec.gov/rss/news/press.xml",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 8,
@@ -1904,21 +1904,21 @@
       "max_results": 50
     },
     "justice_department_news_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.justice.gov/news/rss",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 8,
       "max_results": 50
     },
     "marketwatch_top_stories_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 8,
       "max_results": 45
     },
     "yahoo_finance_news_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://finance.yahoo.com/news/rssindex",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 8,
@@ -1932,14 +1932,14 @@
       "max_results": 55
     },
     "supplychaindive_news_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.supplychaindive.com/feeds/news/",
       "event_category": "supply_chain_disruption",
       "update_interval_hours": 6,
       "max_results": 55
     },
     "freightwaves_news_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.freightwaves.com/news/feed",
       "event_category": "supply_chain_disruption",
       "update_interval_hours": 8,
@@ -2009,7 +2009,7 @@
       "max_results": 55
     },
     "google_news_deal_close_termination_recent": {
-      "enabled": false,
+      "enabled": true,
       "url": "https://news.google.com/rss/search?q=(%22deal+termination%22+OR+%22deal+break%22+OR+%22transaction+closes%22+OR+%22shareholder+approval%22+OR+%22go-shop%22)+when:3d&hl=en-US&gl=US&ceid=US:en",
       "event_category": "ma_corporate_action",
       "update_interval_hours": 4,
@@ -2058,21 +2058,21 @@
       "max_results": 55
     },
     "sec_edgar_8k": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=8-K&dateb=&owner=include&count=100&search_text=&output=atom",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 2,
       "max_results": 40
     },
     "manufacturing_dive_news_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.manufacturingdive.com/feeds/news/",
       "event_category": "supply_chain_disruption",
       "update_interval_hours": 6,
       "max_results": 50
     },
     "logistics_management_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.logisticsmgmt.com/rss/all",
       "event_category": "supply_chain_disruption",
       "update_interval_hours": 8,
@@ -2093,7 +2093,7 @@
       "max_results": 55
     },
     "fortune_leadership_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://fortune.com/section/leadership/feed/",
       "event_category": "leadership_scandal",
       "update_interval_hours": 8,
@@ -2163,14 +2163,14 @@
       "max_results": 55
     },
     "hindenburg_research_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://hindenburgresearch.com/feed/",
       "event_category": "short_seller_report",
       "update_interval_hours": 6,
       "max_results": 30
     },
     "kerrisdale_research_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.kerrisdalecap.com/feed/",
       "event_category": "short_seller_report",
       "update_interval_hours": 8,
@@ -2247,14 +2247,14 @@
       "max_results": 50
     },
     "sec_13d_filings_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=SC+13D&company=&dateb=&owner=include&count=40&output=atom",
       "event_category": "activist_13d_filing",
       "update_interval_hours": 4,
       "max_results": 40
     },
     "sec_13d_amendments_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=SC+13D%2FA&company=&dateb=&owner=include&count=40&output=atom",
       "event_category": "activist_13d_filing",
       "update_interval_hours": 4,
@@ -2303,7 +2303,7 @@
       "max_results": 50
     },
     "sec_form4_filings_rss": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=4&company=&dateb=&owner=include&count=40&output=atom",
       "event_category": "insider_trading_cluster",
       "update_interval_hours": 4,
@@ -2324,28 +2324,28 @@
       "max_results": 45
     },
     "edgar_nt10k": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=NT+10-K&company=&dateb=&owner=include&count=40&output=atom",
       "event_category": "going_concern_auditor_change",
       "update_interval_hours": 6,
       "max_results": 40
     },
     "edgar_nt10q": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=NT+10-Q&company=&dateb=&owner=include&count=40&output=atom",
       "event_category": "going_concern_auditor_change",
       "update_interval_hours": 6,
       "max_results": 40
     },
     "edgar_10ka": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=10-K%2FA&company=&dateb=&owner=include&count=40&output=atom",
       "event_category": "going_concern_auditor_change",
       "update_interval_hours": 8,
       "max_results": 40
     },
     "edgar_10qa": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=10-Q%2FA&company=&dateb=&owner=include&count=40&output=atom",
       "event_category": "going_concern_auditor_change",
       "update_interval_hours": 8,
@@ -2408,35 +2408,35 @@
       "max_results": 40
     },
     "prnewswire_financial": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.prnewswire.com/rss/financial-services-latest-news/financial-services-latest-news-list.rss",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 4,
       "max_results": 80
     },
     "prnewswire_health": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.prnewswire.com/rss/health/health-latest-news/health-latest-news-list.rss",
       "event_category": "clinical_regulatory_binary",
       "update_interval_hours": 4,
       "max_results": 80
     },
     "prnewswire_consumer_tech": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.prnewswire.com/rss/consumer-technology-latest-news/consumer-technology-latest-news-list.rss",
       "event_category": "product_safety_recall",
       "update_interval_hours": 6,
       "max_results": 60
     },
     "prnewswire_energy": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.prnewswire.com/rss/energy-latest-news/energy-latest-news-list.rss",
       "event_category": "supply_chain_disruption",
       "update_interval_hours": 6,
       "max_results": 60
     },
     "globenewswire_public_companies": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.globenewswire.com/RssFeed/orgclass/1/feedTitle/GlobeNewswire%20-%20All%20Public%20Companies",
       "event_category": "positive_earnings_catalyst",
       "update_interval_hours": 3,
@@ -2492,63 +2492,63 @@
       "max_results": 50
     },
     "fda_warning_letters": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/warning-letters/rss.xml",
       "event_category": "product_safety_recall",
       "update_interval_hours": 12,
       "max_results": 60
     },
     "fda_recalls": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/recalls/rss.xml",
       "event_category": "product_safety_recall",
       "update_interval_hours": 6,
       "max_results": 80
     },
     "fda_medwatch_safety_alerts": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/medwatch/rss.xml",
       "event_category": "product_safety_recall",
       "update_interval_hours": 8,
       "max_results": 50
     },
     "cisa_kev_catalog": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.cisa.gov/cybersecurity-advisories/all.xml",
       "event_category": "cybersecurity",
       "update_interval_hours": 4,
       "max_results": 60
     },
     "nhtsa_recalls": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.nhtsa.gov/rss/recalls",
       "event_category": "product_safety_recall",
       "update_interval_hours": 12,
       "max_results": 80
     },
     "ftc_press_releases": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.ftc.gov/feeds/press-release.xml",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 8,
       "max_results": 60
     },
     "ofac_recent_actions": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://ofac.treasury.gov/recent-actions/rss.xml",
       "event_category": "geopolitical_sanctions_exposure",
       "update_interval_hours": 6,
       "max_results": 50
     },
     "cfpb_newsroom": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.consumerfinance.gov/about-us/newsroom/feed/",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 12,
       "max_results": 40
     },
     "epa_news_releases": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.epa.gov/newsreleases/search/rss",
       "event_category": "fraud_accounting_enforcement",
       "update_interval_hours": 12,
@@ -2618,98 +2618,98 @@
       "max_results": 50
     },
     "securitiesdocket_class_actions": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.securitiesdocket.com/category/class-actions/feed",
       "event_category": "securities_class_action",
       "update_interval_hours": 2,
       "max_results": 25
     },
     "globenewswire_law_legal": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.globenewswire.com/RssFeed/subjectcode/24-Law%20and%20Legal%20Issues/feedTitle/GlobeNewswire-Law",
       "event_category": "securities_class_action",
       "update_interval_hours": 2,
       "max_results": 30
     },
     "globenewswire_bankruptcy": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.globenewswire.com/RssFeed/subjectcode/5-Bankruptcy/feedTitle/GlobeNewswire-Bankruptcy",
       "event_category": "financial_distress",
       "update_interval_hours": 4,
       "max_results": 25
     },
     "bloomberg_markets": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://feeds.bloomberg.com/markets/news.rss",
       "event_category": "financial_distress",
       "update_interval_hours": 4,
       "max_results": 30
     },
     "globenewswire_credit_ratings": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.globenewswire.com/RssFeed/subjectcode/8-Credit%20Ratings/feedTitle/GlobeNewswire-CreditRatings",
       "event_category": "credit_rating_action",
       "update_interval_hours": 4,
       "max_results": 25
     },
     "globenewswire_bond_market": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.globenewswire.com/RssFeed/subjectcode/6-Bond%20Market%20News/feedTitle/GlobeNewswire-Bond",
       "event_category": "dilutive_financing",
       "update_interval_hours": 4,
       "max_results": 25
     },
     "globenewswire_ma": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.globenewswire.com/RssFeed/subjectcode/27-Mergers%20and%20Acquisitions/feedTitle/GlobeNewswire-MA",
       "event_category": "ma_corporate_action",
       "update_interval_hours": 4,
       "max_results": 30
     },
     "globenewswire_earnings": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.globenewswire.com/RssFeed/subjectcode/13-Earnings%20Releases%20and%20Operating%20Results/feedTitle/GlobeNewswire-Earnings",
       "event_category": "negative_earnings_catalyst",
       "update_interval_hours": 2,
       "max_results": 30
     },
     "globenewswire_earnings_preann": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.globenewswire.com/RssFeed/subjectcode/13-Earnings%20Releases%20and%20Operating%20Results/feedTitle/GlobeNewswire-Earnings",
       "event_category": "guidance_cut_preannouncement",
       "update_interval_hours": 4,
       "max_results": 25
     },
     "nlrb_press_releases": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.nlrb.gov/rss/rssPressReleases.xml",
       "event_category": "labor_action",
       "update_interval_hours": 24,
       "max_results": 20
     },
     "globenewswire_labor": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.globenewswire.com/RssFeed/subjectcode/20-Labor%20Relations%20%26%20Human%20Resources/feedTitle/GlobeNewswire-Labor",
       "event_category": "labor_action",
       "update_interval_hours": 8,
       "max_results": 25
     },
     "fda_safety_alerts": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.fda.gov/about-fda/contact-fda/stay-informed/rss-feeds/recalls/rss.xml",
       "event_category": "license_revocation_regulatory_ban",
       "update_interval_hours": 6,
       "max_results": 25
     },
     "globenewswire_mgmt_changes": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.globenewswire.com/RssFeed/subjectcode/25-Management%20Changes/feedTitle/GlobeNewswire-MgmtChanges",
       "event_category": "leadership_scandal",
       "update_interval_hours": 6,
       "max_results": 25
     },
     "sec_edgar_sc13d": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=SC+13D&dateb=&owner=include&count=40&search_text=&output=atom",
       "event_category": "activist_13d_filing",
       "update_interval_hours": 6,

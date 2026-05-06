@@ -5,6 +5,7 @@ Collects event-related news from configured RSS sources
 
 import os
 import time
+import socket
 from calendar import timegm
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Tuple
@@ -234,9 +235,19 @@ class NewsScraper:
 
         max_attempts = 1 + self._max_retries if self._retry_on_failure else 1
         print(f"Fetching {source_name}...", end="")
+
+        # Get timeout from config
+        _, timeout_seconds = self._scraping_limits()
+
         for attempt in range(1, max_attempts + 1):
             try:
-                feed = feedparser.parse(feed_url, request_headers=self._feed_request_headers)
+                # Set socket timeout to prevent indefinite hangs
+                old_timeout = socket.getdefaulttimeout()
+                socket.setdefaulttimeout(timeout_seconds)
+                try:
+                    feed = feedparser.parse(feed_url, request_headers=self._feed_request_headers)
+                finally:
+                    socket.setdefaulttimeout(old_timeout)
                 if getattr(feed, "bozo", False) and getattr(feed, "bozo_exception", None):
                     raise RuntimeError(str(feed.bozo_exception))
 

@@ -1833,22 +1833,30 @@ class CatastropheAnalyzerApp:
             return None
         return ordered[0]
 
-    def _fetch_sec_earnings_events(self, quiet: bool = False) -> List[Dict]:
+    def _fetch_sec_earnings_events(self, quiet: bool = False, use_mock: bool = False) -> List[Dict]:
         """Fetch SEC and earnings events and convert to article format for processing."""
         events = []
         try:
-            sec_signals = self.sec_earnings_integration.fetch_sec_signals(use_mock=False)
+            sec_signals = self.sec_earnings_integration.fetch_sec_signals(use_mock=use_mock)
             for signal in sec_signals:
+                ticker = signal.get("ticker", "UNKNOWN")
+                # Look up company name from ticker for better entity extraction
+                company_name = ""
+                try:
+                    company_name = self.stock_analyzer.get_company_name(ticker) or ""
+                except:
+                    pass
+
                 event = {
-                    "title": f"{signal.get('ticker', 'UNKNOWN')}: {signal.get('item_type', 'SEC Filing')}",
+                    "title": f"{company_name or ticker}: {signal.get('item_type', 'SEC Filing')}",
                     "summary": signal.get('item_description', ''),
                     "link": signal.get('url', ''),
                     "published": signal.get('filed_date', datetime.now().isoformat()),
                     "source": "sec",
-                    "candidates": [{"ticker": signal.get("ticker"), "company": "", "validation_status": "approved"}],
-                    "has_publicly_traded": bool(signal.get("ticker")),
+                    # Pre-populate candidates so entity extraction recognizes the ticker
+                    "mapped_candidates": [{"ticker": ticker, "company": company_name or ticker, "confidence": "high", "validation_status": "approved"}],
+                    "has_publicly_traded": bool(ticker),
                     "event_category": signal.get('event_category', 'sec_filing'),
-                    "mapped_candidates": [signal.get("ticker")] if signal.get("ticker") else [],
                 }
                 events.append(event)
 
@@ -1884,13 +1892,16 @@ class CatastropheAnalyzerApp:
         today_str = datetime.now().strftime('%Y-%m-%d')
         hours_back = int(self.settings.get('scraping', {}).get('hours_back', 24))
 
+        # Check if we're in mock mode
+        mock_mode = os.environ.get("CATASTROPHE_ANALYZER_USE_MOCK_DATA", "").lower() in ["1", "true", "yes"]
+
         if quiet:
             with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 raw_articles = self.news_scraper.scrape_all_sources()
-                sec_earnings_events = self._fetch_sec_earnings_events(quiet=True)
+                sec_earnings_events = self._fetch_sec_earnings_events(quiet=True, use_mock=mock_mode)
         else:
             raw_articles = self.news_scraper.scrape_all_sources()
-            sec_earnings_events = self._fetch_sec_earnings_events(quiet=False)
+            sec_earnings_events = self._fetch_sec_earnings_events(quiet=False, use_mock=mock_mode)
 
         # Merge news articles and SEC/earnings events
         all_articles = (raw_articles or []) + sec_earnings_events
@@ -1916,12 +1927,32 @@ class CatastropheAnalyzerApp:
         body_cfg = self.settings.get("scraping", {}).get("body_fetch", {})
         if body_cfg.get("enabled", True):
             self.news_scraper.enrich_articles_with_body(
-                recent_articles,
+                recent_news,
                 max_fetches=int(body_cfg.get("max_fetches_per_cycle", 30)),
                 fetch_delay_seconds=float(body_cfg.get("fetch_delay_seconds", 0.5)),
             )
 
-        entities = self.entity_extractor.batch_extract(recent_articles)
+        # Extract entities from news articles (skip for SEC/earnings which already have tickers)
+        news_entities = self.entity_extractor.batch_extract(recent_news) if recent_news else []
+
+        # Prepare SEC/earnings events as already-extracted entities
+        sec_earnings_entities = []
+        for article in sec_earnings_articles:
+            entity = {
+                **article,
+                'event_category': article.get('event_category', 'sec_filing'),
+                'extracted_companies': [],
+                'mapped_candidates': article.get('mapped_candidates', []),
+                'mapped_entities': article.get('mapped_candidates', []),  # Already validated
+                'rejected_entities': [],
+                'agent_validation_enabled': False,
+                'validation_mode': 'disabled',
+                'has_publicly_traded': len(article.get('mapped_candidates', [])) > 0,
+            }
+            sec_earnings_entities.append(entity)
+
+        # Combine news entities with SEC/earnings entities
+        entities = news_entities + sec_earnings_entities
 
         times_pre_days = int(self.settings.get("price_series", {}).get("pre_days", 30))
         times_post_days = int(self.settings.get("price_series", {}).get("post_days", 30))

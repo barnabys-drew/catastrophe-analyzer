@@ -459,7 +459,14 @@ class SignalGenerator:
         imp = self._safe_score(impact_score or analysis.get("impact_score", 0))
         catalyst_score = int(ds / 100.0 * 15) + int(imp / 100.0 * 15)
 
-        return min(technical_score + catalyst_score, 100)
+        # Multi-source confirmation bonus: add points when same ticker in 2+ sources
+        multi_source_bonus = 0.0
+        if analysis.get("multi_source_confirmed"):
+            multi_source_bonus = float(
+                self.signal_config.get("multi_source_confidence_bonus", 10.0)
+            )
+
+        return min(technical_score + catalyst_score + multi_source_bonus, 100)
 
     def _get_confidence_level(self, score: float) -> str:
         """

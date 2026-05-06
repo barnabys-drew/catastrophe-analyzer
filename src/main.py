@@ -1963,6 +1963,10 @@ class CatastropheAnalyzerApp:
         skipped_untradable_candidates = 0
         skipped_duplicate_article_ticker = 0
 
+        # Track which tickers came from which sources for multi-source boosting
+        sec_tickers: set = set()
+        news_tickers: set = set()
+
         for article in entities:
             if not article.get("has_publicly_traded"):
                 if article.get("mapped_candidates"):
@@ -2076,6 +2080,13 @@ class CatastropheAnalyzerApp:
                 if self.db.add_watch_if_new(watch):
                     created += 1
 
+                    # Track source for multi-source boosting
+                    source = article.get("source", "")
+                    if source in ("sec", "earnings"):
+                        sec_tickers.add(ticker)
+                    else:
+                        news_tickers.add(ticker)
+
                     # Persist event record (legacy add_breach API still used for compatibility).
                     self.db.add_breach({
                         "date_found": event_date,
@@ -2121,13 +2132,19 @@ class CatastropheAnalyzerApp:
             "skipped_untradable_candidates": skipped_untradable_candidates,
             "skipped_duplicate_article_ticker": skipped_duplicate_article_ticker,
             "new_high_value_events": self._high_value_events_ready_for_alert(),
+            "sec_tickers": sec_tickers,
+            "news_tickers": news_tickers,
         }
 
     # Backward-compatible alias while monitor/callers migrate.
     def detect_new_breaches(self, quiet: bool = False) -> Dict:
         return self.detect_new_events(quiet=quiet)
 
-    def update_watches_and_generate_signals(self, quiet: bool = False) -> Dict:
+    def update_watches_and_generate_signals(
+        self,
+        quiet: bool = False,
+        multi_source_tickers: Optional[set] = None,
+    ) -> Dict:
         """
         For each ACTIVE watch in the last `max_days`, analyze stock movement and create buy signals.
         """
@@ -2308,6 +2325,10 @@ class CatastropheAnalyzerApp:
                 )
             if "impact_score" not in analysis or not analysis["impact_score"]:
                 analysis["impact_score"] = t_ctx.get("impact_score") or 0
+
+            # Flag multi-source confirmed signals for confidence boosting
+            if multi_source_tickers and analysis.get("ticker") in multi_source_tickers:
+                analysis["multi_source_confirmed"] = True
 
         signals, signal_diagnostics = self.signal_generator.generate_signals_with_diagnostics(analyses)
         for event_key, diagnostic in signal_diagnostics.items():
@@ -2558,7 +2579,16 @@ class CatastropheAnalyzerApp:
         2) update active watches and generate signals
         """
         detect_summary = self.detect_new_events(quiet=quiet)
-        update_summary = self.update_watches_and_generate_signals(quiet=quiet)
+
+        # Compute multi-source tickers (appear in both SEC and news)
+        sec_tickers = detect_summary.get("sec_tickers", set())
+        news_tickers = detect_summary.get("news_tickers", set())
+        multi_source_tickers = sec_tickers & news_tickers
+
+        update_summary = self.update_watches_and_generate_signals(
+            quiet=quiet,
+            multi_source_tickers=multi_source_tickers,
+        )
 
         return {
             "articles": detect_summary.get("articles", 0),
@@ -2568,6 +2598,7 @@ class CatastropheAnalyzerApp:
             "skipped_untradable_candidates": detect_summary.get("skipped_untradable_candidates", 0),
             "skipped_duplicate_article_ticker": detect_summary.get("skipped_duplicate_article_ticker", 0),
             "new_high_value_events": detect_summary.get("new_high_value_events", []),
+            "multi_source_confirmed_count": len(multi_source_tickers),
             "watches_checked": update_summary.get("watches_checked", 0),
             "signals_generated": update_summary.get("signals_generated", 0),
             "signals_generated_raw": update_summary.get("signals_generated_raw", 0),

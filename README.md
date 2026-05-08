@@ -94,9 +94,9 @@ Three options — set `stock_analysis.data_source` in `config/settings.json`:
 
 | Value | Notes |
 |-------|-------|
-| `"yfinance"` | Free, no token needed. **Current setting.** |
+| `"yfinance"` | Free, no token needed. |
 | `"tiingo"` | Better quality EOD data. Set `TIINGO_API_TOKEN` in env. |
-| `"ibkr"` | Live bars from IB Gateway. Requires ib-gateway container running. Set `IBKR_HOST`/`IBKR_PORT`/`IBKR_CLIENT_ID` in env or `.env`. |
+| `"ibkr"` | Live bars from IB Gateway. Requires ib-gateway container running. Set `IBKR_HOST`/`IBKR_PORT`/`IBKR_CLIENT_ID` in env or `.env`. **Current setting.** |
 
 **Note:** `StockAnalyzer` reads `data_source` once at container startup. Changing `settings.json` requires a container restart (`docker compose restart catastrophe-analyzer`) to take effect.
 

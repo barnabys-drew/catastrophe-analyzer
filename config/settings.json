@@ -3107,7 +3107,7 @@
     "volume_spike_period": 20,
     "analysis_window_days": 90,
     "use_mock_data": false,
-    "data_source": "yfinance",
+    "data_source": "ibkr",
     "ibkr_host": "ib-gateway",
     "ibkr_port": 4004,
     "ibkr_client_id": 11,

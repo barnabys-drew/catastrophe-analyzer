@@ -274,6 +274,7 @@ def run_cycle_with_alerts(app, alerts, quiet: bool = False) -> Dict:
 
     if new_signals:
         signal_alert_report = alerts.send_buy_signal_alerts(new_signals, emit_console=not quiet)
+        alerts.send_trading_advice(new_signals, emit_console=not quiet)
 
     if not quiet:
         try:

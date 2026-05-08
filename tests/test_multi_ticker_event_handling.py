@@ -26,6 +26,10 @@ class _FakeNewsScraper:
     def filter_recent_articles(raw_articles, hours_back):
         return raw_articles
 
+    @staticmethod
+    def enrich_articles_with_body(articles):
+        return articles
+
 
 class _FakeEntityExtractor:
     def __init__(self, entities):

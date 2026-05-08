@@ -126,6 +126,10 @@ class RuntimeDeliveryGuardrailTests(unittest.TestCase):
                 "channels": {"ntfy": {"attempted": 1, "success": 1, "failed": 0, "skipped": 0}},
             }
 
+        @staticmethod
+        def send_trading_advice(signals, emit_console=True):
+            return {"kind": "trading_advice", "trades_generated": 0, "discord_posted": 0}
+
     def test_runtime_cycle_marks_only_confirmed_triage_events(self):
         with tempfile.TemporaryDirectory() as tmp:
             app = self._FakeApp(repo_root=tmp)

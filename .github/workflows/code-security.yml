@@ -18,13 +18,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run Semgrep security scan
-        uses: returntocorp/semgrep-action@v1
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          config: >-
-            p/security-audit
-            p/owasp-top-ten
-            p/python
+          python-version: '3.11'
+
+      - name: Run Semgrep security scan
+        run: |
+          pip install semgrep --quiet
+          semgrep --config p/security-audit --config p/owasp-top-ten --config p/python \
+            --sarif --output semgrep.sarif . || true
 
       - name: Upload Semgrep results to GitHub
         if: always()

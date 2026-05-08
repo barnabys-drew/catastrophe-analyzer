@@ -28,6 +28,7 @@ from service_runtime import run_service_loop
 from text_match import keyword_in_text
 from config_loader import load_and_validate_runtime_settings, SettingsValidationError
 from sec_earnings_integration import SecEarningsIntegration
+from ripple_extractor import enrich_with_ripple
 
 
 class CatastropheAnalyzerApp:
@@ -1969,9 +1970,13 @@ class CatastropheAnalyzerApp:
 
         for article in entities:
             if not article.get("has_publicly_traded"):
-                if article.get("mapped_candidates"):
-                    skipped_unapproved_validation += 1
-                continue
+                ripple = enrich_with_ripple(article)
+                if ripple:
+                    article = ripple
+                else:
+                    if article.get("mapped_candidates"):
+                        skipped_unapproved_validation += 1
+                    continue
 
             candidates = self._ordered_candidate_entities(article)
             if not candidates:

@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 import requests
 from signal_generator import compute_signal_rank_score
+from trading_advisor import TradingAdvisor
 
 
 class AlertManager:
@@ -888,6 +889,56 @@ class AlertManager:
             "items_delivered": 1 if delivered else 0,
             "delivery_results": delivery_results,
             "channels": self._summarize_delivery_results(delivery_results),
+        }
+
+    def send_trading_advice(self, signals: List[Dict], *, emit_console: bool = True) -> Dict[str, Any]:
+        """
+        Convert buy signals to trading recommendations and post to Discord.
+        Called alongside send_buy_signal_alerts for each signal group.
+        """
+        if not signals:
+            return {"kind": "trading_advice", "trades_generated": 0, "discord_posted": 0}
+
+        advisor = TradingAdvisor()
+        trade_messages = []
+
+        for signal in signals:
+            event_cat = signal.get("event_category", "").upper()
+            if not event_cat:
+                continue
+
+            recs = advisor.get_recommendations(signal, max_trades=3)
+            if not recs:
+                continue
+
+            msg = advisor.format_discord_message(signal, recs)
+            trade_messages.append(msg)
+
+            if emit_console:
+                print(f"\n[Trading Advice] {event_cat} | {signal.get('ticker', 'UNKNOWN')}")
+                print(f"  Generated {len(recs)} trade recommendations")
+
+        if not trade_messages:
+            return {"kind": "trading_advice", "trades_generated": 0, "discord_posted": 0}
+
+        posted = 0
+        webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
+        if webhook_url:
+            try:
+                for msg in trade_messages:
+                    payload = {"content": msg}
+                    resp = requests.post(webhook_url, json=payload, timeout=10)
+                    if resp.status_code in (200, 204):
+                        posted += 1
+                    else:
+                        logger.warning(f"Discord post failed: {resp.status_code}")
+            except Exception as e:
+                logger.error(f"Trading advice Discord post error: {e}")
+
+        return {
+            "kind": "trading_advice",
+            "trades_generated": len(trade_messages),
+            "discord_posted": posted,
         }
 
     def send_high_value_event_alerts(self, events: List[Dict], *, emit_console: bool = True) -> Dict[str, Any]:

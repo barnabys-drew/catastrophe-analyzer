@@ -10,6 +10,10 @@
     "state_file": "data/alert_cooldown_state.json"
   },
   "alert_channels": {
+    "discord": {
+      "enabled": true,
+      "webhook_url": ""
+    },
     "email": {
       "enabled": false,
       "smtp_server": "smtp.gmail.com",

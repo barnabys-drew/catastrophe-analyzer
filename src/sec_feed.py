@@ -1,6 +1,7 @@
-"""SEC EDGAR 8-K and Form 4 feed parser for real-time regulatory events."""
+"""SEC EDGAR 8-K feed via the EFTS full-text search API."""
 import json
 import logging
+import re
 import time
 from datetime import datetime, timedelta
 from typing import Optional, List
@@ -9,6 +10,47 @@ from dataclasses import dataclass
 
 log = logging.getLogger("sec_feed")
 
+# 8-K item → CA event category mapping
+ITEM_TO_CATEGORY = {
+    "1.01": "ma_corporate_action",          # Entry into Material Definitive Agreement
+    "1.02": "ma_corporate_action",          # Termination of Material Agreement
+    "1.03": "financial_distress",           # Bankruptcy or Receivership
+    "2.01": "ma_corporate_action",          # Completion of Acquisition/Disposition
+    "2.02": "positive_earnings_catalyst",   # Results of Operations (earnings)
+    "2.03": "financial_distress",           # Creation of Direct Financial Obligation
+    "2.04": "financial_distress",           # Triggering Events Creating Obligation
+    "2.05": "financial_distress",           # Costs Associated with Exit Activities
+    "2.06": "financial_distress",           # Material Impairments
+    "3.01": "financial_distress",           # Delisting or Failure of Listing Rule
+    "4.01": "going_concern_auditor_change", # Change of Certifying Accountant
+    "4.02": "fraud_accounting_enforcement", # Non-Reliance on Prior Financial Statements
+    "5.01": "ma_corporate_action",          # Change in Control
+    "5.02": "leadership_scandal",           # Departure/Appointment of Directors or Officers
+    "7.01": None,                           # Reg FD Disclosure (press release — skip)
+    "8.01": None,                           # Other Events (too broad — skip)
+    "9.01": None,                           # Financial Statements/Exhibits (attachment — skip)
+}
+
+ITEM_DESCRIPTIONS = {
+    "1.01": "Entry into Material Definitive Agreement",
+    "1.02": "Termination of Material Definitive Agreement",
+    "1.03": "Bankruptcy or Receivership",
+    "2.01": "Completion of Acquisition or Disposition of Assets",
+    "2.02": "Results of Operations (Earnings Report)",
+    "2.03": "Creation of Direct Financial Obligation",
+    "2.04": "Triggering Events Creating Financial Obligation",
+    "2.05": "Exit or Disposal Activity Costs",
+    "2.06": "Material Impairment",
+    "3.01": "Delisting or Failure to Satisfy Listing Rule",
+    "4.01": "Change of Certifying Accountant",
+    "4.02": "Non-Reliance on Previously Issued Financial Statements",
+    "5.01": "Change in Control of Registrant",
+    "5.02": "Departure or Appointment of Director / Principal Officer",
+    "7.01": "Regulation FD Disclosure",
+    "8.01": "Other Events",
+    "9.01": "Financial Statements and Exhibits",
+}
+
 
 @dataclass
 class SecEvent:
@@ -16,11 +58,12 @@ class SecEvent:
     ticker: str
     company_name: str
     cik: str
-    form_type: str  # "8-K", "4", "8-A", etc.
+    form_type: str
     filing_date: str
-    item_type: Optional[str]  # e.g., "Item 1.01" for "Material Agreement"
-    item_description: str  # "Bankruptcy", "Material Cost Associated with Exit or Disposal Activities", etc.
+    item_type: Optional[str]
+    item_description: str
     url: str
+    event_category: Optional[str] = None
     source: str = "sec_edgar"
 
     def to_dict(self) -> dict:
@@ -33,219 +76,187 @@ class SecEvent:
             "item_type": self.item_type,
             "item_description": self.item_description,
             "url": self.url,
+            "event_category": self.event_category,
             "source": self.source,
         }
 
 
+def _extract_ticker(display_name: str) -> str:
+    """Extract ticker from 'COMPANY NAME  (TICKER)  (CIK 0001234567)'."""
+    matches = re.findall(r'\(([^)]+)\)', display_name)
+    for m in matches:
+        m = m.strip()
+        if m.startswith("CIK"):
+            continue
+        if 1 <= len(m) <= 6 and m.isupper() and m.isalpha():
+            return m
+    return ""
+
+
 class SecFeed:
-    """Fetch 8-K and Form 4 filings from SEC EDGAR."""
+    """Fetch 8-K filings from SEC EDGAR via the EFTS full-text search API."""
 
-    SEC_API_BASE = "https://data.sec.gov/api/xquery"
-    EDGAR_BROWSE = "https://www.sec.gov/cgi-bin/browse-edgar"
+    EFTS_URL = "https://efts.sec.gov/LATEST/search-index"
 
-    # High-impact 8-K items that indicate distress/material events
-    MATERIAL_8K_ITEMS = {
-        "1.01": "Bankruptcy or going concern",
-        "2.02": "Material cost/restructuring",
-        "2.06": "Material disposition (asset sale)",
-        "8.01": "Material agreement/change in control",
-        "9.01": "Litigation/legal proceedings",
-    }
-
-    def __init__(self, lookback_days: int = 7, rate_limit_delay: float = 0.5):
-        """Initialize SEC feed.
-
-        Args:
-            lookback_days: how far back to fetch 8-Ks/Form 4s
-            rate_limit_delay: delay between API calls (SEC asks for 0.1s+ between requests)
-        """
+    def __init__(self, lookback_days: int = 3, rate_limit_delay: float = 0.5,
+                 user_agent: str = "CatastropheAnalyzer/1.0 drewtheguitarguy@gmail.com"):
         self.lookback_days = lookback_days
         self.rate_limit_delay = rate_limit_delay
-        self.last_request_time = 0
+        self.last_request_time = 0.0
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "Catastrophe-Analyzer (research)"})
+        self.session.headers.update({"User-Agent": user_agent})
 
-    def fetch_recent_8ks(self, limit: int = 100, use_mock: bool = True) -> List[SecEvent]:
-        """Fetch recent 8-K filings across all companies.
+    def _rate_limit(self):
+        elapsed = time.time() - self.last_request_time
+        if elapsed < self.rate_limit_delay:
+            time.sleep(self.rate_limit_delay - elapsed)
+        self.last_request_time = time.time()
 
-        Note: SEC EDGAR API returns HTML by default. Use mock data for testing.
-        For production: use third-party service (Alpha Vantage, IEX Cloud) or
-        SEC's direct bulk data download (ftp://ftp.sec.gov/edgar/full-index/)
+    def fetch_recent_8ks(self, limit: int = 100, use_mock: bool = False) -> List[SecEvent]:
+        """Fetch recent 8-K filings via EFTS search API.
 
-        Args:
-            limit: max 8-Ks to return
-            use_mock: if True, use mock data (SEC API unreliable)
-
-        Returns:
-            List of SecEvent objects
+        Only returns filings with high-signal item types (1.01-5.02).
+        Items 7.01, 8.01, 9.01 (press releases / exhibits) are skipped.
         """
-        events = []
-
-        # For testing: use mock data (SEC API returns HTML, not JSON)
         if use_mock:
             try:
                 from sec_feed_mock import generate_mock_8ks
                 return generate_mock_8ks()[:limit]
             except ImportError:
-                log.warning("Mock data not available, returning empty list")
                 return []
 
+        events: List[SecEvent] = []
+        start_date = (datetime.now() - timedelta(days=self.lookback_days)).strftime("%Y-%m-%d")
+        end_date = datetime.now().strftime("%Y-%m-%d")
+
+        params = {
+            "q": "",
+            "forms": "8-K",
+            "dateRange": "custom",
+            "startdt": start_date,
+            "enddt": end_date,
+            "hits.hits.total.value": 1,
+        }
+
         try:
-            # Use SEC EDGAR REST API (more reliable than browse-edgar)
-            # This endpoint returns JSON directly
-            url = "https://www.sec.gov/cgi-json/browse-edgar"
-            params = {
-                "action": "getcompany",
-                "type": "8-K",
-                "dateb": datetime.now().isoformat()[:10],
-                "owner": "exclude",
-                "output": "json",
-                "count": min(limit, 100),  # SEC limits to 100
-            }
-
-            # Rate limiting: SEC requests ≥0.1s between requests
-            elapsed = time.time() - self.last_request_time
-            if elapsed < self.rate_limit_delay:
-                time.sleep(self.rate_limit_delay - elapsed)
-
-            resp = self.session.get(url, params=params, timeout=10)
-            self.last_request_time = time.time()
+            self._rate_limit()
+            resp = self.session.get(self.EFTS_URL, params=params, timeout=15)
             resp.raise_for_status()
             data = resp.json()
-
-            for filing in data.get("filings", [])[:limit]:
-                # Parse 8-K
-                ticker = filing.get("ticker", "").upper()
-                if not ticker:
-                    continue
-
-                try:
-                    event = SecEvent(
-                        ticker=ticker,
-                        company_name=filing.get("company_name", "Unknown"),
-                        cik=filing.get("cik_str", ""),
-                        form_type="8-K",
-                        filing_date=filing.get("filing_date", ""),
-                        item_type=None,  # Would need to parse full filing for this
-                        item_description=f"8-K filing - check for material events",
-                        url=f"https://www.sec.gov/cgi-bin/viewer?action=view&cik={filing.get('cik_str')}&accession_number={filing.get('accession_number')}&xbrl_type=v",
-                    )
-                    events.append(event)
-                except Exception as e:
-                    log.debug(f"Error parsing 8-K for {ticker}: {e}")
-                    continue
-
         except Exception as e:
-            log.error(f"Error fetching 8-Ks from SEC: {e}")
+            log.error(f"SEC EDGAR fetch failed: {e}")
+            return []
 
+        hits = data.get("hits", {}).get("hits", [])
+        for hit in hits[:limit]:
+            src = hit.get("_source", {})
+            items = src.get("items", [])
+            display_names = src.get("display_names", [])
+            file_date = src.get("file_date", "")
+            cik_list = src.get("ciks", [""])
+            cik = cik_list[0].lstrip("0") if cik_list else ""
+            adsh = src.get("adsh", "").replace("-", "")
+            url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{adsh}/" if cik and adsh else ""
+
+            company_name = display_names[0].split("(")[0].strip() if display_names else "Unknown"
+            ticker = ""
+            for dn in display_names:
+                ticker = _extract_ticker(dn)
+                if ticker:
+                    break
+
+            if not ticker:
+                continue
+
+            # Build one event per actionable item (skip 7.01, 8.01, 9.01)
+            actionable_items = [i for i in items if ITEM_TO_CATEGORY.get(i) is not None]
+            if not actionable_items:
+                continue
+
+            for item in actionable_items[:2]:  # max 2 items per filing
+                category = ITEM_TO_CATEGORY.get(item)
+                desc = ITEM_DESCRIPTIONS.get(item, f"8-K Item {item}")
+                event = SecEvent(
+                    ticker=ticker,
+                    company_name=company_name,
+                    cik=cik,
+                    form_type="8-K",
+                    filing_date=file_date,
+                    item_type=f"Item {item}",
+                    item_description=desc,
+                    url=url,
+                    event_category=category,
+                )
+                events.append(event)
+
+        log.info(f"SEC EDGAR: fetched {len(hits)} 8-Ks, {len(events)} actionable events ({start_date} to {end_date})")
         return events
 
-    def fetch_form4_insider_trades(self, ticker: str, lookback_days: Optional[int] = None, use_mock: bool = True) -> List[SecEvent]:
-        """Fetch Form 4 insider trading filings for a specific ticker.
+    def fetch_form4_insider_trades(self, ticker: str, lookback_days: Optional[int] = None,
+                                   use_mock: bool = False) -> List[SecEvent]:
+        """Fetch Form 4 insider trades for a specific ticker."""
+        if use_mock:
+            return []
 
-        Form 4 = insider transactions (buys/sells by officers, directors, >10% holders)
-        Heavy selling or large position accumulation can signal distress or opportunity.
-
-        Args:
-            ticker: stock ticker (e.g., "AAPL")
-            lookback_days: override self.lookback_days
-
-        Returns:
-            List of SecEvent objects
-        """
-        events = []
         lookback = lookback_days or self.lookback_days
+        start_date = (datetime.now() - timedelta(days=lookback)).strftime("%Y-%m-%d")
+        end_date = datetime.now().strftime("%Y-%m-%d")
 
+        params = {
+            "q": f'"{ticker}"',
+            "forms": "4",
+            "dateRange": "custom",
+            "startdt": start_date,
+            "enddt": end_date,
+        }
+
+        events: List[SecEvent] = []
         try:
-            # Use SEC EDGAR REST API
-            url = "https://www.sec.gov/cgi-json/browse-edgar"
-            params = {
-                "action": "getcompany",
-                "type": "4",
-                "dateb": datetime.now().isoformat()[:10],
-                "owner": "include",
-                "output": "json",
-                "CIK": ticker,  # Can be ticker or CIK
-                "count": min(100, 100),  # Max 100
-            }
-
-            # Rate limiting
-            elapsed = time.time() - self.last_request_time
-            if elapsed < self.rate_limit_delay:
-                time.sleep(self.rate_limit_delay - elapsed)
-
-            resp = self.session.get(url, params=params, timeout=10)
-            self.last_request_time = time.time()
+            self._rate_limit()
+            resp = self.session.get(self.EFTS_URL, params=params, timeout=15)
             resp.raise_for_status()
             data = resp.json()
-
-            cutoff = datetime.now() - timedelta(days=lookback)
-
-            for filing in data.get("filings", []):
-                filing_date = filing.get("filing_date", "")
-                if filing_date < cutoff.isoformat()[:10]:
-                    continue
-
-                try:
-                    event = SecEvent(
-                        ticker=ticker.upper(),
-                        company_name=filing.get("company_name", "Unknown"),
-                        cik=filing.get("cik_str", ""),
-                        form_type="4",
-                        filing_date=filing_date,
-                        item_type=None,
-                        item_description=f"Form 4 insider transaction - check for pattern (buys vs sells)",
-                        url=f"https://www.sec.gov/cgi-bin/viewer?action=view&cik={filing.get('cik_str')}&accession_number={filing.get('accession_number')}&xbrl_type=v",
-                    )
-                    events.append(event)
-                except Exception as e:
-                    log.debug(f"Error parsing Form 4 for {ticker}: {e}")
-                    continue
-
         except Exception as e:
-            log.error(f"Error fetching Form 4 for {ticker}: {e}")
+            log.error(f"SEC Form 4 fetch failed for {ticker}: {e}")
+            return []
+
+        hits = data.get("hits", {}).get("hits", [])
+        for hit in hits[:20]:
+            src = hit.get("_source", {})
+            display_names = src.get("display_names", [])
+            t = ""
+            for dn in display_names:
+                t = _extract_ticker(dn)
+                if t:
+                    break
+            if t.upper() != ticker.upper():
+                continue
+
+            cik_list = src.get("ciks", [""])
+            cik = cik_list[0].lstrip("0") if cik_list else ""
+            adsh = src.get("adsh", "").replace("-", "")
+            url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{adsh}/" if cik and adsh else ""
+
+            events.append(SecEvent(
+                ticker=ticker.upper(),
+                company_name=display_names[0].split("(")[0].strip() if display_names else "Unknown",
+                cik=cik,
+                form_type="4",
+                filing_date=src.get("file_date", ""),
+                item_type=None,
+                item_description="Form 4 insider transaction",
+                url=url,
+                event_category="insider_trading_cluster",
+            ))
 
         return events
 
     def cache_to_file(self, events: List[SecEvent], path: str = "/app/data/sec_events.jsonl"):
-        """Cache events to file for later processing.
-
-        Args:
-            events: list of SecEvent objects
-            path: file path to write to
-        """
         try:
+            import os
+            os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, "a") as f:
                 for event in events:
                     f.write(json.dumps(event.to_dict()) + "\n")
-            log.info(f"Cached {len(events)} SEC events to {path}")
         except Exception as e:
-            log.error(f"Error caching SEC events: {e}")
-
-    def load_cache(self, path: str = "/app/data/sec_events.jsonl", lookback_days: int = 7) -> List[SecEvent]:
-        """Load recent cached SEC events.
-
-        Args:
-            path: file path to read from
-            lookback_days: only return events from last N days
-
-        Returns:
-            List of SecEvent objects
-        """
-        events = []
-        cutoff = datetime.now() - timedelta(days=lookback_days)
-
-        try:
-            with open(path, "r") as f:
-                for line in f:
-                    if not line.strip():
-                        continue
-                    data = json.loads(line)
-                    if data.get("filing_date", "") >= cutoff.isoformat()[:10]:
-                        events.append(SecEvent(**data))
-        except FileNotFoundError:
-            log.debug(f"No cache file at {path}")
-        except Exception as e:
-            log.error(f"Error loading SEC cache: {e}")
-
-        return events
+            log.warning(f"Failed to cache SEC events: {e}")

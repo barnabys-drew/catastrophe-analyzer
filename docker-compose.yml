@@ -20,6 +20,7 @@ services:
       IBKR_PORT: ${IBKR_PORT:-4004}
       IBKR_CLIENT_ID: ${IBKR_CLIENT_ID:-11}
       CATASTROPHE_EMAIL_PASSWORD: ${CATASTROPHE_EMAIL_PASSWORD:-}
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
       # Override RSS User-Agent (SEC and others); defaults in config/settings.json scraping.http_user_agent
       CATASTROPHE_HTTP_USER_AGENT: ${CATASTROPHE_HTTP_USER_AGENT:-}
       # Alert preview toggles for local testing:

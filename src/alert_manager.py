@@ -467,6 +467,35 @@ class AlertManager:
             channel="ntfy",
         )
 
+    def _post_discord(self, embeds: List[Dict], webhook_url: str) -> Dict[str, Any]:
+        """POST rich embeds to a Discord webhook URL."""
+        if not webhook_url:
+            return self._delivery_result(
+                channel="discord", attempted=False, success=False, skipped=True,
+                error="discord webhook_url missing",
+            )
+        payload = json.dumps({"username": "Catastrophe Analyzer", "embeds": embeds})
+        return self._post_with_retries(
+            url=webhook_url,
+            data=payload.encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            timeout=10,
+            channel="discord",
+        )
+
+    def _send_discord(self, embeds: List[Dict]) -> Dict[str, Any]:
+        discord_cfg = self.config.get("alert_channels", {}).get("discord", {}) if self.config else {}
+        if not discord_cfg or not discord_cfg.get("enabled", False):
+            return self._delivery_result(
+                channel="discord", attempted=False, success=False, skipped=True,
+                error="discord disabled",
+            )
+        webhook_url = (
+            os.environ.get("DISCORD_WEBHOOK_URL")
+            or (discord_cfg.get("webhook_url") or "").strip()
+        )
+        return self._post_discord(embeds, webhook_url)
+
     def _send_ntfy(self, title: str, message: str) -> Dict[str, Any]:
         ntfy_cfg = self.config.get("alert_channels", {}).get("ntfy", {}) if self.config else {}
         preview_on, _, _, _ = self._local_preview_settings()
@@ -770,6 +799,49 @@ class AlertManager:
         delivery_results.append(self._send_email(subject=subject, body=body))
         delivery_results.append(self._send_ntfy(title=subject, message=body))
 
+        # Discord — one embed per signal, action/price forward
+        discord_embeds = []
+        for s in signals:
+            entry = s.get("suggested_entry", s.get("entry_price", ""))
+            stop = s.get("suggested_stop_loss", "")
+            rr = s.get("risk_reward", {}) or {}
+            target = rr.get("target_price", s.get("target_price", ""))
+            conf = s.get("confidence", "")
+            conf_level = s.get("confidence_level", "")
+            category = s.get("event_category", "")
+            event_date = s.get("event_date", s.get("breach_date", ""))
+            issue = (s.get("issue_summary", "") or s.get("impact_summary", "") or "").strip()[:300]
+            rr_ratio = rr.get("risk_reward_ratio", "")
+            def _fmt_price(v):
+                try: return f"${float(v):.2f}"
+                except (TypeError, ValueError): return str(v) if v not in (None, "") else "—"
+            def _fmt_rr(v):
+                try: return f"{float(v):.1f}:1"
+                except (TypeError, ValueError): return str(v) if v not in (None, "") else "—"
+            fields = [
+                {"name": "Action", "value": "**BUY**", "inline": True},
+                {"name": "Entry",  "value": _fmt_price(entry),  "inline": True},
+                {"name": "Stop",   "value": _fmt_price(stop),   "inline": True},
+                {"name": "Target", "value": _fmt_price(target), "inline": True},
+                {"name": "R/R",    "value": _fmt_rr(rr_ratio),  "inline": True},
+                {"name": "Confidence", "value": f"{conf_level} ({conf}/100)" if conf else conf_level or "—", "inline": True},
+            ]
+            if category:
+                fields.append({"name": "Category", "value": category, "inline": True})
+            if event_date:
+                fields.append({"name": "Event Date", "value": str(event_date), "inline": True})
+            embed: Dict[str, Any] = {
+                "title": f"\U0001f7e2 BUY: {s.get('ticker', '')}",
+                "color": 0x00cc44,
+                "fields": fields,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+            if issue:
+                embed["description"] = issue
+            discord_embeds.append(embed)
+        for i in range(0, max(1, len(discord_embeds)), 10):
+            delivery_results.append(self._send_discord(discord_embeds[i:i + 10]))
+
         # SMS (Twilio) or ntfy via sms.provider — short summary
         first = signals[0]
         first_date = first.get("event_date", first.get("breach_date"))
@@ -894,6 +966,28 @@ class AlertManager:
             results_for_event: List[Dict[str, Any]] = []
             results_for_event.append(self._send_email(subject=subject, body=body))
             results_for_event.append(self._send_ntfy(title=subject, message=body))
+
+            # Discord — WATCH embed with action/impact fields
+            hv_fields = [
+                {"name": "Action",   "value": "**WATCH**",                              "inline": True},
+                {"name": "Impact",   "value": f"{impact_like} ({impact_score}/100)",    "inline": True},
+                {"name": "Distress", "value": f"{distress_like} ({distress_score}/100)","inline": True},
+            ]
+            if category:
+                hv_fields.append({"name": "Category", "value": category, "inline": True})
+            if event_subtype:
+                hv_fields.append({"name": "Subtype", "value": event_subtype, "inline": True})
+            if event_date:
+                hv_fields.append({"name": "Event Date", "value": str(event_date), "inline": True})
+            hv_embed: Dict[str, Any] = {
+                "title": f"\U0001f441️ WATCH: {ticker}",
+                "color": 0xff6600,
+                "fields": hv_fields,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+            if summary:
+                hv_embed["description"] = summary[:300]
+            results_for_event.append(self._send_discord([hv_embed]))
 
             sms_cfg = self.config.get("alert_channels", {}).get("sms", {}) if self.config else {}
             if sms_cfg and sms_cfg.get("enabled", False):

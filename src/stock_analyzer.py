@@ -334,7 +334,29 @@ class StockAnalyzer:
             return self._get_mock_price_history(symbol, days)
 
         if self._live_data_source == "ibkr":
-            return self._get_ibkr_price_history(symbol, days)
+            result = self._get_ibkr_price_history(symbol, days)
+            if result is not None:
+                return result
+            # IBKR failed — try yfinance as fallback so a socket glitch doesn't blacklist the ticker
+            print(f"[stock_analyzer] ibkr failed for {symbol}, falling back to yfinance")
+            try:
+                import yfinance as _yf
+                hist = _yf.Ticker(symbol).history(period=f"{days}d")
+                if not hist.empty:
+                    self._tradable_cache[symbol] = True  # clear the blacklist set by IBKR failure
+                    return {
+                        'ticker': symbol,
+                        'prices': hist['Close'].tolist(),
+                        'volumes': hist['Volume'].tolist(),
+                        'dates': [d.strftime('%Y-%m-%d') for d in hist.index],
+                        'high': float(hist['High'].max()),
+                        'low': float(hist['Low'].min()),
+                        'close': float(hist['Close'].iloc[-1]),
+                        'volume': float(hist['Volume'].iloc[-1]),
+                    }
+            except Exception as yf_exc:
+                print(f"[stock_analyzer] yfinance fallback also failed for {symbol}: {yf_exc}")
+            return None
 
         if self._live_data_source == "tiingo":
             return self._get_tiingo_price_history(symbol, days)

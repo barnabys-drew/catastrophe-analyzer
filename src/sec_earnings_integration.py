@@ -45,7 +45,7 @@ class SecEarningsIntegration:
             for event in recent_8ks:
                 signal = {
                     "ticker": event.ticker,
-                    "event_category": "sec_8k",
+                    "event_category": event.event_category or "sec_8k",
                     "item_type": event.item_type,
                     "item_description": event.item_description,
                     "source": "sec",

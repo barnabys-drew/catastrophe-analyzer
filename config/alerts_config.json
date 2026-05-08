@@ -18,10 +18,10 @@
       "enabled": false,
       "smtp_server": "smtp.gmail.com",
       "smtp_port": 587,
-      "email_from": "drewtheguitarguy@gmail.com",
-      "email_to": "drewtheguitarguy@gmail.com",
+      "email_from": "your-email@example.com",
+      "email_to": "your-email@example.com",
       "require_auth": true,
-      "username": "drewtheguitarguy@gmail.com",
+      "username": "your-email@example.com",
       "password": ""
     },
     "ntfy": {

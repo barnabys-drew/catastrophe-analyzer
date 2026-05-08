@@ -99,7 +99,7 @@ class SecFeed:
     EFTS_URL = "https://efts.sec.gov/LATEST/search-index"
 
     def __init__(self, lookback_days: int = 3, rate_limit_delay: float = 0.5,
-                 user_agent: str = "CatastropheAnalyzer/1.0 drewtheguitarguy@gmail.com"):
+                 user_agent: str = "CatastropheAnalyzer/1.0 your-email@example.com"):
         self.lookback_days = lookback_days
         self.rate_limit_delay = rate_limit_delay
         self.last_request_time = 0.0

@@ -23,6 +23,7 @@ class _FakeNewsScraper:
         return [{"title": "placeholder", "summary": "placeholder"}]
 
     keywords_by_category: dict = {}  # main.py:1777 reads this on enriched articles
+    breach_keywords: list = []        # main.py:1780 cybersecurity fallback
 
     @staticmethod
     def filter_recent_articles(raw_articles, hours_back):

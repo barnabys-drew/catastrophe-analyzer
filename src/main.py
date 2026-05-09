@@ -111,6 +111,19 @@ class CatastropheAnalyzerApp:
                 ("supply chain attack", 18, "Supply-chain compromise can broaden blast radius and downtime"),
                 ("credentials leaked", 10, "Credential leaks can drive remediation and fraud costs"),
                 ("millions", 8, "Large-scale impact tends to elevate downstream cost"),
+                # Common-phrase markers added 2026-05-09 — newsroom language doesn't always
+                # use the technical phrases above; these catch real-world reporting.
+                ("cyberattack", 16, "Cyberattack language typically signals incident scope and remediation cost"),
+                ("data breach", 18, "Data breach language signals notification, legal, and remediation exposure"),
+                ("hacked", 12, "Hacked language indicates unauthorized access and likely follow-on costs"),
+                ("stolen data", 14, "Stolen-data language implies notification and liability exposure"),
+                ("stolen credit card", 16, "PCI-relevant theft tends to trigger card-replacement and litigation"),
+                ("compromised", 10, "System compromise language implies containment and remediation effort"),
+                ("data leak", 14, "Leaked data implies remediation and notification costs"),
+                ("phishing", 10, "Phishing-led incidents commonly precede broader compromise"),
+                ("extortion", 16, "Extortion attempts often imply ransomware-adjacent operational risk"),
+                ("notified customers", 10, "Customer notifications signal disclosed materiality"),
+                ("under investigation", 8, "Active investigation signals unresolved scope/cost"),
             ]
             for marker, weight, reason in weighted_markers:
                 if keyword_in_text(marker, content):
@@ -140,6 +153,17 @@ class CatastropheAnalyzerApp:
                 ("failed", 16, "Negative trial language indicates development risk"),
                 ("adverse event", 14, "Safety issues can impair approval/commercial outlook"),
                 ("safety signal", 16, "Safety signals can trigger restrictions or delay"),
+                # Common-phrase markers added 2026-05-09
+                ("fda rejects", 26, "Direct rejection language signals approval risk"),
+                ("fda rejection", 26, "Direct rejection language signals approval risk"),
+                ("denied approval", 22, "Denial of approval implies delayed commercialization"),
+                ("regulatory rejection", 20, "General regulatory-rejection wording implies cost/delay"),
+                ("insufficient data", 16, "FDA insufficiency findings typically delay path to market"),
+                ("fda cited", 12, "FDA-cited language signals regulator concern"),
+                ("trial fail", 18, "Trial-failure phrasing signals development risk"),
+                ("phase 3 fail", 22, "Late-stage failure has high commercial-value impact"),
+                ("data did not support", 18, "Insufficient-evidence wording implies approval delay"),
+                ("setback", 12, "General setback language implies near-term overhang"),
             ]
             for marker, weight, reason in weighted_markers:
                 if keyword_in_text(marker, content):

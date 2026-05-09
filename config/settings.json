@@ -3010,10 +3010,10 @@
     "multi_source_confidence_bonus": 10.0
   },
   "distress_model": {
-    "min_score_for_watch_default": 50,
+    "min_score_for_watch_default": 35,
     "min_score_for_watch_by_category": {
-      "cybersecurity": 50,
-      "clinical_regulatory_binary": 60,
+      "cybersecurity": 35,
+      "clinical_regulatory_binary": 45,
       "product_safety_recall": 55,
       "fraud_accounting_enforcement": 58,
       "supply_chain_disruption": 56,

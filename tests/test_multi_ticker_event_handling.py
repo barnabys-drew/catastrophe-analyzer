@@ -27,7 +27,7 @@ class _FakeNewsScraper:
         return raw_articles
 
     @staticmethod
-    def enrich_articles_with_body(articles):
+    def enrich_articles_with_body(articles, max_fetches=30, fetch_delay_seconds=0.5):
         return articles
 
 

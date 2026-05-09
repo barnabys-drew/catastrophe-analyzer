@@ -425,7 +425,7 @@ class MainEntityValidationGateTests(unittest.TestCase):
         def filter_recent_articles(self, rows, hours_back):
             return rows
 
-        def enrich_articles_with_body(self, articles):
+        def enrich_articles_with_body(self, articles, max_fetches=30, fetch_delay_seconds=0.5):
             return articles
 
     class _FakeEntityExtractor:

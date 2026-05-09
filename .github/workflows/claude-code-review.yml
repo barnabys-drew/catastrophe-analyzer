@@ -12,11 +12,10 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Skip bot-authored PRs — the Claude Code action refuses to run on bots
+    # by design and exits with error, marking the whole workflow as failed.
+    # Dependabot, Renovate, etc. don't need AI review anyway.
+    if: github.event.pull_request.user.type != 'Bot'
 
     runs-on: ubuntu-latest
     permissions:

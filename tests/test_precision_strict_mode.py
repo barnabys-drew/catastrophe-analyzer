@@ -459,6 +459,11 @@ class MainEntityValidationGateTests(unittest.TestCase):
         def get_event_price_series(self, ticker, event_date, pre_days=30, post_days=30):
             return []
 
+        def validate_tradable_ticker(self, ticker):
+            # Test path: pretend everything is tradable so we exercise downstream
+            # rejection logic, not the tradability gate.
+            return True
+
     def test_fail_closed_rejection_skips_watch_creation(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             db = DatabaseManager(data_dir=tmpdir)

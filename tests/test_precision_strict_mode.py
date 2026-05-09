@@ -410,6 +410,8 @@ class MainSignalTriageGateTests(unittest.TestCase):
 
 class MainEntityValidationGateTests(unittest.TestCase):
     class _FakeNewsScraper:
+        keywords_by_category: dict = {}  # main.py:1777 reads this on enriched articles
+
         def scrape_all_sources(self):
             return [
                 {

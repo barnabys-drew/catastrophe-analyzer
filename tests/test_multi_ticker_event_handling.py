@@ -22,6 +22,8 @@ class _FakeNewsScraper:
     def scrape_all_sources():
         return [{"title": "placeholder", "summary": "placeholder"}]
 
+    keywords_by_category: dict = {}  # main.py:1777 reads this on enriched articles
+
     @staticmethod
     def filter_recent_articles(raw_articles, hours_back):
         return raw_articles

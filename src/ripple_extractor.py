@@ -55,6 +55,12 @@ _CATEGORY_PROXIES: Dict[str, List[Dict]] = {
         {"ticker": "UPS",  "company": "UPS",                      "confidence": "medium"},
         {"ticker": "XPO",  "company": "XPO",                      "confidence": "low"},
     ],
+    # Alias for CA's actual taxonomy key
+    "supply_chain_disruption": [
+        {"ticker": "FDX",  "company": "FedEx",                    "confidence": "medium"},
+        {"ticker": "UPS",  "company": "UPS",                      "confidence": "medium"},
+        {"ticker": "XPO",  "company": "XPO",                      "confidence": "low"},
+    ],
 
     # Financial distress at private firms → regional bank exposure
     "financial_distress": [
@@ -71,6 +77,12 @@ _CATEGORY_PROXIES: Dict[str, List[Dict]] = {
     "political_shock": [
         {"ticker": "LMT",  "company": "Lockheed Martin",         "confidence": "medium"},
         {"ticker": "GLD",  "company": "SPDR Gold Shares ETF",    "confidence": "medium"},
+    ],
+    # Alias for CA's actual taxonomy key
+    "geopolitical_sanctions_exposure": [
+        {"ticker": "LMT",  "company": "Lockheed Martin",         "confidence": "medium"},
+        {"ticker": "RTX",  "company": "Raytheon Technologies",   "confidence": "medium"},
+        {"ticker": "GLD",  "company": "SPDR Gold Shares ETF",    "confidence": "low"},
     ],
 
     # Infrastructure / utility outages
@@ -92,6 +104,70 @@ _CATEGORY_PROXIES: Dict[str, List[Dict]] = {
     "fraud_accounting_enforcement": [
         {"ticker": "SPY",  "company": "S&P 500 ETF",             "confidence": "low"},
         {"ticker": "XLF",  "company": "Financial Sector ETF",    "confidence": "low"},
+    ],
+
+    # Biotech FDA/clinical decision → biotech sector ETFs
+    "clinical_regulatory_binary": [
+        {"ticker": "XBI",  "company": "SPDR S&P Biotech ETF",    "confidence": "medium"},
+        {"ticker": "IBB",  "company": "iShares Biotech ETF",     "confidence": "medium"},
+    ],
+
+    # Equity dilution at private firm → sector ETF, generally negative for sector
+    "dilutive_financing": [
+        {"ticker": "IWM",  "company": "Russell 2000 ETF",        "confidence": "low"},
+    ],
+
+    # M&A activity → sector ETFs (target sector usually moves)
+    "ma_corporate_action": [
+        {"ticker": "SPY",  "company": "S&P 500 ETF",             "confidence": "low"},
+        {"ticker": "IWM",  "company": "Russell 2000 ETF",        "confidence": "low"},
+    ],
+
+    # Earnings catalyst at private firm — broad market sector signal
+    "positive_earnings_catalyst": [
+        {"ticker": "SPY",  "company": "S&P 500 ETF",             "confidence": "low"},
+    ],
+    "negative_earnings_catalyst": [
+        {"ticker": "SPY",  "company": "S&P 500 ETF",             "confidence": "low"},
+    ],
+
+    # Short-seller report — typically tech/growth pressure
+    "short_seller_report": [
+        {"ticker": "QQQ",  "company": "Invesco QQQ Trust",       "confidence": "low"},
+        {"ticker": "ARKK", "company": "ARK Innovation ETF",      "confidence": "low"},
+    ],
+
+    # Credit rating downgrade/upgrade → bond ETFs + financials
+    "credit_rating_action": [
+        {"ticker": "TLT",  "company": "iShares 20+ Year Treasury", "confidence": "medium"},
+        {"ticker": "LQD",  "company": "iShares Investment Grade Corp Bond", "confidence": "medium"},
+    ],
+
+    # Going-concern audit warning — financial-sector negative signal
+    "going_concern_auditor_change": [
+        {"ticker": "XLF",  "company": "Financial Sector ETF",    "confidence": "low"},
+    ],
+
+    # Guidance cut at peer — sector-broad negative
+    "guidance_cut_preannouncement": [
+        {"ticker": "SPY",  "company": "S&P 500 ETF",             "confidence": "low"},
+    ],
+
+    # Securities class action — broad market caution
+    "securities_class_action": [
+        {"ticker": "XLF",  "company": "Financial Sector ETF",    "confidence": "low"},
+    ],
+
+    # Labor strike/action — sector-specific (auto, transport, hospitality)
+    "labor_action": [
+        {"ticker": "XLI",  "company": "Industrial Sector ETF",   "confidence": "medium"},
+        {"ticker": "IYT",  "company": "iShares Transportation",  "confidence": "low"},
+    ],
+
+    # Activist filing (13D) — small-cap volatility, often rerates the target's sector
+    "activist_13d_filing": [
+        {"ticker": "IWM",  "company": "Russell 2000 ETF",        "confidence": "low"},
+        {"ticker": "MDY",  "company": "S&P MidCap 400 ETF",      "confidence": "low"},
     ],
 }
 

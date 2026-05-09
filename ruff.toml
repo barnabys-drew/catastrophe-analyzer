@@ -1,0 +1,21 @@
+# ruff config — Python linter + formatter
+# https://docs.astral.sh/ruff/
+
+target-version = "py312"
+line-length = 110
+extend-exclude = [
+    "data",
+    "**/__pycache__",
+    "**/*.pyc",
+]
+
+[lint]
+# Initial rollout: F-rules only (pyflakes — real bugs like undefined names,
+# unused imports, unused variables). Existing codebase has ~117 F-bugs that
+# the workflow reports informationally via --exit-zero. Once those are
+# cleaned up, broaden to: select = ["E","F","B","I","UP","SIM","RUF"]
+select = ["F"]
+ignore = []
+
+[lint.per-file-ignores]
+"tests/*" = ["F401", "F811"]  # tolerate test-fixture re-imports

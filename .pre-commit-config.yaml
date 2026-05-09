@@ -1,0 +1,33 @@
+# Pre-commit hooks — fast local feedback before CI runs.
+# Install once: pip install pre-commit && pre-commit install
+# Auto-runs on `git commit`. Skip with `git commit --no-verify` (use sparingly).
+
+repos:
+  # Ruff — extremely fast Python linter + formatter (replaces flake8/black/isort)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.7.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # Bandit — Python-specific security linter
+  # Catches: hardcoded secrets, eval(), subprocess(shell=True), insecure deserialization
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        args: ["-r", "src/", "--severity-level=high"]  # block HIGH; LOW/MED reported locally
+        files: ^src/
+
+  # Generic hygiene — trim whitespace, fix EOL, validate YAML/JSON
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=500"]

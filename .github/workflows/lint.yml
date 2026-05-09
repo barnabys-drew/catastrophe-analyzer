@@ -1,0 +1,46 @@
+name: Lint + Python Security
+
+# Lightweight checks that run on every push/PR. Trivy/Semgrep are in
+# security.yml and code-security.yml for broader SAST coverage; this
+# workflow handles the Python-specific lint + bandit security pass that
+# pre-commit also runs locally.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ruff:
+    name: ruff (informational, exit-zero)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+
+      - name: Install ruff
+        run: pip install ruff==0.7.4
+
+      # First rollout: report-only via --exit-zero. Existing codebase has F-bugs
+      # that need cleanup before this becomes blocking. Drop --exit-zero once
+      # the F-error count is at zero. Format check skipped for the same reason.
+      - name: ruff check (informational)
+        run: ruff check . --exit-zero --output-format=github
+
+  bandit:
+    name: bandit (HIGH severity — blocking)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+
+      - name: Install bandit
+        run: pip install bandit==1.7.10
+
+      # HIGH-only is enforcing because the codebase currently has 0 HIGH issues.
+      # LOW/MEDIUM issues are visible via local pre-commit + bandit's full report.
+      - name: bandit on src/ (HIGH only)
+        run: bandit -i -r src/ --severity-level high

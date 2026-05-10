@@ -9,29 +9,30 @@ updates:
       day: "monday"
       time: "06:00"
       timezone: "America/New_York"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "python"
+    # Throttled to 2 to avoid the "12 PRs at once on enable" flood seen 2026-05-09.
+    open-pull-requests-limit: 2
+    labels: ["dependencies", "python"]
+    # Group GitHub Actions bumps so they arrive as one PR/week, not three.
+    groups:
+      python-deps:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
 
-  # GitHub Actions — keep runners + actions up to date
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 3
-    labels:
-      - "dependencies"
-      - "github-actions"
+    open-pull-requests-limit: 1
+    labels: ["dependencies", "github-actions"]
+    groups:
+      gha:
+        patterns: ["*"]
 
-  # Docker — base image security updates
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 2
-    labels:
-      - "dependencies"
-      - "docker"
+    open-pull-requests-limit: 1
+    labels: ["dependencies", "docker"]

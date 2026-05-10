@@ -700,9 +700,17 @@ class StockAnalyzer:
         if event_idx is None:
             return {**_error_base, 'error': 'Event date is after all available price data'}
 
-        min_post_bars = 3
-        if event_idx >= len(prices) - min_post_bars:
-            return {**_error_base, 'error': 'Not enough post-event price data'}
+        # Task #43 (sub-piece 1 of 4, 2026-05-10): partial-window analysis.
+        # Previously aborted when fewer than 3 post-event bars were available,
+        # which made same-day catastrophe events invisible to buy_signal logic
+        # for ~3 trading days. Now compute what's available and surface
+        # reliability flags; downstream signal_generator handles None metrics.
+        available_post_event_bars = max(0, len(prices) - event_idx - 1)
+        partial_window = available_post_event_bars < 2
+        # Still require at least the event bar itself to exist; without that
+        # we have no anchor to measure drops or volume spikes from.
+        if available_post_event_bars < 0:
+            return {**_error_base, 'error': 'Event date is after all available price data'}
 
         if event_idx == 0:
             return {**_error_base, 'error': 'No pre-event price data (event on first available bar)'}
@@ -722,22 +730,39 @@ class StockAnalyzer:
         )
 
         # 48-hour post-event dislocation (approx. 2 trading days after event anchor).
+        # Reliability requires at least 2 bars after the event anchor so the
+        # window covers ~48h. With fewer bars the metric is computable but
+        # represents a shorter horizon; signal_generator should fall back to
+        # max_drop_pct in that case.
         post_event_window_days = 2
         window_end = min(len(prices), event_idx + post_event_window_days + 1)
         post_48h_prices = prices[event_idx:window_end]
-        min_price_48h = min(post_48h_prices) if post_48h_prices else event_anchor_price
-        drop_48h_pct = (
-            ((event_anchor_price - min_price_48h) / event_anchor_price) * 100
-            if event_anchor_price > 0
-            else 0.0
-        )
+        drop_48h_reliable = available_post_event_bars >= post_event_window_days
+        if post_48h_prices:
+            min_price_48h = min(post_48h_prices)
+            drop_48h_pct = (
+                ((event_anchor_price - min_price_48h) / event_anchor_price) * 100
+                if event_anchor_price > 0
+                else 0.0
+            )
+        else:
+            min_price_48h = event_anchor_price
+            drop_48h_pct = None  # No post-event data — explicit None, not zero
+            drop_48h_reliable = False
 
-        # Time to recovery (days to get back above pre-event price)
-        recovery_days = None
-        for i, price in enumerate(post_event_prices):
-            if price >= pre_event_price:
-                recovery_days = i
-                break
+        # Time to recovery (days to get back above pre-event price). Only
+        # meaningful with several days of post-event prices; with <5 bars,
+        # "no recovery seen yet" is uninformative — surface as None instead.
+        min_bars_for_recovery_signal = 5
+        recovery_days: int | None = None
+        recovery_reliable = available_post_event_bars >= min_bars_for_recovery_signal
+        if recovery_reliable:
+            for i, price in enumerate(post_event_prices):
+                if price >= pre_event_price:
+                    recovery_days = i
+                    break
+        else:
+            recovery_days = None
 
         # Calculate technical indicators
         rsi = self.calculate_rsi(prices)
@@ -779,7 +804,7 @@ class StockAnalyzer:
             'max_drop_pct': float(max_drop_pct),
             'post_event_window_days': int(post_event_window_days),
             'min_price_post_event_48h': float(min_price_48h),
-            'drop_48h_pct': float(drop_48h_pct),
+            'drop_48h_pct': float(drop_48h_pct) if drop_48h_pct is not None else None,
             'recovery_days': recovery_days,
             'current_rsi': float(current_rsi),
             'event_rsi': float(event_rsi),
@@ -791,7 +816,15 @@ class StockAnalyzer:
             'atr': float(current_atr),
             'event_atr': float(event_atr),
             'atr_period': int(atr_period),
-            'analysis_date': datetime.now().isoformat()
+            'analysis_date': datetime.now().isoformat(),
+            # Task #43 partial-window flags. Downstream signal_generator uses
+            # these to decide whether windowed metrics are reliable enough to
+            # gate a buy_signal on, or whether to fall back to event-anchor
+            # metrics (max_drop_pct, event_rsi, volume_spike_at_event).
+            'partial_window': bool(partial_window),
+            'available_post_event_bars': int(available_post_event_bars),
+            'drop_48h_reliable': bool(drop_48h_reliable),
+            'recovery_reliable': bool(recovery_reliable),
         }
 
     # Backward-compatible alias while callers migrate.

@@ -46,6 +46,12 @@ class DatabaseManager:
         "signal_decision_reason",
         "signal_confidence_snapshot",
         "analysis_date",
+        # Task #43 partial-window flags. Persist them so offline forensics
+        # can distinguish partial-window analyses from full-window ones.
+        "partial_window",
+        "available_post_event_bars",
+        "drop_48h_reliable",
+        "recovery_reliable",
     ]
 
     SIGNAL_FIELDS = [

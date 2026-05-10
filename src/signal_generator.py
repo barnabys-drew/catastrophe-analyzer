@@ -21,6 +21,12 @@ _WATCH_ALERT_REJECTION_REASONS = frozenset({
     "volume_spike_threshold_failed",
     "technical_weakness_condition_failed",
     "fast_recovery_filter_failed",
+    # Also surface events whose analysis pipeline errored (typically a price
+    # fetch failure upstream — IBKR socket drop, yfinance returning empty).
+    # These watchlist events have legitimate catalysts even when we can't
+    # compute price action; Drew should still see them rather than have them
+    # disappear into a silent error bucket. Track separately in watch_summary.
+    "analysis_error",
 })
 
 # Triage-score floor for promoting a technically-failed event to a watch alert.
@@ -466,6 +472,28 @@ class SignalGenerator:
 
         thresholds = self._signal_thresholds_for_category(event_category)
 
+        # Branch the summary text by reason. analysis_error means we don't have
+        # price/volume data, so we surface the event without referencing
+        # technical metrics that aren't real.
+        if base_reason == "analysis_error":
+            error_detail = analysis.get("error", "unknown")
+            watch_summary = (
+                f"{event_category} event on {ticker} "
+                f"(impact={impact}, distress={distress}); "
+                f"price analysis failed [{error_detail}] — surfaced from triage. "
+                f"No technical metrics available; investigate manually."
+            )
+        else:
+            watch_summary = (
+                f"{event_category} event on {ticker} "
+                f"(impact={impact}, distress={distress}); "
+                f"failed {base_reason} "
+                f"(drop={max_drop:.2f}%/{drop_48h:.2f}%48h, "
+                f"vol_spike={volume_spike:.2f}x, "
+                f"price_drop_threshold={thresholds.get('price_drop_threshold', '?')}%, "
+                f"volume_spike_threshold={thresholds.get('volume_spike_threshold', '?')}x)"
+            )
+
         return {
             "ticker": ticker,
             "signal_type": "ELEVATED_WATCH",
@@ -483,15 +511,7 @@ class SignalGenerator:
             "impact_score": impact,
             "distress_score": distress,
             "watch_reason": rejection_reason,
-            "watch_summary": (
-                f"{event_category} event on {ticker} "
-                f"(impact={impact}, distress={distress}); "
-                f"failed {base_reason} "
-                f"(drop={max_drop:.2f}%/{drop_48h:.2f}%48h, "
-                f"vol_spike={volume_spike:.2f}x, "
-                f"price_drop_threshold={thresholds.get('price_drop_threshold', '?')}%, "
-                f"volume_spike_threshold={thresholds.get('volume_spike_threshold', '?')}x)"
-            ),
+            "watch_summary": watch_summary,
         }
 
     @staticmethod

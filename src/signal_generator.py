@@ -247,11 +247,28 @@ class SignalGenerator:
         else:
             rsi_oversold = bool(analysis.get('rsi_oversold'))
         significant_drop = self._to_float(analysis.get('max_drop_pct', 0), 0.0) >= drop_threshold
-        drop_48h_pct = self._to_float(
-            analysis.get('drop_48h_pct', analysis.get('max_drop_pct', 0.0)),
-            0.0,
-        )
-        dropped_within_48h = drop_48h_pct >= drop_48h_threshold
+
+        # Task #43 (sub-piece 2 of 4, 2026-05-10): partial-window-aware gate.
+        # When drop_48h_reliable is False (event has <2 post-event trading bars),
+        # the drop_48h_pct field doesn't represent a real 48h dislocation —
+        # it's either None or a single-bar approximation. Skip the gate in
+        # that case and let max_drop_pct + volume_spike + RSI/MA20 carry the
+        # signal. This is the entire point of the partial-window fix: catch
+        # same-day catastrophe events instead of waiting 3 days for them.
+        drop_48h_reliable = bool(analysis.get('drop_48h_reliable', True))
+        partial_window = bool(analysis.get('partial_window', False))
+        if drop_48h_reliable:
+            drop_48h_pct = self._to_float(
+                analysis.get('drop_48h_pct', analysis.get('max_drop_pct', 0.0)),
+                0.0,
+            )
+            dropped_within_48h = drop_48h_pct >= drop_48h_threshold
+        else:
+            # Partial window: don't pretend we have a 48h reading. Use max_drop_pct
+            # as the proxy (already gated separately by significant_drop above).
+            drop_48h_pct = None
+            dropped_within_48h = significant_drop  # if max drop hit threshold, that's our signal
+
         below_ma = bool(analysis.get('price_below_ma20'))
 
         volume_spike_at_event = self._to_float(
@@ -266,7 +283,10 @@ class SignalGenerator:
 
         if not significant_drop:
             return None, "price_drop_threshold_failed"
-        if require_drop_48h and not dropped_within_48h:
+        # Task #43: only enforce the dedicated 48h gate when the metric is
+        # reliable. On partial windows, max_drop_pct already gated above
+        # serves as the dislocation signal.
+        if require_drop_48h and drop_48h_reliable and not dropped_within_48h:
             return None, "drop_within_48h_threshold_failed"
         if not volume_spike:
             return None, "volume_spike_threshold_failed"
@@ -343,6 +363,10 @@ class SignalGenerator:
             'max_drop_pct': analysis.get('max_drop_pct'),
             'drop_48h_pct': drop_48h_pct,
             'recovery_days': analysis.get('recovery_days'),
+            # Task #43: partial-window signals are real but should be reviewed
+            # with awareness that the 48h dislocation metric is unreliable.
+            'partial_window': partial_window,
+            'available_post_event_bars': analysis.get('available_post_event_bars'),
             'volume_spike_at_event': volume_spike_at_event,
             'volume_spike': volume_spike_at_event,
             'distress_score': self._safe_score(analysis.get('distress_score', 0)),

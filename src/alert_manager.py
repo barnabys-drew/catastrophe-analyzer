@@ -24,8 +24,15 @@ from urllib.parse import quote
 logger = logging.getLogger(__name__)
 
 import requests
+
+import discord_safe
 from signal_generator import compute_signal_rank_score
 from trading_advisor import TradingAdvisor
+
+DISCORD_DEAD_LETTER_PATH = os.environ.get(
+    "DISCORD_DEAD_LETTER_PATH",
+    "/home/drewt_p_weiner/code/.claude/missed_alerts.jsonl",
+)
 
 
 class AlertManager:
@@ -49,8 +56,7 @@ class AlertManager:
         self._cooldown_hours: float = max(0.0, float(cooldown_cfg.get("cooldown_hours", 4)))
         state_file_rel = (cooldown_cfg.get("state_file") or "data/alert_cooldown_state.json").strip()
         self._cooldown_state_path = (
-            state_file_rel if os.path.isabs(state_file_rel)
-            else os.path.join(repo_root, state_file_rel)
+            state_file_rel if os.path.isabs(state_file_rel) else os.path.join(repo_root, state_file_rel)
         )
         self._cooldown_state: Dict[str, float] = self._load_cooldown_state()
 
@@ -129,9 +135,7 @@ class AlertManager:
         """
         delivery_cfg = (self.config or {}).get("delivery") or {}
         max_retries_raw = (
-            os.environ.get("CATASTROPHE_ALERT_MAX_RETRIES")
-            or delivery_cfg.get("max_retries")
-            or 2
+            os.environ.get("CATASTROPHE_ALERT_MAX_RETRIES") or delivery_cfg.get("max_retries") or 2
         )
         backoff_raw = (
             os.environ.get("CATASTROPHE_ALERT_RETRY_BACKOFF_SECONDS")
@@ -214,9 +218,7 @@ class AlertManager:
         summary: Dict[str, Dict[str, int]] = {}
         for result in results:
             channel = str(result.get("channel") or "unknown")
-            bucket = summary.setdefault(
-                channel, {"attempted": 0, "success": 0, "failed": 0, "skipped": 0}
-            )
+            bucket = summary.setdefault(channel, {"attempted": 0, "success": 0, "failed": 0, "skipped": 0})
             if result.get("attempted"):
                 bucket["attempted"] += 1
             if result.get("success"):
@@ -472,7 +474,10 @@ class AlertManager:
         """POST rich embeds to a Discord webhook URL."""
         if not webhook_url:
             return self._delivery_result(
-                channel="discord", attempted=False, success=False, skipped=True,
+                channel="discord",
+                attempted=False,
+                success=False,
+                skipped=True,
                 error="discord webhook_url missing",
             )
         payload = json.dumps({"username": "Catastrophe Analyzer", "embeds": embeds})
@@ -488,13 +493,13 @@ class AlertManager:
         discord_cfg = self.config.get("alert_channels", {}).get("discord", {}) if self.config else {}
         if not discord_cfg or not discord_cfg.get("enabled", False):
             return self._delivery_result(
-                channel="discord", attempted=False, success=False, skipped=True,
+                channel="discord",
+                attempted=False,
+                success=False,
+                skipped=True,
                 error="discord disabled",
             )
-        webhook_url = (
-            os.environ.get("DISCORD_WEBHOOK_URL")
-            or (discord_cfg.get("webhook_url") or "").strip()
-        )
+        webhook_url = os.environ.get("DISCORD_WEBHOOK_URL") or (discord_cfg.get("webhook_url") or "").strip()
         return self._post_discord(embeds, webhook_url)
 
     def _send_ntfy(self, title: str, message: str) -> Dict[str, Any]:
@@ -622,17 +627,7 @@ class AlertManager:
         if not url:
             return f"{p}Article: {label}\n"
         sep = p + "────────────────────────────────"
-        return (
-            "\n"
-            f"{sep}\n"
-            f"{p}Article:\n"
-            f"{p}{label}\n"
-            "\n\n\n"
-            f"{p}{url}\n"
-            "\n\n\n"
-            f"{sep}\n"
-            "\n"
-        )
+        return f"\n{sep}\n{p}Article:\n{p}{label}\n\n\n\n{p}{url}\n\n\n\n{sep}\n\n"
 
     @staticmethod
     def _dedupe_one_company_per_ticker(items: List[Dict]) -> List[Dict]:
@@ -719,8 +714,7 @@ class AlertManager:
         signals = self._order_signals_for_alerts(signals)
         signals = self._filter_buy_signals_for_mode(signals)
         signals = [
-            s for s in signals
-            if not self._is_on_cooldown(s.get("ticker", ""), s.get("event_category", ""))
+            s for s in signals if not self._is_on_cooldown(s.get("ticker", ""), s.get("event_category", ""))
         ]
         if not signals:
             return {
@@ -744,7 +738,9 @@ class AlertManager:
                 event_date = s.get("event_date", s.get("breach_date"))
                 event_category = s.get("event_category", "")
                 category_text = f" | category={event_category}" if event_category else ""
-                print(f"- {ticker} | {conf_level} | entry={entry} target={target} | event_date={event_date}{category_text}")
+                print(
+                    f"- {ticker} | {conf_level} | entry={entry} target={target} | event_date={event_date}{category_text}"
+                )
 
         # Email / ntfy / SMS (best-effort)
         subject = "Catastrophe Analyzer: New Buy Signal(s)"
@@ -813,19 +809,30 @@ class AlertManager:
             event_date = s.get("event_date", s.get("breach_date", ""))
             issue = (s.get("issue_summary", "") or s.get("impact_summary", "") or "").strip()[:300]
             rr_ratio = rr.get("risk_reward_ratio", "")
+
             def _fmt_price(v):
-                try: return f"${float(v):.2f}"
-                except (TypeError, ValueError): return str(v) if v not in (None, "") else "—"
+                try:
+                    return f"${float(v):.2f}"
+                except (TypeError, ValueError):
+                    return str(v) if v not in (None, "") else "—"
+
             def _fmt_rr(v):
-                try: return f"{float(v):.1f}:1"
-                except (TypeError, ValueError): return str(v) if v not in (None, "") else "—"
+                try:
+                    return f"{float(v):.1f}:1"
+                except (TypeError, ValueError):
+                    return str(v) if v not in (None, "") else "—"
+
             fields = [
                 {"name": "Action", "value": "**BUY**", "inline": True},
-                {"name": "Entry",  "value": _fmt_price(entry),  "inline": True},
-                {"name": "Stop",   "value": _fmt_price(stop),   "inline": True},
+                {"name": "Entry", "value": _fmt_price(entry), "inline": True},
+                {"name": "Stop", "value": _fmt_price(stop), "inline": True},
                 {"name": "Target", "value": _fmt_price(target), "inline": True},
-                {"name": "R/R",    "value": _fmt_rr(rr_ratio),  "inline": True},
-                {"name": "Confidence", "value": f"{conf_level} ({conf}/100)" if conf else conf_level or "—", "inline": True},
+                {"name": "R/R", "value": _fmt_rr(rr_ratio), "inline": True},
+                {
+                    "name": "Confidence",
+                    "value": f"{conf_level} ({conf}/100)" if conf else conf_level or "—",
+                    "inline": True,
+                },
             ]
             if category:
                 fields.append({"name": "Category", "value": category, "inline": True})
@@ -833,7 +840,7 @@ class AlertManager:
                 fields.append({"name": "Event Date", "value": str(event_date), "inline": True})
             embed: Dict[str, Any] = {
                 "title": f"\U0001f7e2 BUY: {s.get('ticker', '')}",
-                "color": 0x00cc44,
+                "color": 0x00CC44,
                 "fields": fields,
                 "timestamp": datetime.utcnow().isoformat(),
             }
@@ -841,7 +848,7 @@ class AlertManager:
                 embed["description"] = issue
             discord_embeds.append(embed)
         for i in range(0, max(1, len(discord_embeds)), 10):
-            delivery_results.append(self._send_discord(discord_embeds[i:i + 10]))
+            delivery_results.append(self._send_discord(discord_embeds[i : i + 10]))
 
         # SMS (Twilio) or ntfy via sms.provider — short summary
         first = signals[0]
@@ -924,16 +931,17 @@ class AlertManager:
         posted = 0
         webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
         if webhook_url:
-            try:
-                for msg in trade_messages:
-                    payload = {"content": msg}
-                    resp = requests.post(webhook_url, json=payload, timeout=10)
-                    if resp.status_code in (200, 204):
-                        posted += 1
-                    else:
-                        logger.warning(f"Discord post failed: {resp.status_code}")
-            except Exception as e:
-                logger.error(f"Trading advice Discord post error: {e}")
+            for msg in trade_messages:
+                ok = discord_safe.safe_post(
+                    webhook_url,
+                    {"content": msg},
+                    dead_letter_path=DISCORD_DEAD_LETTER_PATH,
+                    source="catastrophe-analyzer:trading-advice",
+                )
+                if ok:
+                    posted += 1
+                else:
+                    logger.warning("Discord post failed; queued to dead-letter for cycle-start replay")
 
         return {
             "kind": "trading_advice",
@@ -941,7 +949,9 @@ class AlertManager:
             "discord_posted": posted,
         }
 
-    def send_high_value_event_alerts(self, events: List[Dict], *, emit_console: bool = True) -> Dict[str, Any]:
+    def send_high_value_event_alerts(
+        self, events: List[Dict], *, emit_console: bool = True
+    ) -> Dict[str, Any]:
         """
         Send per-item alerts for newly triaged high-value events.
         Logs to stdout when emit_console=True; sends ntfy/email/SMS when configured.
@@ -957,8 +967,7 @@ class AlertManager:
         events = self._dedupe_one_company_per_ticker(events)
         events = self._filter_high_value_events_for_mode(events)
         events = [
-            e for e in events
-            if not self._is_on_cooldown(e.get("ticker", ""), e.get("event_category", ""))
+            e for e in events if not self._is_on_cooldown(e.get("ticker", ""), e.get("event_category", ""))
         ]
         if not events:
             return {
@@ -1020,9 +1029,9 @@ class AlertManager:
 
             # Discord — WATCH embed with action/impact fields
             hv_fields = [
-                {"name": "Action",   "value": "**WATCH**",                              "inline": True},
-                {"name": "Impact",   "value": f"{impact_like} ({impact_score}/100)",    "inline": True},
-                {"name": "Distress", "value": f"{distress_like} ({distress_score}/100)","inline": True},
+                {"name": "Action", "value": "**WATCH**", "inline": True},
+                {"name": "Impact", "value": f"{impact_like} ({impact_score}/100)", "inline": True},
+                {"name": "Distress", "value": f"{distress_like} ({distress_score}/100)", "inline": True},
             ]
             if category:
                 hv_fields.append({"name": "Category", "value": category, "inline": True})
@@ -1032,7 +1041,7 @@ class AlertManager:
                 hv_fields.append({"name": "Event Date", "value": str(event_date), "inline": True})
             hv_embed: Dict[str, Any] = {
                 "title": f"\U0001f441️ WATCH: {ticker}",
-                "color": 0xff6600,
+                "color": 0xFF6600,
                 "fields": hv_fields,
                 "timestamp": datetime.utcnow().isoformat(),
             }
@@ -1083,9 +1092,7 @@ class AlertManager:
             )
 
         all_results = [
-            result
-            for event_result in event_results
-            for result in event_result.get("delivery_results", [])
+            result for event_result in event_results for result in event_result.get("delivery_results", [])
         ]
         delivered_count = sum(1 for event_result in event_results if event_result.get("delivered"))
         return {
@@ -1095,5 +1102,3 @@ class AlertManager:
             "event_results": event_results,
             "channels": self._summarize_delivery_results(all_results),
         }
-
-

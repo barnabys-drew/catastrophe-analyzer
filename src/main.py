@@ -28,6 +28,12 @@ from service_runtime import run_service_loop
 from text_match import keyword_in_text
 from config_loader import load_and_validate_runtime_settings, SettingsValidationError
 from sec_earnings_integration import SecEarningsIntegration
+import discord_safe
+
+DISCORD_DEAD_LETTER_PATH = os.environ.get(
+    "DISCORD_DEAD_LETTER_PATH",
+    "/home/drewt_p_weiner/code/.claude/missed_alerts.jsonl",
+)
 from ripple_extractor import enrich_with_ripple
 
 
@@ -38,9 +44,9 @@ class CatastropheAnalyzerApp:
 
     def __init__(self):
         """Initialize all components"""
-        self.repo_root = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
-        self.config_path = os.path.join(self.repo_root, 'config', 'settings.json')
-        self.data_dir = os.path.join(self.repo_root, 'data')
+        self.repo_root = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+        self.config_path = os.path.join(self.repo_root, "config", "settings.json")
+        self.data_dir = os.path.join(self.repo_root, "data")
 
         self.settings = self._load_settings()
 
@@ -54,7 +60,7 @@ class CatastropheAnalyzerApp:
             use_mock=(
                 mock_env.lower() in ["1", "true", "yes"]
                 if mock_env != ""
-                else self.settings.get('stock_analysis', {}).get('use_mock_data', True)
+                else self.settings.get("stock_analysis", {}).get("use_mock_data", True)
             ),
             stock_analysis_config=self.settings.get("stock_analysis") or {},
         )
@@ -85,7 +91,9 @@ class CatastropheAnalyzerApp:
         if not webhook or not alerts:
             return
 
-        lines = ["**⚡ ELEVATED WATCH** — events with real catalyst impact that didn't meet buy-signal thresholds:"]
+        lines = [
+            "**⚡ ELEVATED WATCH** — events with real catalyst impact that didn't meet buy-signal thresholds:"
+        ]
         for alert in alerts[:10]:
             ticker = alert.get("ticker", "?")
             cat = alert.get("event_category", "?")
@@ -100,11 +108,14 @@ class CatastropheAnalyzerApp:
             lines.append(f"• ...and {len(alerts) - 10} more")
 
         payload = {"content": "\n".join(lines)}
-        try:
-            import requests
-            requests.post(webhook, json=payload, timeout=10)
-        except Exception as exc:
-            print(f"watch_alerts Discord post failed: {exc}")
+        ok = discord_safe.safe_post(
+            webhook,
+            payload,
+            dead_letter_path=DISCORD_DEAD_LETTER_PATH,
+            source="catastrophe-analyzer:watch-alert",
+        )
+        if not ok:
+            print("watch_alerts Discord post failed; queued to dead-letter for cycle-start replay")
 
     @staticmethod
     def _severity_rank(value: str) -> int:
@@ -130,26 +141,54 @@ class CatastropheAnalyzerApp:
             weighted_markers = [
                 ("ransomware", 22, "Ransomware often causes direct operational/financial disruption"),
                 ("wiper", 24, "Wiper-style activity implies destructive impact"),
-                ("destructive malware", 24, "Destructive malware often implies prolonged operational recovery"),
-                ("material cybersecurity incident", 28, "Material incident language implies meaningful financial risk"),
+                (
+                    "destructive malware",
+                    24,
+                    "Destructive malware often implies prolonged operational recovery",
+                ),
+                (
+                    "material cybersecurity incident",
+                    28,
+                    "Material incident language implies meaningful financial risk",
+                ),
                 ("operations disrupted", 20, "Operational disruption can pressure revenue and margin"),
                 ("service outage", 14, "Customer-facing outage may create churn/penalties"),
                 ("class action", 12, "Legal follow-on risk increases expected costs"),
-                ("regulator investigation", 14, "Regulatory investigations can lead to fines/compliance spend"),
+                (
+                    "regulator investigation",
+                    14,
+                    "Regulatory investigations can lead to fines/compliance spend",
+                ),
                 ("8-k", 10, "8-K disclosure language usually indicates materiality"),
                 ("sec filing", 10, "SEC filing language usually indicates materiality"),
-                ("unauthorized access", 12, "Unauthorized access can imply incident containment/remediation spend"),
+                (
+                    "unauthorized access",
+                    12,
+                    "Unauthorized access can imply incident containment/remediation spend",
+                ),
                 ("exfiltration", 14, "Data exfiltration raises legal and remediation costs"),
                 ("supply chain attack", 18, "Supply-chain compromise can broaden blast radius and downtime"),
                 ("credentials leaked", 10, "Credential leaks can drive remediation and fraud costs"),
                 ("millions", 8, "Large-scale impact tends to elevate downstream cost"),
                 # Common-phrase markers added 2026-05-09 — newsroom language doesn't always
                 # use the technical phrases above; these catch real-world reporting.
-                ("cyberattack", 16, "Cyberattack language typically signals incident scope and remediation cost"),
-                ("data breach", 18, "Data breach language signals notification, legal, and remediation exposure"),
+                (
+                    "cyberattack",
+                    16,
+                    "Cyberattack language typically signals incident scope and remediation cost",
+                ),
+                (
+                    "data breach",
+                    18,
+                    "Data breach language signals notification, legal, and remediation exposure",
+                ),
                 ("hacked", 12, "Hacked language indicates unauthorized access and likely follow-on costs"),
                 ("stolen data", 14, "Stolen-data language implies notification and liability exposure"),
-                ("stolen credit card", 16, "PCI-relevant theft tends to trigger card-replacement and litigation"),
+                (
+                    "stolen credit card",
+                    16,
+                    "PCI-relevant theft tends to trigger card-replacement and litigation",
+                ),
                 ("compromised", 10, "System compromise language implies containment and remediation effort"),
                 ("data leak", 14, "Leaked data implies remediation and notification costs"),
                 ("phishing", 10, "Phishing-led incidents commonly precede broader compromise"),
@@ -164,8 +203,16 @@ class CatastropheAnalyzerApp:
 
             positive_offsets = [
                 ("services restored", 12, "Service restoration language lowers near-term disruption risk"),
-                ("no evidence of exfiltration", 12, "No-exfiltration statements can reduce expected downstream liability"),
-                ("no customer data accessed", 10, "Limited customer-data impact lowers expected follow-on costs"),
+                (
+                    "no evidence of exfiltration",
+                    12,
+                    "No-exfiltration statements can reduce expected downstream liability",
+                ),
+                (
+                    "no customer data accessed",
+                    10,
+                    "Limited customer-data impact lowers expected follow-on costs",
+                ),
             ]
             for marker, weight, reason in positive_offsets:
                 if keyword_in_text(marker, content):
@@ -209,7 +256,11 @@ class CatastropheAnalyzerApp:
                 ("positive topline", 12, "Positive topline readout lowers distress risk"),
                 ("top-line results met", 12, "Positive topline readout lowers distress risk"),
                 ("priority review", 8, "Priority review can reduce time-to-decision uncertainty"),
-                ("breakthrough therapy", 10, "Breakthrough designation can improve regulatory pathway confidence"),
+                (
+                    "breakthrough therapy",
+                    10,
+                    "Breakthrough designation can improve regulatory pathway confidence",
+                ),
             ]
             for marker, weight, reason in positive_offsets:
                 if keyword_in_text(marker, content):
@@ -243,11 +294,23 @@ class CatastropheAnalyzerApp:
                 ("criminal charges", 28, "Criminal charges elevate tail risk and distraction"),
                 ("guilty plea", 26, "Guilty pleas often precede costly remediation and oversight"),
                 ("wire fraud", 26, "Wire-fraud allegations signal acute enforcement exposure"),
-                ("securities fraud", 28, "Securities-fraud allegations directly threaten credibility and access to capital"),
-                ("accounting fraud", 28, "Accounting-fraud language implies restatement and control failure risk"),
+                (
+                    "securities fraud",
+                    28,
+                    "Securities-fraud allegations directly threaten credibility and access to capital",
+                ),
+                (
+                    "accounting fraud",
+                    28,
+                    "Accounting-fraud language implies restatement and control failure risk",
+                ),
                 ("sec charges", 26, "SEC charges usually force disclosure, defense spend, and remediation"),
                 ("sec alleges", 24, "SEC allegations increase regulatory resolution uncertainty"),
-                ("enforcement action", 22, "Enforcement actions often include penalties and conduct remedies"),
+                (
+                    "enforcement action",
+                    22,
+                    "Enforcement actions often include penalties and conduct remedies",
+                ),
                 ("cease and desist", 18, "Cease-and-desist remedies can constrain business conduct"),
                 ("cease-and-desist", 18, "Cease-and-desist remedies can constrain business conduct"),
                 ("civil complaint", 20, "Civil complaints increase litigation duration and cost risk"),
@@ -262,11 +325,27 @@ class CatastropheAnalyzerApp:
                 ("market manipulation", 22, "Manipulation allegations can impair trading and financing"),
                 ("insider trading", 20, "Insider-trading cases can implicate governance and controls"),
                 ("class action", 12, "Securities class actions add legal cost and settlement risk"),
-                ("revenue recognition", 18, "Revenue-recognition issues often precede restatements and credibility loss"),
-                ("disgorgement", 16, "Disgorgement language usually accompanies charged enforcement resolutions"),
+                (
+                    "revenue recognition",
+                    18,
+                    "Revenue-recognition issues often precede restatements and credibility loss",
+                ),
+                (
+                    "disgorgement",
+                    16,
+                    "Disgorgement language usually accompanies charged enforcement resolutions",
+                ),
                 ("fcpa", 20, "FCPA matters imply multi-year investigations and governance remediation"),
-                ("foreign corrupt practices", 20, "FCPA-style matters imply multi-year investigations and fines"),
-                ("deferred prosecution", 14, "Deferred-prosecution agreements still embed oversight and conduct risk"),
+                (
+                    "foreign corrupt practices",
+                    20,
+                    "FCPA-style matters imply multi-year investigations and fines",
+                ),
+                (
+                    "deferred prosecution",
+                    14,
+                    "Deferred-prosecution agreements still embed oversight and conduct risk",
+                ),
                 ("trading halt", 16, "Trading halts often coincide with material disclosure uncertainty"),
                 ("delisting", 18, "Delisting threats impair liquidity and institutional ownership"),
                 ("pcaob", 14, "PCAOB scrutiny often implies auditor or controls exposure"),
@@ -278,7 +357,11 @@ class CatastropheAnalyzerApp:
                     reasons.append(reason)
 
             positive_offsets = [
-                ("without admitting or denying", 10, "Settle-without-admitting language can reduce narrative severity vs charged fraud"),
+                (
+                    "without admitting or denying",
+                    10,
+                    "Settle-without-admitting language can reduce narrative severity vs charged fraud",
+                ),
                 ("dismissed", 16, "Dismissal language lowers active enforcement overhang"),
                 ("no findings of fraud", 18, "No-fraud findings reduce worst-case accounting narrative"),
                 ("terminated investigation", 14, "Closed investigations reduce open regulatory tail risk"),
@@ -290,7 +373,11 @@ class CatastropheAnalyzerApp:
 
         elif event_category == "supply_chain_disruption":
             weighted_markers = [
-                ("supply chain disruption", 22, "Direct supply-chain disruption language signals throughput risk"),
+                (
+                    "supply chain disruption",
+                    22,
+                    "Direct supply-chain disruption language signals throughput risk",
+                ),
                 ("production halt", 24, "Production halts directly pressure near-term output"),
                 ("plant shutdown", 22, "Plant shutdowns constrain capacity and revenue timing"),
                 ("factory fire", 22, "Factory or plant incidents can erase near-term production"),
@@ -316,7 +403,11 @@ class CatastropheAnalyzerApp:
             positive_offsets = [
                 ("resumes production", 12, "Production restart language reduces acute disruption severity"),
                 ("resumed operations", 12, "Operational normalization lowers disruption tail risk"),
-                ("alleviates shortage", 10, "Alleviated shortage language can ease margin pressure narrative"),
+                (
+                    "alleviates shortage",
+                    10,
+                    "Alleviated shortage language can ease margin pressure narrative",
+                ),
                 ("easing supply", 10, "Easing supply language can reduce bottleneck narrative"),
             ]
             for marker, weight, reason in positive_offsets:
@@ -334,10 +425,18 @@ class CatastropheAnalyzerApp:
                 ("covenant breach", 20, "Covenant breaches often trigger lender renegotiation risk"),
                 ("covenant default", 22, "Covenant default indicates contract breach with debt holders"),
                 ("forbearance", 18, "Forbearance agreements imply near-term refinancing stress"),
-                ("restructuring support agreement", 24, "RSA language usually precedes formal restructuring path"),
+                (
+                    "restructuring support agreement",
+                    24,
+                    "RSA language usually precedes formal restructuring path",
+                ),
                 ("liquidity crisis", 22, "Liquidity stress can force fire-sale financing decisions"),
                 ("insolvency", 24, "Insolvency references imply extreme downside scenarios"),
-                ("credit rating downgrade", 14, "Downgrades can raise refinancing costs and covenant pressure"),
+                (
+                    "credit rating downgrade",
+                    14,
+                    "Downgrades can raise refinancing costs and covenant pressure",
+                ),
             ]
             for marker, weight, reason in weighted_markers:
                 if keyword_in_text(marker, content):
@@ -411,7 +510,11 @@ class CatastropheAnalyzerApp:
                 ("executive misconduct", 20, "Misconduct allegations can damage trust and execution"),
                 ("board investigation", 18, "Board probes imply unresolved governance risk"),
                 ("ethics probe", 16, "Ethics probes can widen legal and reputational overhang"),
-                ("whistleblower complaint", 16, "Whistleblower claims often trigger prolonged investigations"),
+                (
+                    "whistleblower complaint",
+                    16,
+                    "Whistleblower claims often trigger prolonged investigations",
+                ),
                 ("ceo resigns", 14, "Unplanned CEO turnover creates strategy uncertainty"),
                 ("cfo resigns", 14, "CFO turnover can weaken reporting confidence"),
                 ("compliance failure", 16, "Compliance breakdowns can trigger fines and remediation spend"),
@@ -424,7 +527,11 @@ class CatastropheAnalyzerApp:
                     reasons.append(reason)
             positive_offsets = [
                 ("interim ceo appointed", 8, "Interim leadership can reduce immediate uncertainty"),
-                ("independent review completed", 10, "Completed review narrows open-ended governance overhang"),
+                (
+                    "independent review completed",
+                    10,
+                    "Completed review narrows open-ended governance overhang",
+                ),
                 ("no wrongdoing found", 14, "No-wrongdoing conclusions reduce scandal tail risk"),
             ]
             for marker, weight, reason in positive_offsets:
@@ -435,7 +542,11 @@ class CatastropheAnalyzerApp:
             weighted_markers = [
                 ("margin compression", 10, "Margin pressure can offset headline catalyst strength"),
                 ("below expectations", 14, "Below-consensus details can reverse positive setup"),
-                ("withdraws guidance", 20, "Guidance withdrawal increases uncertainty despite headline beats"),
+                (
+                    "withdraws guidance",
+                    20,
+                    "Guidance withdrawal increases uncertainty despite headline beats",
+                ),
             ]
             for marker, weight, reason in weighted_markers:
                 if keyword_in_text(marker, content):
@@ -492,7 +603,11 @@ class CatastropheAnalyzerApp:
                 ("revenue shortfall", 18, "Revenue shortfall implies weaker-than-expected demand"),
                 ("guidance cut", 24, "Guidance cuts reduce forward earnings expectations"),
                 ("lowered guidance", 24, "Lowered guidance compresses valuation multiples"),
-                ("lowered outlook", 22, "Lowered outlook signals management concern about near-term trajectory"),
+                (
+                    "lowered outlook",
+                    22,
+                    "Lowered outlook signals management concern about near-term trajectory",
+                ),
                 ("profit warning", 26, "Profit warnings often trigger rapid repricing"),
                 ("revenue warning", 22, "Revenue warnings indicate fundamental demand weakness"),
                 ("margin compression", 16, "Margin compression lowers profitability outlook"),
@@ -531,7 +646,11 @@ class CatastropheAnalyzerApp:
                 ("activist short", 22, "Activist short framing implies deliberate investigation"),
                 ("alleged fraud", 22, "Alleged-fraud framing increases tail risk narrative"),
                 ("channel stuffing", 18, "Channel-stuffing allegations threaten reported growth"),
-                ("undisclosed related party", 20, "Undisclosed related-party claims threaten reporting trust"),
+                (
+                    "undisclosed related party",
+                    20,
+                    "Undisclosed related-party claims threaten reporting trust",
+                ),
                 ("fabricated revenue", 24, "Fabricated-revenue claims imply severe financial fraud"),
                 ("short thesis", 14, "Short-thesis publication increases short-interest momentum"),
                 ("going zero", 14, "Terminal-value framing amplifies downside narrative"),
@@ -561,7 +680,11 @@ class CatastropheAnalyzerApp:
                 ("rating action", 14, "Rating action language implies formal review outcome"),
                 ("placed on negative watch", 16, "Negative watch signals elevated downgrade probability"),
                 ("negative credit watch", 16, "Negative watch signals elevated downgrade probability"),
-                ("placed on review for downgrade", 16, "Review-for-downgrade increases imminent cut probability"),
+                (
+                    "placed on review for downgrade",
+                    16,
+                    "Review-for-downgrade increases imminent cut probability",
+                ),
                 ("outlook revised to negative", 14, "Negative outlook prefigures potential downgrade"),
                 ("outlook changed to negative", 14, "Negative outlook prefigures potential downgrade"),
                 ("default risk elevated", 18, "Elevated-default-risk framing implies imminent pressure"),
@@ -594,10 +717,18 @@ class CatastropheAnalyzerApp:
                 ("auditor dismissed", 20, "Auditor dismissal raises reporting credibility questions"),
                 ("change in auditor", 18, "Auditor change often precedes disclosure concerns"),
                 ("change in accountant", 18, "Accountant change often precedes disclosure concerns"),
-                ("dismissal of accountants", 18, "Dismissal-of-accountants language can front-run restatement"),
+                (
+                    "dismissal of accountants",
+                    18,
+                    "Dismissal-of-accountants language can front-run restatement",
+                ),
                 ("item 4.01", 16, "Form 8-K Item 4.01 triggers auditor-change disclosure"),
                 ("item 4.02", 22, "Form 8-K Item 4.02 indicates non-reliance on prior financials"),
-                ("non-reliance on previously issued", 24, "Non-reliance filings routinely precede restatements"),
+                (
+                    "non-reliance on previously issued",
+                    24,
+                    "Non-reliance filings routinely precede restatements",
+                ),
                 ("restatement of financial statements", 22, "Financial restatements reset earnings trust"),
                 ("restated financial statements", 22, "Financial restatements reset earnings trust"),
                 ("material weakness", 20, "Material-weakness disclosure signals control failure risk"),
@@ -671,7 +802,11 @@ class CatastropheAnalyzerApp:
                 ("nominates directors", 18, "Director nominations can reshape board composition"),
                 ("nominate directors", 18, "Director nominations can reshape board composition"),
                 ("board nomination", 16, "Board nominations front-run governance battles"),
-                ("urges review of strategic alternatives", 20, "Strategic-alternatives calls often trigger rumor premium"),
+                (
+                    "urges review of strategic alternatives",
+                    20,
+                    "Strategic-alternatives calls often trigger rumor premium",
+                ),
                 ("elliott management", 18, "Named activist firms typically drive re-rating activity"),
                 ("starboard value", 16, "Named activist firms typically drive re-rating activity"),
                 ("pershing square", 16, "Named activist firms typically drive re-rating activity"),
@@ -734,7 +869,11 @@ class CatastropheAnalyzerApp:
                     reasons.append(reason)
         elif event_category == "securities_class_action":
             weighted_markers = [
-                ("securities class action", 18, "Securities class actions add legal cost and settlement risk"),
+                (
+                    "securities class action",
+                    18,
+                    "Securities class actions add legal cost and settlement risk",
+                ),
                 ("class action lawsuit", 14, "Class actions add legal cost and settlement risk"),
                 ("class-action complaint", 14, "Class actions add legal cost and settlement risk"),
                 ("class action complaint", 14, "Class actions add legal cost and settlement risk"),
@@ -842,9 +981,7 @@ class CatastropheAnalyzerApp:
         if not isinstance(event_cfg, dict):
             return self._depth_categories()
         enabled = [
-            name
-            for name, cfg in event_cfg.items()
-            if isinstance(cfg, dict) and cfg.get("enabled", False)
+            name for name, cfg in event_cfg.items() if isinstance(cfg, dict) and cfg.get("enabled", False)
         ]
         return enabled or self._depth_categories()
 
@@ -857,7 +994,10 @@ class CatastropheAnalyzerApp:
             subtype = str(event.get("event_subtype") or event.get("breach_type") or "")
             summary = str(event.get("summary") or "")
             import re as _re
-            m = _re.search(r"\[Distress\s+(LOW|MEDIUM|HIGH)\s+(\d{1,3})/100\]", f"{subtype} {summary}", _re.IGNORECASE)
+
+            m = _re.search(
+                r"\[Distress\s+(LOW|MEDIUM|HIGH)\s+(\d{1,3})/100\]", f"{subtype} {summary}", _re.IGNORECASE
+            )
             if m:
                 like = like or m.group(1).upper()
                 score_raw = score_raw or m.group(2)
@@ -970,9 +1110,9 @@ class CatastropheAnalyzerApp:
 
     def display_menu(self) -> None:
         """Display main menu"""
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("CATASTROPHE ANALYZER - Event & Stock Opportunity Detection")
-        print("="*80)
+        print("=" * 80)
         print("\n1. Run production-equivalent cycle once (detect + analyze + alerts)")
         print("2. Scan for events (interactive/manual)")
         print("3. Analyze recent events (interactive/manual)")
@@ -986,33 +1126,33 @@ class CatastropheAnalyzerApp:
 
     def run(self) -> None:
         """Run the application"""
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("CATASTROPHE ANALYZER - Starting")
-        print("="*80)
+        print("=" * 80)
 
         while True:
             self.display_menu()
             choice = input("Enter choice (1-10): ").strip()
 
-            if choice == '1':
+            if choice == "1":
                 self.run_production_cycle_once()
-            elif choice == '2':
+            elif choice == "2":
                 self.scan_events()
-            elif choice == '3':
+            elif choice == "3":
                 self.analyze_events()
-            elif choice == '4':
+            elif choice == "4":
                 self.generate_signals()
-            elif choice == '5':
+            elif choice == "5":
                 self.view_signals()
-            elif choice == '6':
+            elif choice == "6":
                 self.view_events()
-            elif choice == '7':
+            elif choice == "7":
                 self.show_statistics()
-            elif choice == '8':
+            elif choice == "8":
                 self.settings_menu()
-            elif choice == '9':
+            elif choice == "9":
                 self.manage_triage_alert_state()
-            elif choice == '10':
+            elif choice == "10":
                 print("\nExiting Catastrophe Analyzer. Goodbye!")
                 break
             else:
@@ -1022,9 +1162,9 @@ class CatastropheAnalyzerApp:
         """
         Run the exact production service-path cycle once, including alert side effects.
         """
-        print("\n" + "-"*80)
+        print("\n" + "-" * 80)
         print("PRODUCTION-EQUIVALENT CYCLE (ONCE)")
-        print("-"*80)
+        print("-" * 80)
 
         alerts = AlertManager()
         run_service_loop(
@@ -1042,9 +1182,7 @@ class CatastropheAnalyzerApp:
         print("TRIAGE ALERT STATE")
         print("-" * 80)
 
-        state_input = input(
-            "Filter state [NEW/SENT/ACKED/SUPPRESSED/all] (default=SENT): "
-        ).strip().upper()
+        state_input = input("Filter state [NEW/SENT/ACKED/SUPPRESSED/all] (default=SENT): ").strip().upper()
         if not state_input:
             state_input = "SENT"
         if state_input not in ("NEW", "SENT", "ACKED", "SUPPRESSED", "ALL"):
@@ -1085,9 +1223,7 @@ class CatastropheAnalyzerApp:
             print("Invalid action.")
             return
 
-        index_input = input(
-            "Enter row numbers (comma-separated, e.g. 1,3,5): "
-        ).strip()
+        index_input = input("Enter row numbers (comma-separated, e.g. 1,3,5): ").strip()
         if not index_input:
             print("No rows selected.")
             return
@@ -1115,21 +1251,21 @@ class CatastropheAnalyzerApp:
 
     def _parse_published_date(self, published: str, fallback_date: str) -> str:
         """Parse RSS published string into YYYY-MM-DD."""
-        if not published or published == 'Unknown':
+        if not published or published == "Unknown":
             return fallback_date
 
         try:
             # Handles RFC2822 timestamps like "Mon, 18 Mar 2026 11:00:00 GMT"
             dt = parsedate_to_datetime(published)
-            return dt.strftime('%Y-%m-%d')
+            return dt.strftime("%Y-%m-%d")
         except Exception:
             pass
 
         try:
             # Handles ISO timestamps
-            s = (published or '').replace('Z', '+00:00')
+            s = (published or "").replace("Z", "+00:00")
             dt = datetime.fromisoformat(s)
-            return dt.strftime('%Y-%m-%d')
+            return dt.strftime("%Y-%m-%d")
         except Exception:
             return fallback_date
 
@@ -1152,19 +1288,27 @@ class CatastropheAnalyzerApp:
                 event_subtype = "Clinical Hold"
             elif "fda approval" in content or "approved by the fda" in content:
                 event_subtype = "FDA Approval"
-            elif "adcom" in content and any(keyword_in_text(marker, content) for marker in ("negative vote", "against", "concern")):
+            elif "adcom" in content and any(
+                keyword_in_text(marker, content) for marker in ("negative vote", "against", "concern")
+            ):
                 event_subtype = "AdCom Negative Vote"
             elif "phase 3" in content and any(
                 keyword_in_text(marker, content) for marker in ("failed", "fails", "missed", "did not meet")
             ):
                 event_subtype = "Phase 3 Trial Failure"
             elif "phase 3" in content and any(
-                keyword_in_text(marker, content) for marker in ("met primary endpoint", "met endpoint", "positive data")
+                keyword_in_text(marker, content)
+                for marker in ("met primary endpoint", "met endpoint", "positive data")
             ):
                 event_subtype = "Phase 3 Trial Success"
-            elif any(keyword_in_text(marker, content) for marker in ("missed primary endpoint", "did not meet endpoint")):
+            elif any(
+                keyword_in_text(marker, content)
+                for marker in ("missed primary endpoint", "did not meet endpoint")
+            ):
                 event_subtype = "Endpoint Miss"
-            elif "fda" in content and any(keyword_in_text(marker, content) for marker in ("reject", "rejected", "refuse to file")):
+            elif "fda" in content and any(
+                keyword_in_text(marker, content) for marker in ("reject", "rejected", "refuse to file")
+            ):
                 event_subtype = "Regulatory Rejection"
 
             severity = "Medium"
@@ -1287,11 +1431,19 @@ class CatastropheAnalyzerApp:
             event_subtype = "Supply Chain Event"
             if "port congestion" in content or "port closure" in content or "canal" in content:
                 event_subtype = "Port/Logistics Disruption"
-            elif "chip shortage" in content or "semiconductor shortage" in content or "component shortage" in content:
+            elif (
+                "chip shortage" in content
+                or "semiconductor shortage" in content
+                or "component shortage" in content
+            ):
                 event_subtype = "Component/Input Shortage"
             elif "factory fire" in content or "plant shutdown" in content or "production halt" in content:
                 event_subtype = "Factory/Plant Disruption"
-            elif "supplier bankruptcy" in content or "supplier failure" in content or "force majeure" in content:
+            elif (
+                "supplier bankruptcy" in content
+                or "supplier failure" in content
+                or "force majeure" in content
+            ):
                 event_subtype = "Supplier/Contract Stress"
             elif "supply chain disruption" in content or "logistics disruption" in content:
                 event_subtype = "Supply Chain Disruption"
@@ -1350,7 +1502,11 @@ class CatastropheAnalyzerApp:
                 event_subtype = "Registered Direct Offering"
             elif "private placement" in content or "pipe financing" in content:
                 event_subtype = "Private Placement / PIPE"
-            elif "convertible notes" in content or "convertible debt" in content or "convertible preferred" in content:
+            elif (
+                "convertible notes" in content
+                or "convertible debt" in content
+                or "convertible preferred" in content
+            ):
                 event_subtype = "Convertible Financing"
             elif "secondary offering" in content or "follow-on offering" in content:
                 event_subtype = "Secondary Equity Offering"
@@ -1431,7 +1587,11 @@ class CatastropheAnalyzerApp:
 
         if event_category == "positive_earnings_catalyst":
             event_subtype = "Positive Earnings Catalyst"
-            if "raised guidance" in content or "raises guidance" in content or "guidance increased" in content:
+            if (
+                "raised guidance" in content
+                or "raises guidance" in content
+                or "guidance increased" in content
+            ):
                 event_subtype = "Guidance Raise"
             elif "record revenue" in content or "record bookings" in content:
                 event_subtype = "Record Topline Print"
@@ -1443,7 +1603,10 @@ class CatastropheAnalyzerApp:
                 event_subtype = "Positive Preannouncement"
 
             severity = "Medium"
-            if any(keyword_in_text(marker, content) for marker in ("raised guidance", "record revenue", "positive preannouncement")):
+            if any(
+                keyword_in_text(marker, content)
+                for marker in ("raised guidance", "record revenue", "positive preannouncement")
+            ):
                 severity = "High"
             return event_subtype, severity
 
@@ -1519,11 +1682,20 @@ class CatastropheAnalyzerApp:
                 event_subtype = "Fallen Angel Downgrade"
             elif "cut to ccc" in content or "cut to b-" in content:
                 event_subtype = "Deep Junk Downgrade"
-            elif "s&p downgrades" in content or "moody's downgrades" in content or "moodys downgrades" in content or "fitch downgrades" in content:
+            elif (
+                "s&p downgrades" in content
+                or "moody's downgrades" in content
+                or "moodys downgrades" in content
+                or "fitch downgrades" in content
+            ):
                 event_subtype = "Major Agency Downgrade"
             elif "credit rating downgrade" in content or "credit rating cut" in content:
                 event_subtype = "Credit Rating Downgrade"
-            elif "placed on negative watch" in content or "negative credit watch" in content or "placed on review for downgrade" in content:
+            elif (
+                "placed on negative watch" in content
+                or "negative credit watch" in content
+                or "placed on review for downgrade" in content
+            ):
                 event_subtype = "Negative Credit Watch"
             elif "outlook revised to negative" in content or "outlook changed to negative" in content:
                 event_subtype = "Negative Outlook Revision"
@@ -1551,13 +1723,19 @@ class CatastropheAnalyzerApp:
                 event_subtype = "Going Concern Warning"
             elif "auditor resignation" in content or "auditor resigns" in content:
                 event_subtype = "Auditor Resignation"
-            elif "auditor dismissed" in content or "dismissal of accountants" in content or "item 4.01" in content:
+            elif (
+                "auditor dismissed" in content
+                or "dismissal of accountants" in content
+                or "item 4.01" in content
+            ):
                 event_subtype = "Auditor Dismissal (Item 4.01)"
             elif "change in auditor" in content or "change in accountant" in content:
                 event_subtype = "Auditor Change"
             elif "non-reliance on previously issued" in content or "item 4.02" in content:
                 event_subtype = "Non-Reliance Notice (Item 4.02)"
-            elif "restatement of financial statements" in content or "restated financial statements" in content:
+            elif (
+                "restatement of financial statements" in content or "restated financial statements" in content
+            ):
                 event_subtype = "Financial Statement Restatement"
             elif "material weakness" in content or "internal control weakness" in content:
                 event_subtype = "Material Weakness Disclosure"
@@ -1583,11 +1761,21 @@ class CatastropheAnalyzerApp:
                 event_subtype = "Guidance Withdrawal"
             elif "suspends guidance" in content or "suspended guidance" in content:
                 event_subtype = "Guidance Suspension"
-            elif "cuts full-year guidance" in content or "lowers full-year guidance" in content or "cuts fy guidance" in content:
+            elif (
+                "cuts full-year guidance" in content
+                or "lowers full-year guidance" in content
+                or "cuts fy guidance" in content
+            ):
                 event_subtype = "Full-Year Guidance Cut"
-            elif "lowers guidance" in content or "revises guidance lower" in content or "revised guidance lower" in content:
+            elif (
+                "lowers guidance" in content
+                or "revises guidance lower" in content
+                or "revised guidance lower" in content
+            ):
                 event_subtype = "Guidance Reduction"
-            elif "preannounces" in content or "pre-announcement" in content or "preliminary results" in content:
+            elif (
+                "preannounces" in content or "pre-announcement" in content or "preliminary results" in content
+            ):
                 event_subtype = "Negative Preannouncement"
             elif "business update" in content:
                 event_subtype = "Business Update Filing"
@@ -1609,7 +1797,11 @@ class CatastropheAnalyzerApp:
             event_subtype = "Activist Ownership Event"
             if "proxy fight" in content or "proxy contest" in content:
                 event_subtype = "Proxy Contest"
-            elif "nominates directors" in content or "nominate directors" in content or "board nomination" in content:
+            elif (
+                "nominates directors" in content
+                or "nominate directors" in content
+                or "board nomination" in content
+            ):
                 event_subtype = "Director Nomination"
             elif "urges review of strategic alternatives" in content or "urges board" in content:
                 event_subtype = "Strategic Alternatives Push"
@@ -1617,7 +1809,11 @@ class CatastropheAnalyzerApp:
                 event_subtype = "13D Amendment"
             elif "schedule 13d" in content or "13d filing" in content or "files 13d" in content:
                 event_subtype = "13D Filing"
-            elif "activist stake" in content or "activist investor discloses" in content or "accumulates stake" in content:
+            elif (
+                "activist stake" in content
+                or "activist investor discloses" in content
+                or "accumulates stake" in content
+            ):
                 event_subtype = "Activist Stake Disclosure"
             elif "activist campaign" in content:
                 event_subtype = "Activist Campaign"
@@ -1637,7 +1833,11 @@ class CatastropheAnalyzerApp:
 
         if event_category == "labor_action":
             event_subtype = "Labor Action"
-            if "nationwide strike" in content or "prolonged strike" in content or "indefinite strike" in content:
+            if (
+                "nationwide strike" in content
+                or "prolonged strike" in content
+                or "indefinite strike" in content
+            ):
                 event_subtype = "Prolonged Strike"
             elif "strike expands" in content or "extends strike" in content:
                 event_subtype = "Strike Expansion"
@@ -1677,11 +1877,19 @@ class CatastropheAnalyzerApp:
                 event_subtype = "Class Certified"
             elif "securities fraud lawsuit" in content:
                 event_subtype = "Securities Fraud Lawsuit"
-            elif "class action filed against" in content or "class-action complaint" in content or "class action complaint" in content:
+            elif (
+                "class action filed against" in content
+                or "class-action complaint" in content
+                or "class action complaint" in content
+            ):
                 event_subtype = "Class Action Filed"
             elif "lead plaintiff deadline" in content:
                 event_subtype = "Lead Plaintiff Deadline"
-            elif "shareholder investigation" in content or "investor alert" in content or "shareholder alert" in content:
+            elif (
+                "shareholder investigation" in content
+                or "investor alert" in content
+                or "shareholder alert" in content
+            ):
                 event_subtype = "Shareholder Investigation"
 
             severity = "Medium"
@@ -1701,7 +1909,11 @@ class CatastropheAnalyzerApp:
             event_subtype = "Insider Transaction Event"
             if "cluster of insider sales" in content or "c-suite selling" in content:
                 event_subtype = "Insider Selling Cluster"
-            elif "cluster of insider buys" in content or "insider buying" in content or "insider purchases" in content:
+            elif (
+                "cluster of insider buys" in content
+                or "insider buying" in content
+                or "insider purchases" in content
+            ):
                 event_subtype = "Insider Buying Cluster"
             elif "cfo sold shares" in content:
                 event_subtype = "CFO Share Sale"
@@ -1906,28 +2118,37 @@ class CatastropheAnalyzerApp:
 
                 event = {
                     "title": f"{company_name or ticker}: {signal.get('item_type', 'SEC Filing')}",
-                    "summary": signal.get('item_description', ''),
-                    "link": signal.get('url', ''),
-                    "published": signal.get('filed_date', datetime.now().isoformat()),
+                    "summary": signal.get("item_description", ""),
+                    "link": signal.get("url", ""),
+                    "published": signal.get("filed_date", datetime.now().isoformat()),
                     "source": "sec",
                     # Pre-populate candidates so entity extraction recognizes the ticker
-                    "mapped_candidates": [{"ticker": ticker, "company": company_name or ticker, "confidence": "high", "validation_status": "approved"}],
+                    "mapped_candidates": [
+                        {
+                            "ticker": ticker,
+                            "company": company_name or ticker,
+                            "confidence": "high",
+                            "validation_status": "approved",
+                        }
+                    ],
                     "has_publicly_traded": bool(ticker),
-                    "event_category": signal.get('event_category', 'sec_filing'),
+                    "event_category": signal.get("event_category", "sec_filing"),
                 }
                 events.append(event)
 
             earnings_signals = self.sec_earnings_integration.fetch_earnings_signals()
             for signal in earnings_signals:
-                surprise_pct = signal.get('eps_surprise_pct', 0)
+                surprise_pct = signal.get("eps_surprise_pct", 0)
                 distress_indicator = "negative surprise" if surprise_pct < -5 else "positive surprise"
                 event = {
                     "title": f"{signal.get('ticker', 'UNKNOWN')}: Earnings {distress_indicator.title()}",
                     "summary": f"EPS surprise: {surprise_pct:.1f}%, Revenue: {signal.get('revenue_surprise_pct', 0):.1f}%",
                     "link": "",
-                    "published": signal.get('report_date', datetime.now().isoformat()),
+                    "published": signal.get("report_date", datetime.now().isoformat()),
                     "source": "earnings",
-                    "candidates": [{"ticker": signal.get("ticker"), "company": "", "validation_status": "approved"}],
+                    "candidates": [
+                        {"ticker": signal.get("ticker"), "company": "", "validation_status": "approved"}
+                    ],
                     "has_publicly_traded": bool(signal.get("ticker")),
                     "event_category": "earnings_surprise",
                     "mapped_candidates": [signal.get("ticker")] if signal.get("ticker") else [],
@@ -1946,8 +2167,8 @@ class CatastropheAnalyzerApp:
         Uses `scraping.hours_back` only for detection; once created, watches remain active
         for `breach_watch.max_days`.
         """
-        today_str = datetime.now().strftime('%Y-%m-%d')
-        hours_back = int(self.settings.get('scraping', {}).get('hours_back', 24))
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        hours_back = int(self.settings.get("scraping", {}).get("hours_back", 24))
 
         # Check if we're in mock mode
         mock_mode = os.environ.get("CATASTROPHE_ANALYZER_USE_MOCK_DATA", "").lower() in ["1", "true", "yes"]
@@ -1978,7 +2199,9 @@ class CatastropheAnalyzerApp:
         news_articles = [a for a in all_articles if a.get("source") not in ["sec", "earnings"]]
         sec_earnings_articles = [a for a in all_articles if a.get("source") in ["sec", "earnings"]]
 
-        recent_news = self.news_scraper.filter_recent_articles(news_articles, hours_back) if news_articles else []
+        recent_news = (
+            self.news_scraper.filter_recent_articles(news_articles, hours_back) if news_articles else []
+        )
         recent_articles = recent_news + sec_earnings_articles
 
         body_cfg = self.settings.get("scraping", {}).get("body_fetch", {})
@@ -1997,14 +2220,14 @@ class CatastropheAnalyzerApp:
         for article in sec_earnings_articles:
             entity = {
                 **article,
-                'event_category': article.get('event_category', 'sec_filing'),
-                'extracted_companies': [],
-                'mapped_candidates': article.get('mapped_candidates', []),
-                'mapped_entities': article.get('mapped_candidates', []),  # Already validated
-                'rejected_entities': [],
-                'agent_validation_enabled': False,
-                'validation_mode': 'disabled',
-                'has_publicly_traded': len(article.get('mapped_candidates', [])) > 0,
+                "event_category": article.get("event_category", "sec_filing"),
+                "extracted_companies": [],
+                "mapped_candidates": article.get("mapped_candidates", []),
+                "mapped_entities": article.get("mapped_candidates", []),  # Already validated
+                "rejected_entities": [],
+                "agent_validation_enabled": False,
+                "validation_mode": "disabled",
+                "has_publicly_traded": len(article.get("mapped_candidates", [])) > 0,
             }
             sec_earnings_entities.append(entity)
 
@@ -2149,21 +2372,23 @@ class CatastropheAnalyzerApp:
                         news_tickers.add(ticker)
 
                     # Persist event record (legacy add_breach API still used for compatibility).
-                    self.db.add_breach({
-                        "date_found": event_date,
-                        "event_date": event_date,
-                        "event_category": event_category,
-                        "company": canonical["company"],
-                        "ticker": ticker,
-                        "event_subtype": event_subtype,
-                        "distress_likelihood": distress_label,
-                        "distress_score": distress_score,
-                        "breach_type": event_subtype,
-                        "severity": severity,
-                        "source": watch.get("source", ""),
-                        "url": watch.get("url", ""),
-                        "summary": (summary or "")[:500],
-                    })
+                    self.db.add_breach(
+                        {
+                            "date_found": event_date,
+                            "event_date": event_date,
+                            "event_category": event_category,
+                            "company": canonical["company"],
+                            "ticker": ticker,
+                            "event_subtype": event_subtype,
+                            "distress_likelihood": distress_label,
+                            "distress_score": distress_score,
+                            "breach_type": event_subtype,
+                            "severity": severity,
+                            "source": watch.get("source", ""),
+                            "url": watch.get("url", ""),
+                            "summary": (summary or "")[:500],
+                        }
+                    )
 
                     # Persist price timeseries for the watch (first deliverable)
                     series_rows = self.stock_analyzer.get_event_price_series(
@@ -2298,7 +2523,9 @@ class CatastropheAnalyzerApp:
             if status == "SIGNAL_CREATED":
                 # Already signaled; still update timestamp but don't re-signal.
                 dropoff_breakdown["skipped_already_signaled"] += 1
-                self.db.mark_watch_last_checked(w.get("ticker", ""), w.get("event_date", w.get("breach_date", "")))
+                self.db.mark_watch_last_checked(
+                    w.get("ticker", ""), w.get("event_date", w.get("breach_date", ""))
+                )
                 continue
 
             ticker = w.get("ticker", "")
@@ -2381,9 +2608,7 @@ class CatastropheAnalyzerApp:
             t_ctx = triage_context_by_key.get(a_key, {})
             w_ctx = watch_context_by_key.get(a_key, {})
             if "distress_score" not in analysis or not analysis["distress_score"]:
-                analysis["distress_score"] = (
-                    t_ctx.get("distress_score") or w_ctx.get("distress_score") or 0
-                )
+                analysis["distress_score"] = t_ctx.get("distress_score") or w_ctx.get("distress_score") or 0
             if "impact_score" not in analysis or not analysis["impact_score"]:
                 analysis["impact_score"] = t_ctx.get("impact_score") or 0
 
@@ -2391,8 +2616,8 @@ class CatastropheAnalyzerApp:
             if multi_source_tickers and analysis.get("ticker") in multi_source_tickers:
                 analysis["multi_source_confirmed"] = True
 
-        signals, watch_alerts, signal_diagnostics = (
-            self.signal_generator.generate_signals_with_diagnostics(analyses)
+        signals, watch_alerts, signal_diagnostics = self.signal_generator.generate_signals_with_diagnostics(
+            analyses
         )
         # Persist any ELEVATED_WATCH alerts produced this cycle. These are events
         # that had real catastrophe-flavored catalysts but failed the technical
@@ -2419,7 +2644,7 @@ class CatastropheAnalyzerApp:
             _bucket_for_category(signal_category)["rule_passed_candidates"] += 1
         ranked_signals = self.signal_generator.rank_signals(signals)
 
-        min_conf = self.signal_generator.signal_config.get('min_confidence_for_signal', 0.4)
+        min_conf = self.signal_generator.signal_config.get("min_confidence_for_signal", 0.4)
         if isinstance(min_conf, (int, float)):
             pre_confidence = list(ranked_signals)
             ranked_signals = self.signal_generator.filter_signals(
@@ -2690,9 +2915,9 @@ class CatastropheAnalyzerApp:
 
     def scan_events(self) -> None:
         """Scan news sources for events"""
-        print("\n" + "-"*80)
+        print("\n" + "-" * 80)
         print("SCANNING NEWS SOURCES")
-        print("-"*80)
+        print("-" * 80)
 
         # Scrape all sources
         self.current_articles = self.news_scraper.scrape_all_sources()
@@ -2705,17 +2930,21 @@ class CatastropheAnalyzerApp:
             self.current_entities = self.entity_extractor.batch_extract(self.current_articles)
             self.entity_extractor.display_scan_preview(self.current_entities, max_articles=15)
 
-            response = input("\nProceed to full analysis (detailed report + optional stock work)? (y/n): ").strip().lower()
-            if response == 'y':
+            response = (
+                input("\nProceed to full analysis (detailed report + optional stock work)? (y/n): ")
+                .strip()
+                .lower()
+            )
+            if response == "y":
                 self.analyze_events()
         else:
             print("\n✗ No event articles found in this scan")
 
     def analyze_events(self) -> None:
         """Extract entities and analyze stocks"""
-        print("\n" + "-"*80)
+        print("\n" + "-" * 80)
         print("ANALYZING EVENTS")
-        print("-"*80)
+        print("-" * 80)
 
         if not self.current_articles:
             print("No articles to analyze. Please scan news sources first.")
@@ -2738,7 +2967,7 @@ class CatastropheAnalyzerApp:
         self.entity_extractor.display_extraction_results(self.current_entities)
 
         # Articles with at least one US-listed ticker (per entity_extraction rules)
-        publicly_traded = [e for e in self.current_entities if e.get('has_publicly_traded')]
+        publicly_traded = [e for e in self.current_entities if e.get("has_publicly_traded")]
 
         if publicly_traded:
             print(f"\n✓ Found {len(publicly_traded)} articles with US-listed tickers")
@@ -2752,7 +2981,7 @@ class CatastropheAnalyzerApp:
                 published = entity.get("published", "Unknown")
                 event_date = self._parse_published_date(
                     published,
-                    fallback_date=datetime.now().strftime('%Y-%m-%d'),
+                    fallback_date=datetime.now().strftime("%Y-%m-%d"),
                 )
                 event_category = entity.get("event_category", "cybersecurity")
                 key = (canonical["ticker"], event_date, event_category)
@@ -2767,7 +2996,7 @@ class CatastropheAnalyzerApp:
 
             # Ask to proceed with analysis
             response = input("\nAnalyze stock impact for these companies? (y/n): ").strip().lower()
-            if response == 'y':
+            if response == "y":
                 # Analyze stock impact
                 print("\nAnalyzing stock prices...")
                 companies_to_analyze = list(unique_requests.values())
@@ -2779,16 +3008,16 @@ class CatastropheAnalyzerApp:
 
                 # Ask to generate signals
                 response = input("\nGenerate trading signals? (y/n): ").strip().lower()
-                if response == 'y':
+                if response == "y":
                     self.generate_signals()
         else:
             print("\n✗ No US-listed tickers found in these articles (see scan preview for other mentions)")
 
     def generate_signals(self) -> None:
         """Generate trading signals from analysis"""
-        print("\n" + "-"*80)
+        print("\n" + "-" * 80)
         print("GENERATING BUY SIGNALS")
-        print("-"*80)
+        print("-" * 80)
 
         if not self.current_analyses:
             print("No analyses available. Please analyze events first.")
@@ -2814,7 +3043,7 @@ class CatastropheAnalyzerApp:
 
             # Ask to save signals
             response = input("\nSave signals to database? (y/n): ").strip().lower()
-            if response == 'y':
+            if response == "y":
                 saved = 0
                 for signal in ranked_signals:
                     if self.db.add_signal(signal):
@@ -2824,7 +3053,7 @@ class CatastropheAnalyzerApp:
 
                 # Ask to save analyses too
                 response = input("Save analyses to database? (y/n): ").strip().lower()
-                if response == 'y':
+                if response == "y":
                     saved = 0
                     for analysis in self.current_analyses:
                         if self.db.add_analysis(analysis):
@@ -2837,9 +3066,9 @@ class CatastropheAnalyzerApp:
 
     def view_signals(self) -> None:
         """View trading signal history"""
-        print("\n" + "-"*80)
+        print("\n" + "-" * 80)
         print("TRADING SIGNAL HISTORY")
-        print("-"*80)
+        print("-" * 80)
 
         signals = self.db.get_signals()
 
@@ -2848,9 +3077,9 @@ class CatastropheAnalyzerApp:
             return
 
         # Group by confidence
-        high_conf = [s for s in signals if s.get('confidence_level') == 'HIGH']
-        med_conf = [s for s in signals if s.get('confidence_level') == 'MEDIUM']
-        low_conf = [s for s in signals if s.get('confidence_level') == 'LOW']
+        high_conf = [s for s in signals if s.get("confidence_level") == "HIGH"]
+        med_conf = [s for s in signals if s.get("confidence_level") == "MEDIUM"]
+        low_conf = [s for s in signals if s.get("confidence_level") == "LOW"]
 
         print(f"\nTotal signals: {len(signals)}")
         print(f"  HIGH confidence:   {len(high_conf)}")
@@ -2859,10 +3088,10 @@ class CatastropheAnalyzerApp:
 
         # Show recent signals
         print("\nMost recent signals:")
-        print("-"*40)
+        print("-" * 40)
 
         for i, signal in enumerate(signals[-10:], 1):
-            status = "✓ Executed" if signal.get('executed') == 'Yes' else "⏳ Pending"
+            status = "✓ Executed" if signal.get("executed") == "Yes" else "⏳ Pending"
             print(f"\n{i}. {signal.get('ticker')} - {status}")
             print(f"   Confidence:  {signal.get('confidence_level')} ({signal.get('confidence_score')}/100)")
             print(f"   Entry:       ${float(signal.get('entry_price', 0)):.2f}")
@@ -2872,9 +3101,9 @@ class CatastropheAnalyzerApp:
 
     def view_events(self) -> None:
         """View event history"""
-        print("\n" + "-"*80)
+        print("\n" + "-" * 80)
         print("EVENT HISTORY")
-        print("-"*80)
+        print("-" * 80)
 
         breaches = self.db.get_breaches()
 
@@ -2883,9 +3112,9 @@ class CatastropheAnalyzerApp:
             return
 
         depth_categories = self._depth_categories()
-        category_choice = input(
-            f"Filter category [all/{'/'.join(depth_categories)}] (default=all): "
-        ).strip().lower()
+        category_choice = (
+            input(f"Filter category [all/{'/'.join(depth_categories)}] (default=all): ").strip().lower()
+        )
         if category_choice in depth_categories:
             breaches = [b for b in breaches if b.get("event_category", "").lower() == category_choice]
 
@@ -2905,7 +3134,7 @@ class CatastropheAnalyzerApp:
         # Group by severity
         severity_counts = {}
         for breach in breaches:
-            sev = breach.get('severity', 'Unknown')
+            sev = breach.get("severity", "Unknown")
             severity_counts[sev] = severity_counts.get(sev, 0) + 1
 
         print(f"\nTotal events: {len(breaches)}")
@@ -2922,7 +3151,7 @@ class CatastropheAnalyzerApp:
 
         # Show recent breaches
         print("\nMost recent events:")
-        print("-"*40)
+        print("-" * 40)
 
         for i, breach in enumerate(breaches[-10:], 1):
             distress_like, distress_score = self._event_distress_fields(breach)
@@ -2946,9 +3175,9 @@ class CatastropheAnalyzerApp:
 
     def show_statistics(self) -> None:
         """Display database statistics"""
-        print("\n" + "-"*80)
+        print("\n" + "-" * 80)
         print("DATABASE STATISTICS")
-        print("-"*80)
+        print("-" * 80)
 
         self.db.display_statistics()
         self.db.display_category_yield_dashboard(
@@ -2958,9 +3187,9 @@ class CatastropheAnalyzerApp:
 
     def settings_menu(self) -> None:
         """Settings menu"""
-        print("\n" + "-"*80)
+        print("\n" + "-" * 80)
         print("SETTINGS & CONFIGURATION")
-        print("-"*80)
+        print("-" * 80)
         print("\n1. View configuration")
         print("2. Export data to JSON")
         print("3. Reset database")
@@ -2968,31 +3197,31 @@ class CatastropheAnalyzerApp:
 
         choice = input("Enter choice (1-4): ").strip()
 
-        if choice == '1':
+        if choice == "1":
             self.view_configuration()
-        elif choice == '2':
+        elif choice == "2":
             filename = input("Enter filename (default: breach_analysis.json): ").strip()
             if not filename:
                 filename = "breach_analysis.json"
             self.db.export_to_json(filename)
-        elif choice == '3':
+        elif choice == "3":
             response = input("WARNING: This will delete all data. Continue? (y/n): ").strip().lower()
-            if response == 'y':
+            if response == "y":
                 self.reset_database()
-        elif choice == '4':
+        elif choice == "4":
             pass
         else:
             print("Invalid choice")
 
     def view_configuration(self) -> None:
         """View current configuration"""
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Current Configuration")
-        print("="*60)
+        print("=" * 60)
 
         print("\nNews Sources:")
-        for source, config in self.news_scraper.config.get('news_sources', {}).items():
-            enabled = "✓ Enabled" if config.get('enabled') else "✗ Disabled"
+        for source, config in self.news_scraper.config.get("news_sources", {}).items():
+            enabled = "✓ Enabled" if config.get("enabled") else "✗ Disabled"
             print(f"  • {source}: {enabled}")
 
         print("\nSignal Thresholds:")
@@ -3008,6 +3237,7 @@ class CatastropheAnalyzerApp:
         """Reset all database files"""
         try:
             import os
+
             os.remove(self.db.breaches_file)
             os.remove(self.db.analysis_file)
             os.remove(self.db.signals_file)
@@ -3058,5 +3288,5 @@ def main():
     app.run()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -112,7 +112,9 @@ class _FakeSignalGenerator:
                 "reason": "rule_passed",
                 "confidence": signal.get("confidence", ""),
             }
-        return signals, diagnostics
+        # Production returns (buy_signals, watch_alerts, diagnostics) since 8fcb770.
+        # Fake never produces watch_alerts; return empty list to match the shape.
+        return signals, [], diagnostics
 
 
 class RuntimeSignalReliabilityTests(unittest.TestCase):

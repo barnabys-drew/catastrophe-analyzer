@@ -221,7 +221,8 @@ class SignalGeneratorStrictTests(unittest.TestCase):
                     "volume_spike_at_event": 2.8,
                 }
             ]
-            signals, diagnostics = generator.generate_signals_with_diagnostics(analyses)
+            # Production returns (buy_signals, watch_alerts, diagnostics) since 8fcb770.
+            signals, _watch_alerts, diagnostics = generator.generate_signals_with_diagnostics(analyses)
             self.assertEqual(signals, [])
             diag = diagnostics.get(("THIN", "2026-03-25", "cybersecurity"), {})
             self.assertEqual(diag.get("decision"), "RULE_REJECTED")
@@ -303,7 +304,9 @@ class MainSignalTriageGateTests(unittest.TestCase):
                     "reason": "rule_passed",
                     "confidence": s.get("confidence", ""),
                 }
-            return signals, diagnostics
+            # Production returns (buy_signals, watch_alerts, diagnostics) since 8fcb770.
+            # Fake never produces watch_alerts; return empty list to match the shape.
+            return signals, [], diagnostics
 
     class _FakeStockAnalyzer:
         def batch_analyze(self, requests, event_date=None, breach_date=None):

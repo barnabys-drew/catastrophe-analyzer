@@ -74,6 +74,38 @@ class CatastropheAnalyzerApp:
         """
         return load_and_validate_runtime_settings(self.config_path)
 
+    def _post_watch_alerts_to_discord(self, alerts: List[Dict]) -> None:
+        """Send a one-message summary of new ELEVATED_WATCH alerts to Discord.
+
+        Uses the existing DISCORD_WEBHOOK_URL. Failures are non-fatal — watch
+        alerts are decision-support, not trade-critical, so a Discord blip
+        shouldn't break the cycle.
+        """
+        webhook = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
+        if not webhook or not alerts:
+            return
+
+        lines = ["**⚡ ELEVATED WATCH** — events with real catalyst impact that didn't meet buy-signal thresholds:"]
+        for alert in alerts[:10]:
+            ticker = alert.get("ticker", "?")
+            cat = alert.get("event_category", "?")
+            impact = alert.get("impact_score", 0)
+            distress = alert.get("distress_score", 0)
+            drop = alert.get("max_drop_pct", 0)
+            reason = alert.get("watch_reason", "?")
+            lines.append(
+                f"• `{ticker}` — {cat} (impact={impact}, distress={distress}, drop={drop:.1f}%) — failed `{reason}`"
+            )
+        if len(alerts) > 10:
+            lines.append(f"• ...and {len(alerts) - 10} more")
+
+        payload = {"content": "\n".join(lines)}
+        try:
+            import requests
+            requests.post(webhook, json=payload, timeout=10)
+        except Exception as exc:
+            print(f"watch_alerts Discord post failed: {exc}")
+
     @staticmethod
     def _severity_rank(value: str) -> int:
         mapping = {"LOW": 1, "MEDIUM": 2, "HIGH": 3}
@@ -2359,7 +2391,22 @@ class CatastropheAnalyzerApp:
             if multi_source_tickers and analysis.get("ticker") in multi_source_tickers:
                 analysis["multi_source_confirmed"] = True
 
-        signals, signal_diagnostics = self.signal_generator.generate_signals_with_diagnostics(analyses)
+        signals, watch_alerts, signal_diagnostics = (
+            self.signal_generator.generate_signals_with_diagnostics(analyses)
+        )
+        # Persist any ELEVATED_WATCH alerts produced this cycle. These are events
+        # that had real catastrophe-flavored catalysts but failed the technical
+        # thresholds — captured so Drew sees them without polluting buy_signals.
+        if watch_alerts:
+            saved_count = 0
+            for alert in watch_alerts:
+                try:
+                    if self.db.add_watch_alert(alert):
+                        saved_count += 1
+                except Exception as exc:
+                    print(f"watch_alerts persistence failed: {exc}")
+            if saved_count > 0:
+                self._post_watch_alerts_to_discord(watch_alerts)
         for event_key, diagnostic in signal_diagnostics.items():
             if diagnostic.get("decision") != "RULE_REJECTED":
                 continue

@@ -10,6 +10,25 @@ import json
 from config_loader import load_settings
 
 
+# Rejection reasons from _evaluate_buy_signal that represent "the catalyst was
+# real, but the price/volume action didn't meet the technical bar." These are
+# the cases where a watch_alert is warranted as a softer signal — Drew sees
+# the event without a buy commitment. Other rejection reasons (illiquid,
+# earnings-blocked, low catalyst score) do NOT promote to watch alerts.
+_WATCH_ALERT_REJECTION_REASONS = frozenset({
+    "price_drop_threshold_failed",
+    "drop_within_48h_threshold_failed",
+    "volume_spike_threshold_failed",
+    "technical_weakness_condition_failed",
+    "fast_recovery_filter_failed",
+})
+
+# Triage-score floor for promoting a technically-failed event to a watch alert.
+# Either condition is sufficient — high-impact news OR high distress.
+WATCH_ALERT_IMPACT_FLOOR = 50.0
+WATCH_ALERT_DISTRESS_FLOOR = 40.0
+
+
 def _safe_int_score(value: object) -> float:
     try:
         return max(0.0, min(100.0, float(str(value).strip() or "0")))
@@ -401,6 +420,80 @@ class SignalGenerator:
         signal, _ = self._evaluate_buy_signal(analysis)
         return signal
 
+    def _evaluate_watch_alert(
+        self,
+        analysis: Dict,
+        rejection_reason: str,
+    ) -> Optional[Dict]:
+        """
+        Build an ELEVATED_WATCH alert for events that have a real catalyst (high
+        triage impact or distress) but failed the technical thresholds for a
+        buy signal. Returns None when the event isn't watch-worthy.
+
+        Watch alerts are intentionally lighter than buy signals — they exist so
+        Drew sees catastrophe-flavored news that didn't produce the price action
+        CA usually needs, without polluting the buy_signals stream.
+        """
+        # Only promote technical-threshold rejections. Liquidity/earnings/
+        # catalyst-score failures are real "skip this" decisions.
+        base_reason = (rejection_reason or "").split(":", 1)[0]
+        if base_reason not in _WATCH_ALERT_REJECTION_REASONS:
+            return None
+
+        impact = self._safe_score(analysis.get("impact_score", 0))
+        distress = self._safe_score(analysis.get("distress_score", 0))
+        if impact < WATCH_ALERT_IMPACT_FLOOR and distress < WATCH_ALERT_DISTRESS_FLOOR:
+            return None
+
+        ticker = analysis.get("ticker")
+        event_date = analysis.get("event_date", analysis.get("breach_date"))
+        event_category = analysis.get("event_category", "") or ""
+
+        # Capture the technical metrics that failed so Drew sees what fell short.
+        max_drop = self._to_float(analysis.get("max_drop_pct", 0), 0.0)
+        drop_48h = self._to_float(
+            analysis.get("drop_48h_pct", analysis.get("max_drop_pct", 0.0)),
+            0.0,
+        )
+        volume_spike = self._to_float(
+            analysis.get(
+                "volume_spike_at_event",
+                analysis.get("volume_spike_at_breach", 0),
+            ),
+            0.0,
+        )
+        rsi_value = analysis.get("event_rsi", analysis.get("current_rsi"))
+
+        thresholds = self._signal_thresholds_for_category(event_category)
+
+        return {
+            "ticker": ticker,
+            "signal_type": "ELEVATED_WATCH",
+            "signal_date": datetime.now().isoformat(),
+            "event_date": event_date,
+            "event_category": event_category,
+            "current_price": analysis.get("current_price"),
+            "pre_event_price": analysis.get(
+                "pre_event_price", analysis.get("pre_breach_price")
+            ),
+            "rsi": rsi_value,
+            "max_drop_pct": max_drop,
+            "drop_48h_pct": drop_48h,
+            "volume_spike_at_event": volume_spike,
+            "impact_score": impact,
+            "distress_score": distress,
+            "watch_reason": rejection_reason,
+            "watch_summary": (
+                f"{event_category} event on {ticker} "
+                f"(impact={impact}, distress={distress}); "
+                f"failed {base_reason} "
+                f"(drop={max_drop:.2f}%/{drop_48h:.2f}%48h, "
+                f"vol_spike={volume_spike:.2f}x, "
+                f"price_drop_threshold={thresholds.get('price_drop_threshold', '?')}%, "
+                f"volume_spike_threshold={thresholds.get('volume_spike_threshold', '?')}x)"
+            ),
+        }
+
     @staticmethod
     def _safe_score(value: object, default: int = 0) -> int:
         try:
@@ -650,11 +743,24 @@ class SignalGenerator:
     def generate_signals_with_diagnostics(
         self,
         analyses: List[Dict],
-    ) -> Tuple[List[Dict], Dict[Tuple[str, str, str], Dict[str, Any]]]:
+    ) -> Tuple[
+        List[Dict],
+        List[Dict],
+        Dict[Tuple[str, str, str], Dict[str, Any]],
+    ]:
         """
         Generate candidate signals and include per-analysis gate diagnostics.
+
+        Returns a 3-tuple ``(buy_signals, watch_alerts, diagnostics)``:
+        - buy_signals: events that pass all rule gates (existing behavior)
+        - watch_alerts: events that have real triage impact/distress but failed
+          a technical threshold — emitted as ELEVATED_WATCH so Drew sees them
+          without contaminating the buy stream
+        - diagnostics: per-event decision record (unchanged shape, plus
+          ``watch_alert_emitted=True`` flag when applicable)
         """
         signals: List[Dict] = []
+        watch_alerts: List[Dict] = []
         diagnostics: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
         for analysis in analyses:
             key = self._analysis_key(analysis)
@@ -667,11 +773,16 @@ class SignalGenerator:
                 }
                 signals.append(signal)
             else:
-                diagnostics[key] = {
+                diag = {
                     "decision": "RULE_REJECTED",
                     "reason": reason,
                 }
-        return signals, diagnostics
+                watch = self._evaluate_watch_alert(analysis, reason)
+                if watch is not None:
+                    watch_alerts.append(watch)
+                    diag["watch_alert_emitted"] = True
+                diagnostics[key] = diag
+        return signals, watch_alerts, diagnostics
 
     def rank_signals(self, signals: List[Dict]) -> List[Dict]:
         """

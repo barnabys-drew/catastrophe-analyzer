@@ -105,6 +105,24 @@ class DatabaseManager:
         "volume",
     ]
 
+    WATCH_ALERT_FIELDS = [
+        "signal_date",
+        "ticker",
+        "event_date",
+        "event_category",
+        "signal_type",
+        "current_price",
+        "pre_event_price",
+        "rsi",
+        "max_drop_pct",
+        "drop_48h_pct",
+        "volume_spike_at_event",
+        "impact_score",
+        "distress_score",
+        "watch_reason",
+        "watch_summary",
+    ]
+
     TRIAGE_FIELDS = [
         "event_key",
         "ticker",
@@ -138,6 +156,7 @@ class DatabaseManager:
         self.events_file = os.path.join(data_dir, "events.csv")
         self.analysis_file = os.path.join(data_dir, "analysis_results.csv")
         self.signals_file = os.path.join(data_dir, "buy_signals.csv")
+        self.watch_alerts_file = os.path.join(data_dir, "watch_alerts.csv")
         self.watchlist_file = os.path.join(data_dir, "event_watchlist.csv")
         self.timeseries_file = os.path.join(data_dir, "event_price_timeseries.csv")
         self.triage_file = os.path.join(data_dir, "event_triage.csv")
@@ -687,6 +706,26 @@ class DatabaseManager:
             return True
         except Exception as e:
             print(f"Error adding signal: {e}")
+            return False
+
+    def add_watch_alert(self, alert: Dict) -> bool:
+        """Append an ELEVATED_WATCH alert row, creating the file with header on
+        first write. Watch alerts are softer than buy signals — they capture
+        events with real catalyst impact/distress that didn't meet technical
+        thresholds, so they can be reviewed without polluting buy_signals.
+        """
+        try:
+            file_exists = os.path.exists(self.watch_alerts_file)
+            with open(self.watch_alerts_file, "a", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=self.WATCH_ALERT_FIELDS)
+                if not file_exists or os.path.getsize(self.watch_alerts_file) == 0:
+                    writer.writeheader()
+                # Only persist fields we know about; ignore extras silently.
+                row = {k: alert.get(k, "") for k in self.WATCH_ALERT_FIELDS}
+                writer.writerow(row)
+            return True
+        except Exception as e:
+            print(f"Error adding watch alert: {e}")
             return False
 
     def _watch_exists(self, ticker: str, event_date: str, event_category: str) -> bool:

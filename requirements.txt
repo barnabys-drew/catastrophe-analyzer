@@ -1,6 +1,6 @@
 anthropic>=0.40.0
 ib_insync==0.9.86
-tzdata==2024.1
+tzdata==2026.2
 feedparser==6.0.12
 beautifulsoup4==4.12.2
 requests==2.33.1

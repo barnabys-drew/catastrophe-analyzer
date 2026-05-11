@@ -108,8 +108,11 @@ class CatastropheAnalyzerApp:
             lines.append(f"• ...and {len(alerts) - 10} more")
 
         # Task #49: CA watch-alerts → urgent per spec line 506.
+        # Username override added in-chat 2026-05-11: webhook's default display
+        # name had been "Captain Claw" — Drew renamed to "Argus Watch" so the
+        # post identifies cleanly regardless of webhook UI settings.
         import alert_router
-        payload = {"content": "\n".join(lines)}
+        payload = {"content": "\n".join(lines), "username": "Argus Watch"}
         ok = alert_router.route(
             webhook,
             payload,

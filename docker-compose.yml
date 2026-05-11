@@ -21,6 +21,12 @@ services:
       IBKR_CLIENT_ID: ${IBKR_CLIENT_ID:-11}
       CATASTROPHE_EMAIL_PASSWORD: ${CATASTROPHE_EMAIL_PASSWORD:-}
       DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL:-}
+      # Task #49: CA buy-signals → urgent (per spec line 506, low-volume).
+      # urgent bypasses clustering so clustering enabled is harmless here,
+      # but we set it for consistency with the other migrated services.
+      ALERT_ROUTER_CLUSTERING_ENABLED: "1"
+      ALERT_ROUTER_SPOOL: "/shared/.claude/pending_alerts.jsonl"
+      DISCORD_DEAD_LETTER_PATH: "/shared/.claude/missed_alerts.jsonl"
       # Override RSS User-Agent (SEC and others); defaults in config/settings.json scraping.http_user_agent
       CATASTROPHE_HTTP_USER_AGENT: ${CATASTROPHE_HTTP_USER_AGENT:-}
       # Alert preview toggles for local testing:
@@ -32,6 +38,7 @@ services:
     volumes:
       - ./config:/app/config
       - ./data:/app/data
+      - /home/drewt_p_weiner/code/.claude:/shared/.claude:rw  # Task #49 shared spool
     healthcheck:
       test: ["CMD", "python", "-u", "healthcheck.py"]
       interval: 60s

@@ -931,10 +931,14 @@ class AlertManager:
         posted = 0
         webhook_url = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
         if webhook_url:
+            # Task #49: CA buy-signals → urgent per spec line 506 (low-volume,
+            # breaking-news catastrophe events). Bypass clustering entirely.
+            import alert_router
             for msg in trade_messages:
-                ok = discord_safe.safe_post(
+                ok = alert_router.route(
                     webhook_url,
                     {"content": msg},
+                    horizon="urgent",
                     dead_letter_path=DISCORD_DEAD_LETTER_PATH,
                     source="catastrophe-analyzer:trading-advice",
                 )

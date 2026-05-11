@@ -107,10 +107,13 @@ class CatastropheAnalyzerApp:
         if len(alerts) > 10:
             lines.append(f"• ...and {len(alerts) - 10} more")
 
+        # Task #49: CA watch-alerts → urgent per spec line 506.
+        import alert_router
         payload = {"content": "\n".join(lines)}
-        ok = discord_safe.safe_post(
+        ok = alert_router.route(
             webhook,
             payload,
+            horizon="urgent",
             dead_letter_path=DISCORD_DEAD_LETTER_PATH,
             source="catastrophe-analyzer:watch-alert",
         )
